@@ -11,6 +11,7 @@ import {
   ChartLine,
 } from 'phosphor-react';
 import { useLanguage, useTheme } from '../contexts/AppContext';
+import { useAuth } from '../contexts/AuthContext';
 import { translations } from '../utils/translations';
 import ThemeLanguageToggler from '../components/ThemeLanguageToggler';
 import AdminOverview from './admin/AdminOverview';
@@ -20,7 +21,8 @@ import AdminSlots from './admin/AdminSlots';
 const AdminPanel = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const { isDark } = useTheme();
+  const { theme } = useTheme();
+  const { signOut } = useAuth();
   const t = translations[language];
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -209,7 +211,10 @@ const AdminPanel = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => navigate('/')}
+                  onClick={async () => {
+                    await signOut();
+                    navigate('/');
+                  }}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-900/20 text-danger hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl font-semibold transition-all"
                 >
                   <SignOut size={24} weight="bold" />

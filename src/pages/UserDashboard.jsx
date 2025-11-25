@@ -20,6 +20,7 @@ import {
   Calculator
 } from 'phosphor-react';
 import { useLanguage, useDownload } from '../contexts/AppContext';
+import { useAuth } from '../contexts/AuthContext';
 import { translations } from '../utils/translations';
 import NewApplicationModal from '../components/NewApplicationModal';
 import ThemeLanguageToggler from '../components/ThemeLanguageToggler';
@@ -30,6 +31,7 @@ import html2canvas from 'html2canvas';
 const UserDashboard = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
+  const { signOut } = useAuth();
   const { isDownloading, startDownload, endDownload } = useDownload();
   const t = translations[language] || translations.en;
   
@@ -1352,7 +1354,10 @@ const UserDashboard = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => navigate('/')}
+                  onClick={async () => {
+                    await signOut();
+                    navigate('/');
+                  }}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-900/20 text-danger hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl font-semibold transition-all"
                 >
                   <SignOut size={24} weight="bold" />

@@ -44,7 +44,9 @@ const Signup = () => {
 
     setIsLoading(true);
 
-    const result = await signUp(formData.email, formData.password, formData.fullName);
+    const result = await signUp(formData.email, formData.password, formData.fullName, formData.phone);
+
+    setIsLoading(false); // Stop loading immediately after signup completes
 
     if (result.success) {
       // Show welcome toast and redirect to dashboard immediately
@@ -59,8 +61,6 @@ const Signup = () => {
         navigate('/dashboard');
       }, 1500);
     }
-
-    setIsLoading(false);
   };
 
   return (

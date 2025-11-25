@@ -25,6 +25,8 @@ const Login = () => {
 
     const result = await signIn(formData.email, formData.password);
 
+    setIsLoading(false);
+
     if (result.success) {
       // Check role and redirect accordingly
       const role = result.profile?.role || 'user';
@@ -37,8 +39,6 @@ const Login = () => {
         navigate('/dashboard');
       }
     }
-
-    setIsLoading(false);
   };
 
   return (

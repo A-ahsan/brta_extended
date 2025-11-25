@@ -16,6 +16,7 @@ import {
 } from 'phosphor-react';
 import StatCard from '../components/StatCard';
 import { useLanguage } from '../contexts/AppContext';
+import { useAuth } from '../contexts/AuthContext';
 import { translations } from '../utils/translations';
 import ThemeLanguageToggler from '../components/ThemeLanguageToggler';
 import PoliceVerification from './police/PoliceVerification';
@@ -25,6 +26,7 @@ import PoliceRecentActivity from './police/PoliceRecentActivity';
 const PoliceDashboard = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
+  const { signOut } = useAuth();
   const t = translations[language];
   const [showNotifications, setShowNotifications] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
@@ -196,7 +198,10 @@ const PoliceDashboard = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => navigate('/')}
+                  onClick={async () => {
+                    await signOut();
+                    navigate('/');
+                  }}
                   className="w-full flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 bg-red-50 dark:bg-red-900/20 text-danger hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl font-semibold transition-all text-sm sm:text-base"
                 >
                   <SignOut size={20} className="sm:w-6 sm:h-6" weight="bold" />

@@ -52,8 +52,8 @@ const Signup = () => {
       // Show welcome toast and redirect to dashboard immediately
       const userName = result.userName || formData.fullName;
       toast.success(language === 'en' 
-        ? `Welcome to BRTA, ${userName}! 🎉` 
-        : `BRTA তে স্বাগতম, ${userName}! 🎉`
+        ? `Welcome to BRTA, ${userName}` 
+        : `BRTA তে স্বাগতম, ${userName}`
       );
       
       // Auto redirect to dashboard after brief delay
@@ -159,7 +159,6 @@ const Signup = () => {
                   type="text"
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  placeholder={language === 'en' ? 'John Doe' : 'আপনার নাম'}
                   className="w-full pl-11 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none focus:bg-white dark:focus:bg-gray-700 dark:text-white placeholder-gray-400 transition-all text-base"
                   autoFocus
                   required
@@ -208,7 +207,6 @@ const Signup = () => {
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder={language === 'en' ? '+880 1234-567890' : '+৮৮০ ১২৩৪-৫৬৭৮৯০'}
                   className="w-full pl-11 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none focus:bg-white dark:focus:bg-gray-700 dark:text-white placeholder-gray-400 transition-all text-base"
                   required
                 />

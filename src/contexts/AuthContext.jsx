@@ -153,7 +153,7 @@ export const AuthProvider = ({ children }) => {
         setProfile(profileData || { id: data.user.id, email, role: 'user' });
         setUser(data.user);
         
-        toast.success(`Welcome back, ${userName}! 👋`);
+        toast.success(`Welcome back, ${userName}`);
         return { success: true, data, profile: profileData };
       }
 
@@ -170,10 +170,96 @@ export const AuthProvider = ({ children }) => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      
+      // Explicitly clear state
+      setUser(null);
+      setProfile(null);
+      
       toast.success('Signed out successfully!');
       return { success: true };
     } catch (error) {
       toast.error(error.message || 'Failed to sign out');
+      return { success: false, error };
+    }
+  };
+
+  const updatePassword = async (newPassword) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('Password update error:', error);
+      return { success: false, error };
+    }
+  };
+
+  const updateEmail = async (newEmail) => {
+    try {
+      // Validate email format before sending to Supabase
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(newEmail)) {
+        throw new Error('Invalid email format');
+      }
+
+      // Check if trying to update to the same email
+      if (user?.email && newEmail.toLowerCase() === user.email.toLowerCase()) {
+        throw new Error('New email must be different from current email');
+      }
+
+      // Supabase requires email confirmation by default
+      // This will send a confirmation email to the new address
+      const { data, error } = await supabase.auth.updateUser({
+        email: newEmail
+      });
+      
+      if (error) {
+        console.error('Supabase email update error:', error);
+        throw error;
+      }
+      
+      // Update profile table immediately (email will be pending confirmation)
+      if (user?.id) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ email: newEmail })
+          .eq('id', user.id);
+        
+        if (profileError) {
+          console.error('Profile update error:', profileError);
+          // Don't fail the whole operation if profile update fails
+        }
+      }
+      
+      // Note: In production, the email change requires confirmation
+      // For now, we'll consider it successful even if confirmation is pending
+      return { success: true, requiresConfirmation: true };
+    } catch (error) {
+      console.error('Email update error:', error);
+      return { success: false, error };
+    }
+  };
+
+  const updatePhone = async (newPhone) => {
+    try {
+      if (!user?.id) throw new Error('User not authenticated');
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({ phone: newPhone })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      
+      // Update local profile state
+      setProfile(prev => ({ ...prev, phone: newPhone }));
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Phone update error:', error);
       return { success: false, error };
     }
   };
@@ -185,6 +271,9 @@ export const AuthProvider = ({ children }) => {
     signUp,
     signIn,
     signOut,
+    updatePassword,
+    updateEmail,
+    updatePhone,
     isAuthenticated: !!user,
     isAdmin: profile?.role === 'admin',
     isPolice: profile?.role === 'police',

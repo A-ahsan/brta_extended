@@ -78,6 +78,16 @@ const AdminLogin = () => {
           transition={{ duration: 0.6 }}
           className="hidden lg:block"
         >
+          <div className="flex items-center gap-3 mb-4">
+            <img src="/brta.png" alt="BRTA Logo" className="h-16 w-16 bg-white rounded-2xl p-2 shadow-lg" />
+            <div>
+              <h1 className="text-3xl font-extrabold text-red-600 dark:text-red-400">BRTA 2.0</h1>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                {language === 'en' ? 'Admin Portal' : 'অ্যাডমিন পোর্টাল'}
+              </p>
+            </div>
+          </div>
+          
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
@@ -86,7 +96,7 @@ const AdminLogin = () => {
           >
             <ShieldCheck size={48} weight="duotone" />
             <div>
-              <h1 className="text-2xl font-extrabold">ADMIN PORTAL</h1>
+              <h2 className="text-2xl font-extrabold">ADMIN PORTAL</h2>
               <p className="text-sm opacity-90">
                 {language === 'en' ? 'Secure Access Only' : 'শুধুমাত্র সুরক্ষিত প্রবেশ'}
               </p>

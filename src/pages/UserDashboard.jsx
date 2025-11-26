@@ -25,13 +25,14 @@ import { translations } from '../utils/translations';
 import NewApplicationModal from '../components/NewApplicationModal';
 import ThemeLanguageToggler from '../components/ThemeLanguageToggler';
 import EmbeddedCalculator from '../components/EmbeddedCalculator';
+import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 const UserDashboard = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const { signOut } = useAuth();
+  const { signOut, updatePassword, updateEmail, updatePhone, user } = useAuth();
   const { isDownloading, startDownload, endDownload } = useDownload();
   const t = translations[language] || translations.en;
   
@@ -42,12 +43,74 @@ const UserDashboard = () => {
   const [flippedVehicles, setFlippedVehicles] = useState({});
   const [showTaxToken, setShowTaxToken] = useState(null);
   
+  // Settings modals state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [passwordData, setPasswordData] = useState({ current: '', new: '', confirm: '' });
+  const [newPhone, setNewPhone] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+  
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([
     'Your license renewal application is approved!',
     'Vehicle registration payment received.',
     'Test slot booking confirmed for Nov 20, 2025.'
   ]);
+
+  // Settings handlers
+  const handleChangePassword = async (e) => {
+    if (e) e.preventDefault();
+    
+    if (passwordData.new !== passwordData.confirm) {
+      toast.error(language === 'en' ? 'Passwords do not match' : 'পাসওয়ার্ড মিলছে না');
+      return;
+    }
+    if (passwordData.new.length < 6) {
+      toast.error(language === 'en' ? 'Password must be at least 6 characters' : 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে');
+      return;
+    }
+    
+    setIsUpdating(true);
+    try {
+      const result = await updatePassword(passwordData.new);
+      if (result.success) {
+        toast.success(language === 'en' ? 'Password updated successfully' : 'পাসওয়ার্ড সফলভাবে আপডেট হয়েছে');
+        setShowPasswordModal(false);
+        setPasswordData({ current: '', new: '', confirm: '' });
+      } else {
+        throw result.error;
+      }
+    } catch (error) {
+      toast.error(error?.message || (language === 'en' ? 'Failed to update password' : 'পাসওয়ার্ড আপডেট ব্যর্থ হয়েছে'));
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleChangePhone = async (e) => {
+    if (e) e.preventDefault();
+    
+    if (!newPhone || newPhone.length < 10) {
+      toast.error(language === 'en' ? 'Please enter a valid phone number' : 'একটি বৈধ ফোন নম্বর লিখুন');
+      return;
+    }
+    
+    setIsUpdating(true);
+    try {
+      const result = await updatePhone(newPhone);
+      if (result.success) {
+        toast.success(language === 'en' ? 'Phone number updated successfully' : 'ফোন নম্বর সফলভাবে আপডেট হয়েছে');
+        setShowPhoneModal(false);
+        setNewPhone('');
+      } else {
+        throw result.error;
+      }
+    } catch (error) {
+      toast.error(error?.message || (language === 'en' ? 'Failed to update phone number' : 'ফোন নম্বর আপডেট ব্যর্থ হয়েছে'));
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   // Helper functions
   const generateQRCode = (data) => {
@@ -1198,23 +1261,30 @@ const UserDashboard = () => {
                   <h3 className="font-semibold text-gray-800 dark:text-white">{language === 'en' ? 'Change Password' : 'পাসওয়ার্ড পরিবর্তন করুন'}</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Update your account password.' : 'আপনার অ্যাকাউন্টের পাসওয়ার্ড আপডেট করুন।'}</p>
                 </div>
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="px-4 py-2 bg-primary text-white rounded-lg font-semibold shadow-md">{language === 'en' ? 'Change' : 'পরিবর্তন'}</motion.button>
+                <motion.button 
+                  whileHover={{ scale: 1.05 }} 
+                  whileTap={{ scale: 0.95 }} 
+                  onClick={() => setShowPasswordModal(true)}
+                  className="px-4 py-2 bg-primary text-white rounded-lg font-semibold shadow-md hover:bg-primary-dark transition-colors"
+                >
+                  {language === 'en' ? 'Change' : 'পরিবর্তন'}
+                </motion.button>
               </div>
-              {/* Change Email */}
-              <div className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div>
-                  <h3 className="font-semibold text-gray-800 dark:text-white">{language === 'en' ? 'Change Email' : 'ইমেইল পরিবর্তন করুন'}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Update your email address.' : 'আপনার ইমেইল ঠিকানা আপডেট করুন।'}</p>
-                </div>
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="px-4 py-2 bg-primary text-white rounded-lg font-semibold shadow-md">{language === 'en' ? 'Change' : 'পরিবর্তন'}</motion.button>
-              </div>
+              
               {/* Change Phone Number */}
               <div className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div>
                   <h3 className="font-semibold text-gray-800 dark:text-white">{language === 'en' ? 'Change Phone Number' : 'ফোন নম্বর পরিবর্তন করুন'}</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Update your phone number.' : 'আপনার ফোন নম্বর আপডেট করুন।'}</p>
                 </div>
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="px-4 py-2 bg-primary text-white rounded-lg font-semibold shadow-md">{language === 'en' ? 'Change' : 'পরিবর্তন'}</motion.button>
+                <motion.button 
+                  whileHover={{ scale: 1.05 }} 
+                  whileTap={{ scale: 0.95 }} 
+                  onClick={() => setShowPhoneModal(true)}
+                  className="px-4 py-2 bg-primary text-white rounded-lg font-semibold shadow-md hover:bg-primary-dark transition-colors"
+                >
+                  {language === 'en' ? 'Change' : 'পরিবর্তন'}
+                </motion.button>
               </div>
             </div>
           </div>
@@ -1389,6 +1459,142 @@ const UserDashboard = () => {
             onClose={() => setIsModalOpen(false)}
             language={language}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Password Change Modal */}
+      <AnimatePresence>
+        {showPasswordModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowPasswordModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">
+                {language === 'en' ? 'Change Password' : 'পাসওয়ার্ড পরিবর্তন করুন'}
+              </h3>
+              <form onSubmit={handleChangePassword} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    {language === 'en' ? 'Current Password' : 'বর্তমান পাসওয়ার্ড'}
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordData.current}
+                    onChange={(e) => setPasswordData({...passwordData, current: e.target.value})}
+                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary dark:text-white outline-none"
+                    autoFocus
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    {language === 'en' ? 'New Password' : 'নতুন পাসওয়ার্ড'}
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordData.new}
+                    onChange={(e) => setPasswordData({...passwordData, new: e.target.value})}
+                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary dark:text-white outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    {language === 'en' ? 'Confirm New Password' : 'নতুন পাসওয়ার্ড নিশ্চিত করুন'}
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordData.confirm}
+                    onChange={(e) => setPasswordData({...passwordData, confirm: e.target.value})}
+                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary dark:text-white outline-none"
+                    required
+                  />
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordModal(false)}
+                    className="flex-1 px-4 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    {language === 'en' ? 'Cancel' : 'বাতিল'}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdating}
+                    className="flex-1 px-4 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isUpdating ? (language === 'en' ? 'Updating...' : 'আপডেট হচ্ছে...') : (language === 'en' ? 'Update' : 'আপডেট')}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Phone Change Modal */}
+      <AnimatePresence>
+        {showPhoneModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowPhoneModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">
+                {language === 'en' ? 'Change Phone Number' : 'ফোন নম্বর পরিবর্তন করুন'}
+              </h3>
+              <form onSubmit={handleChangePhone}>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    {language === 'en' ? 'New Phone Number' : 'নতুন ফোন নম্বর'}
+                  </label>
+                  <input
+                    type="tel"
+                    value={newPhone}
+                    onChange={(e) => setNewPhone(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary dark:text-white outline-none"
+                    autoFocus
+                    required
+                  />
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowPhoneModal(false)}
+                    className="flex-1 px-4 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    {language === 'en' ? 'Cancel' : 'বাতিল'}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdating}
+                    className="flex-1 px-4 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isUpdating ? (language === 'en' ? 'Updating...' : 'আপডেট হচ্ছে...') : (language === 'en' ? 'Update' : 'আপডেট')}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 

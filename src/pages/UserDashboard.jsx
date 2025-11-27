@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient';
 import { 
   IdentificationCard, 
   Car, 
@@ -17,14 +18,17 @@ import {
   MapPin,
   X,
   CheckCircle,
-  Calculator
+  Calculator,
+  BookOpen
 } from 'phosphor-react';
 import { useLanguage, useDownload } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { translations } from '../utils/translations';
-import NewApplicationModal from '../components/NewApplicationModal';
+import NewApplicationModal from '../components/NewApplicationModalEnhanced';
 import ThemeLanguageToggler from '../components/ThemeLanguageToggler';
 import EmbeddedCalculator from '../components/EmbeddedCalculator';
+import QuestionBank from './QuestionBank';
+import ProgressTracker from '../components/ProgressTracker';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -51,11 +55,55 @@ const UserDashboard = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState([
-    'Your license renewal application is approved!',
-    'Vehicle registration payment received.',
-    'Test slot booking confirmed for Nov 20, 2025.'
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [licenseApplications, setLicenseApplications] = useState([]);
+  const [loadingApplications, setLoadingApplications] = useState(true);
+
+  // Fetch real license applications
+  useEffect(() => {
+    if (user) {
+      fetchLicenseApplications();
+      fetchNotifications();
+    }
+  }, [user]);
+
+  const fetchLicenseApplications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('license_applications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setLicenseApplications(data || []);
+    } catch (error) {
+      console.error('Error fetching applications:', error);
+      toast.error(language === 'en' ? 'Failed to load applications' : 'আবেদন লোড করতে ব্যর্থ');
+    } finally {
+      setLoadingApplications(false);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      // Fetch notifications for current user only (recipient_type='user' AND user_id matches)
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('recipient_type', 'user')
+        .eq('user_id', user.id)
+        .eq('is_read', false)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      
+      setNotifications(data || []);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
 
   // Settings handlers
   const handleChangePassword = async (e) => {
@@ -559,17 +607,12 @@ const UserDashboard = () => {
   const menuItems = [
     { id: 'license', icon: <IdentificationCard size={24} weight="duotone" />, label: t.licenseApplication },
     { id: 'vehicle', icon: <Car size={24} weight="duotone" />, label: t.vehicleRegistration },
+    { id: 'questionbank', icon: <BookOpen size={24} weight="duotone" />, label: language === 'en' ? 'Question Bank' : 'প্রশ্ন ব্যাংক' },
     { id: 'calculator', icon: <Calculator size={24} weight="duotone" />, label: t.costCalculator },
     { id: 'payments', icon: <CreditCard size={24} weight="duotone" />, label: t.myPayments },
     { id: 'booking', icon: <CalendarCheck size={24} weight="duotone" />, label: t.testBooking },
     { id: 'profile', icon: <User size={24} weight="duotone" />, label: t.profile },
     { id: 'settings', icon: <Gear size={24} weight="duotone" />, label: t.settings },
-  ];
-
-  const licenseApplications = [
-    { id: 1, type: 'New License', status: 'pending', date: '2025-11-10', applicationNo: 'DL2025001' },
-    { id: 2, type: 'Renewal', status: 'approved', date: '2025-10-15', applicationNo: 'DL2025002' },
-    { id: 3, type: 'Duplicate', status: 'processing', date: '2025-11-05', applicationNo: 'DL2025003' },
   ];
 
   const vehicles = [
@@ -619,31 +662,34 @@ const UserDashboard = () => {
                 {language === 'en' ? '+ New Application' : '+ নতুন আবেদন'}
               </motion.button>
             </div>
-            <div className="grid gap-4">
-              {licenseApplications.map((app, index) => (
-                <motion.div
-                  key={app.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all border border-gray-200 dark:border-gray-700"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">{app.type}</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {language === 'en' ? 'Application No:' : 'আবেদন নং:'} {app.applicationNo}
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {language === 'en' ? 'Date:' : 'তারিখ:'} {app.date}
-                      </p>
-                    </div>
-                    <span className={`px-4 py-1 rounded-full text-sm font-semibold border-2 ${getStatusColor(app.status)}`}>
-                      {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
+            <div className="grid gap-6">
+              {loadingApplications ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
+                  <p className="mt-4 text-gray-600 dark:text-gray-400">
+                    {language === 'en' ? 'Loading applications...' : 'আবেদন লোড হচ্ছে...'}
+                  </p>
+                </div>
+              ) : licenseApplications.length === 0 ? (
+                <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
+                  <IdentificationCard size={64} className="mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600 dark:text-gray-400 text-lg">
+                    {language === 'en' ? 'No applications yet. Start your first one!' : 'এখনও কোনো আবেদন নেই। প্রথমটি শুরু করুন!'}
+                  </p>
+                </div>
+              ) : (
+                licenseApplications.map((app, index) => (
+                  <motion.div
+                    key={app.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all border border-gray-200 dark:border-gray-700"
+                  >
+                    <ProgressTracker application={app} />
+                  </motion.div>
+                ))
+              )}
             </div>
           </div>
         );
@@ -1250,6 +1296,9 @@ const UserDashboard = () => {
           </div>
         );
 
+      case 'questionbank':
+        return <QuestionBank />;
+
       case 'settings':
         return (
           <div>
@@ -1351,7 +1400,9 @@ const UserDashboard = () => {
               aria-label="Notifications"
             >
               <Bell size={24} className="text-primary" />
-              <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">{notifications.length}</span>
+              {notifications && notifications.length > 0 && (
+                <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">{notifications.length}</span>
+              )}
             </button>
             <ThemeLanguageToggler />
           </div>
@@ -1360,33 +1411,54 @@ const UserDashboard = () => {
         {/* Notifications Dropdown */}
         <AnimatePresence>
           {showNotifications && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="absolute right-6 top-20 w-80 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 p-4"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Bell size={20} className="text-primary dark:text-green-400" />
-                  <span className="font-bold text-lg text-gray-800 dark:text-white">{language === 'en' ? 'Notifications' : 'বিজ্ঞপ্তি'}</span>
+            <>
+              {/* Backdrop to close on click */}
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setShowNotifications(false)}
+              />
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="absolute right-6 top-20 w-80 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 p-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Bell size={20} className="text-primary dark:text-green-400" />
+                    <span className="font-bold text-lg text-gray-800 dark:text-white">{language === 'en' ? 'Notifications' : 'বিজ্ঞপ্তি'}</span>
+                  </div>
+                  <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <X size={20} />
+                  </button>
                 </div>
-                <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                  <X size={20} />
-                </button>
-              </div>
-              <ul className="space-y-2 max-h-60 overflow-y-auto">
-                {notifications.length === 0 ? (
-                  <li className="italic text-gray-400 dark:text-gray-500">{language === 'en' ? 'No notifications' : 'কোনো বিজ্ঞপ্তি নেই'}</li>
-                ) : (
-                  notifications.map((note, idx) => (
-                    <li key={idx} className="bg-primary/5 dark:bg-primary/10 rounded-lg px-3 py-2 shadow-sm border border-primary/10 dark:border-primary/20 text-gray-800 dark:text-gray-200 text-sm">
-                      {note}
-                    </li>
-                  ))
-                )}
-              </ul>
-            </motion.div>
+                <ul className="space-y-2 max-h-60 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <li className="italic text-gray-400 dark:text-gray-500">{language === 'en' ? 'No notifications' : 'কোনো বিজ্ঞপ্তি নেই'}</li>
+                  ) : (
+                    notifications.map((note, idx) => (
+                      <li 
+                        key={idx} 
+                        className="bg-primary/5 dark:bg-primary/10 rounded-lg px-3 py-2 shadow-sm border border-primary/10 dark:border-primary/20 text-gray-800 dark:text-gray-200 text-sm cursor-pointer hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors"
+                        onClick={() => {
+                          // Mark as read and navigate if needed
+                          setActiveTab('license');
+                          setShowNotifications(false);
+                        }}
+                      >
+                        <div className="font-semibold text-primary dark:text-green-400 mb-1">
+                          {language === 'en' ? note.title_en : note.title_bn}
+                        </div>
+                        <div>
+                          {language === 'en' ? note.message_en : note.message_bn}
+                        </div>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </motion.header>

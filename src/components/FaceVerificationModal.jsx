@@ -1,0 +1,604 @@
+import { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Camera, CheckCircle, WarningCircle, CircleNotch, ArrowLeft, ArrowRight, Eye } from 'phosphor-react';
+import * as faceapi from 'face-api.js';
+import '@tensorflow/tfjs';
+import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/AppContext';
+import toast from 'react-hot-toast';
+
+export default function FaceVerificationModal({ open, onClose, application }) {
+  const { user } = useAuth();
+  const { language } = useLanguage();
+  const isEnglish = language === 'en';
+
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+
+  const [step, setStep] = useState('camera'); // camera, instructions, verification, processing, success, failed
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [currentInstruction, setCurrentInstruction] = useState(0);
+  const [capturedFrames, setCapturedFrames] = useState([]);
+  const [processing, setProcessing] = useState(false);
+  const [matchScore, setMatchScore] = useState(0);
+  const [error, setError] = useState(null);
+
+  // Instructions sequence
+  const instructions = [
+    {
+      id: 'center',
+      en: 'Look straight at the camera',
+      bn: 'ক্যামেরার দিকে সোজা তাকান',
+      icon: Camera,
+      duration: 2000,
+      check: (landmarks) => true // Always pass for center
+    },
+    {
+      id: 'left',
+      en: 'Turn your head to the LEFT',
+      bn: 'আপনার মাথা বামে ঘুরান',
+      icon: ArrowLeft,
+      duration: 2000,
+      check: (landmarks) => {
+        // Check if face is turned left (nose tip x < eye center x)
+        const nose = landmarks.getNose();
+        const leftEye = landmarks.getLeftEye();
+        return nose[3].x < leftEye[0].x + 20;
+      }
+    },
+    {
+      id: 'right',
+      en: 'Turn your head to the RIGHT',
+      bn: 'আপনার মাথা ডানে ঘুরান',
+      icon: ArrowRight,
+      duration: 2000,
+      check: (landmarks) => {
+        // Check if face is turned right
+        const nose = landmarks.getNose();
+        const rightEye = landmarks.getRightEye();
+        return nose[3].x > rightEye[3].x - 20;
+      }
+    },
+    {
+      id: 'blink1',
+      en: 'Blink your eyes (1/2)',
+      bn: 'চোখ পিটপিট করুন (১/২)',
+      icon: Eye,
+      duration: 1500,
+      check: (landmarks) => {
+        // Check eye aspect ratio for blink detection
+        const leftEye = landmarks.getLeftEye();
+        const rightEye = landmarks.getRightEye();
+        const leftEAR = calculateEAR(leftEye);
+        const rightEAR = calculateEAR(rightEye);
+        return (leftEAR + rightEAR) / 2 < 0.2; // Threshold for closed eyes
+      }
+    },
+    {
+      id: 'blink2',
+      en: 'Blink your eyes again (2/2)',
+      bn: 'আবার চোখ পিটপিট করুন (২/২)',
+      icon: Eye,
+      duration: 1500,
+      check: (landmarks) => {
+        const leftEye = landmarks.getLeftEye();
+        const rightEye = landmarks.getRightEye();
+        const leftEAR = calculateEAR(leftEye);
+        const rightEAR = calculateEAR(rightEye);
+        return (leftEAR + rightEAR) / 2 < 0.2;
+      }
+    }
+  ];
+
+  // Calculate Eye Aspect Ratio for blink detection
+  const calculateEAR = (eye) => {
+    const verticalDist1 = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
+    const verticalDist2 = Math.hypot(eye[2].x - eye[4].x, eye[2].y - eye[4].y);
+    const horizontalDist = Math.hypot(eye[0].x - eye[3].x, eye[0].y - eye[3].y);
+    return (verticalDist1 + verticalDist2) / (2.0 * horizontalDist);
+  };
+
+  // Load models and start camera when modal opens
+  useEffect(() => {
+    if (open && !modelsLoaded) {
+      loadModelsAndStartCamera();
+    }
+    return () => {
+      stopCamera();
+    };
+  }, [open]);
+
+  const loadModelsAndStartCamera = async () => {
+    try {
+      console.log('Loading models...');
+      const MODEL_URL = '/models';
+      
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
+      ]);
+      
+      console.log('Models loaded');
+      setModelsLoaded(true);
+      
+      // Wait for video element to render
+      setTimeout(() => {
+        startCamera();
+      }, 500);
+      
+    } catch (error) {
+      console.error('Model loading error:', error);
+      setError(isEnglish ? 'Failed to load face detection models' : 'ফেস ডিটেকশন মডেল লোড করতে ব্যর্থ');
+      setStep('failed');
+    }
+  };
+
+  // Start camera
+  const startCamera = async () => {
+    if (streamRef.current) {
+      console.log('Camera already running');
+      return;
+    }
+    
+    try {
+      console.log('Requesting camera...');
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: 640, height: 480 },
+        audio: false
+      });
+
+      console.log('Got stream:', stream.getVideoTracks()[0].label);
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        console.log('Assigning stream to video');
+        videoRef.current.srcObject = stream;
+        
+        videoRef.current.onloadedmetadata = () => {
+          console.log('Metadata loaded, video dimensions:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
+          videoRef.current.play()
+            .then(() => {
+              console.log('Video is playing!');
+              setCameraReady(true);
+              setStep('instructions');
+              startVerificationProcess();
+            })
+            .catch(err => {
+              console.error('Play failed:', err);
+              setError(isEnglish ? 'Cannot play video' : 'ভিডিও চালাতে পারছে না');
+              setStep('failed');
+            });
+        };
+      } else {
+        console.error('videoRef.current is null!');
+        setError(isEnglish ? 'Video element missing' : 'ভিডিও এলিমেন্ট নেই');
+        setStep('failed');
+      }
+    } catch (error) {
+      console.error('Camera access error:', error);
+      setError(isEnglish ? `Camera error: ${error.message}` : 'ক্যামেরা ত্রুটি');
+      setStep('failed');
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  // Verification process
+  const startVerificationProcess = async () => {
+    let instructionIndex = 0;
+    const frames = [];
+
+    const processInstruction = async () => {
+      if (instructionIndex >= instructions.length) {
+        // All instructions completed
+        setCapturedFrames(frames);
+        setStep('processing');
+        await performFaceMatching(frames);
+        return;
+      }
+
+      const instruction = instructions[instructionIndex];
+      setCurrentInstruction(instructionIndex);
+
+      // Wait for gesture detection
+      const startTime = Date.now();
+      const detectionInterval = setInterval(async () => {
+        if (!videoRef.current || videoRef.current.paused) {
+          clearInterval(detectionInterval);
+          return;
+        }
+
+        const detections = await faceapi
+          .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+
+        if (detections) {
+          // Draw landmarks on canvas
+          drawLandmarks(detections);
+
+          // Check if gesture is performed
+          if (instruction.check(detections.landmarks)) {
+            // Capture frame
+            const canvas = document.createElement('canvas');
+            canvas.width = videoRef.current.videoWidth;
+            canvas.height = videoRef.current.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(videoRef.current, 0, 0);
+            
+            frames.push({
+              instruction: instruction.id,
+              image: canvas.toDataURL('image/jpeg', 0.95),
+              descriptor: detections.descriptor,
+              timestamp: Date.now()
+            });
+
+            clearInterval(detectionInterval);
+            
+            // Move to next instruction after delay
+            setTimeout(() => {
+              instructionIndex++;
+              processInstruction();
+            }, 500);
+          }
+        }
+
+        // Timeout if gesture not detected
+        if (Date.now() - startTime > instruction.duration + 5000) {
+          clearInterval(detectionInterval);
+          setError(isEnglish ? 'Gesture not detected. Please try again.' : 'অঙ্গভঙ্গি সনাক্ত করা যায়নি। আবার চেষ্টা করুন।');
+          setStep('failed');
+        }
+      }, 100);
+    };
+
+    processInstruction();
+  };
+
+  const drawLandmarks = (detections) => {
+    if (!canvasRef.current || !videoRef.current) return;
+
+    const canvas = canvasRef.current;
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+
+    const displaySize = { width: canvas.width, height: canvas.height };
+    faceapi.matchDimensions(canvas, displaySize);
+
+    const resizedDetections = faceapi.resizeResults(detections, displaySize);
+    
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw face landmarks
+    faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
+    
+    // Draw face detection box
+    const box = resizedDetections.detection.box;
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(box.x, box.y, box.width, box.height);
+  };
+
+  // Perform face matching with NID image
+  const performFaceMatching = async (frames) => {
+    try {
+      setProcessing(true);
+
+      // Load NID face image
+      const nidImage = await faceapi.fetchImage(application.nid_face_extracted_url);
+      const nidDetection = await faceapi
+        .detectSingleFace(nidImage, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+
+      if (!nidDetection) {
+        throw new Error('Could not detect face in NID image');
+      }
+
+      // Compare with captured frames
+      const distances = frames.map(frame => 
+        faceapi.euclideanDistance(nidDetection.descriptor, frame.descriptor)
+      );
+
+      const avgDistance = distances.reduce((a, b) => a + b, 0) / distances.length;
+      const similarityScore = Math.max(0, (1 - avgDistance) * 100);
+
+      setMatchScore(similarityScore);
+
+      // Threshold for match (typically 0.6 distance = 40% similarity)
+      if (similarityScore >= 60) {
+        // Match successful
+        await updateApplicationStatus(frames[0].image, similarityScore);
+      } else {
+        setStep('failed');
+        setError(isEnglish 
+          ? `Face verification failed. Match score: ${similarityScore.toFixed(1)}%. Please try again.`
+          : `ফেস যাচাইকরণ ব্যর্থ। মিল স্কোর: ${similarityScore.toFixed(1)}%। আবার চেষ্টা করুন।`
+        );
+      }
+    } catch (error) {
+      console.error('Face matching error:', error);
+      setError(isEnglish ? 'Face verification failed. Please try again.' : 'ফেস যাচাইকরণ ব্যর্থ। আবার চেষ্টা করুন।');
+      setStep('failed');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const updateApplicationStatus = async (liveImage, score) => {
+    try {
+      // Update application (no image storage needed)
+      const { error: updateError } = await supabase
+        .from('license_applications')
+        .update({
+          face_verification: 1,
+          face_verified_at: new Date().toISOString()
+        })
+        .eq('id', application.id);
+
+      if (updateError) throw updateError;
+
+      // Create notifications
+      await supabase.rpc('create_dual_notification', {
+        p_user_id: user.id,
+        p_title_en: 'Face Verification Successful',
+        p_title_bn: 'ফেস যাচাইকরণ সফল',
+        p_message_en: `Your face verification for application ${application.application_number} is complete. Match score: ${score.toFixed(1)}%. Next step: Online Exam.`,
+        p_message_bn: `আপনার আবেদন ${application.application_number} এর ফেস যাচাইকরণ সম্পন্ন। মিল স্কোর: ${score.toFixed(1)}%। পরবর্তী ধাপ: অনলাইন পরীক্ষা।`,
+        p_type: 'verification',
+        p_application_id: application.id,
+        p_admin_title_en: 'Face Verified',
+        p_admin_title_bn: 'ফেস যাচাই সম্পন্ন',
+        p_admin_message_en: `${application.license_type}-${application.license_category}: ${application.full_name_en} (${application.application_number}) - ${score.toFixed(1)}%`,
+        p_admin_message_bn: `${application.license_type}-${application.license_category}: ${application.full_name_bn} (${application.application_number}) - ${score.toFixed(1)}%`
+      });
+
+      setStep('success');
+      
+      setTimeout(() => {
+        onClose();
+        window.location.reload();
+      }, 3000);
+
+    } catch (error) {
+      console.error('Update error:', error);
+      setError(isEnglish ? 'Failed to update application status' : 'আবেদনের স্ট্যাটাস আপডেট করতে ব্যর্থ');
+      setStep('failed');
+    }
+  };
+
+  const handleClose = () => {
+    stopCamera();
+    onClose();
+  };
+
+  const renderContent = () => {
+    switch (step) {
+      case 'camera':
+        return (
+          <div className="space-y-6">
+            <div className="relative bg-gray-900 rounded-xl overflow-hidden" style={{ width: '100%', height: '480px' }}>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  objectFit: 'cover',
+                  backgroundColor: '#000',
+                  transform: 'scaleX(-1)'
+                }}
+              />
+              <canvas
+                ref={canvasRef}
+                style={{ 
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none'
+                }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center text-white">
+                  <CircleNotch size={48} className="animate-spin mx-auto mb-3" />
+                  <p className="text-lg font-semibold">
+                    {isEnglish ? 'Initializing camera...' : 'ক্যামেরা চালু হচ্ছে...'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'instructions':
+      case 'verification':
+        const currentInst = instructions[currentInstruction];
+        const Icon = currentInst?.icon || Camera;
+        
+        return (
+          <div className="space-y-6">
+            <div className="relative bg-gray-900 rounded-xl overflow-hidden" style={{ width: '100%', height: '480px' }}>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  objectFit: 'cover',
+                  backgroundColor: '#000',
+                  transform: 'scaleX(-1)'
+                }}
+              />
+              <canvas
+                ref={canvasRef}
+                style={{ 
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none',
+                  transform: 'scaleX(-1)'
+                }}
+              />
+              
+              {/* Instruction Overlay */}
+              {currentInst && (
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
+                  <div className="flex items-center gap-4 text-white">
+                    <Icon size={48} weight="duotone" />
+                    <div className="flex-1">
+                      <div className="text-sm opacity-75">
+                        {isEnglish ? 'Step' : 'ধাপ'} {currentInstruction + 1}/{instructions.length}
+                      </div>
+                      <div className="text-xl font-bold">
+                        {isEnglish ? currentInst.en : currentInst.bn}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="mt-4 h-2 bg-white/20 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-green-500 transition-all duration-300"
+                      style={{ width: `${((currentInstruction + 1) / instructions.length) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 'processing':
+        return (
+          <div className="text-center py-12">
+            <CircleNotch size={64} className="animate-spin text-primary mx-auto mb-4" />
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              {isEnglish ? 'Processing...' : 'প্রক্রিয়া করা হচ্ছে...'}
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              {isEnglish ? 'Comparing your face with NID image...' : 'আপনার মুখ এনআইডি ছবির সাথে মিলানো হচ্ছে...'}
+            </p>
+          </div>
+        );
+
+      case 'success':
+        return (
+          <div className="text-center py-12">
+            <CheckCircle size={64} className="text-green-600 mx-auto mb-4" weight="fill" />
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              {isEnglish ? 'Verification Successful' : 'যাচাইকরণ সফল'}
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              {isEnglish ? 'Match Score:' : 'মিল স্কোর:'} <span className="font-bold text-green-600">{matchScore.toFixed(1)}%</span>
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {isEnglish ? 'Your application is moving to the next step...' : 'আপনার আবেদন পরবর্তী ধাপে যাচ্ছে...'}
+            </p>
+          </div>
+        );
+
+      case 'failed':
+        return (
+          <div className="text-center py-12">
+            <WarningCircle size={64} className="text-red-600 mx-auto mb-4" weight="fill" />
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              {isEnglish ? 'Verification Failed' : 'যাচাইকরণ ব্যর্থ'}
+            </h3>
+            <p className="text-red-600 dark:text-red-400 mb-6">
+              {error}
+            </p>
+            <button
+              onClick={() => {
+                setError(null);
+                setCurrentInstruction(0);
+                setCapturedFrames([]);
+                setStep('camera');
+              }}
+              className="px-8 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg transition-all"
+            >
+              {isEnglish ? 'Try Again' : 'আবার চেষ্টা করুন'}
+            </button>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        style={{ zIndex: 99999 }}
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && step !== 'instructions' && step !== 'verification') {
+            handleClose();
+          }
+        }}
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        >
+          {/* Header */}
+          <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-6 flex justify-between items-center z-10">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {isEnglish ? 'Face Verification' : 'ফেস যাচাইকরণ'}
+            </h2>
+            {step !== 'instructions' && step !== 'verification' && step !== 'loading' && (
+              <button
+                onClick={handleClose}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <X size={24} className="text-gray-600 dark:text-gray-400" />
+              </button>
+            )}
+          </div>
+
+          {/* Content */}
+          <div className="p-6">
+            {renderContent()}
+          </div>
+
+          {/* Always render video elements (hidden when not in use) */}
+          {step === 'loading' && (
+            <div className="hidden">
+              <video ref={videoRef} autoPlay playsInline muted />
+              <canvas ref={canvasRef} />
+            </div>
+          )}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}

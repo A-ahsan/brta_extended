@@ -118,12 +118,19 @@ const PoliceDashboard = () => {
         {/* Notifications Dropdown */}
         <AnimatePresence>
           {showNotifications && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="absolute right-3 sm:right-6 top-16 sm:top-20 w-[calc(100vw-24px)] sm:w-80 max-w-md bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 p-4"
-            >
+            <>
+              {/* Backdrop to close on click */}
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setShowNotifications(false)}
+              />
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="absolute right-3 sm:right-6 top-16 sm:top-20 w-[calc(100vw-24px)] sm:w-80 max-w-md bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 p-4"
+                onClick={(e) => e.stopPropagation()}
+              >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Bell size={20} className="text-primary dark:text-green-400" />
@@ -138,13 +145,21 @@ const PoliceDashboard = () => {
                   <li className="italic text-gray-400 dark:text-gray-500">{language === 'en' ? 'No notifications' : 'কোনো বিজ্ঞপ্তি নেই'}</li>
                 ) : (
                   notifications.map((note, idx) => (
-                    <li key={idx} className="bg-primary/5 dark:bg-primary/10 rounded-lg px-3 py-2 shadow-sm border border-primary/10 dark:border-primary/20 text-gray-800 dark:text-gray-200 text-sm">
+                    <li 
+                      key={idx} 
+                      className="bg-primary/5 dark:bg-primary/10 rounded-lg px-3 py-2 shadow-sm border border-primary/10 dark:border-primary/20 text-gray-800 dark:text-gray-200 text-sm cursor-pointer hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors"
+                      onClick={() => {
+                        setActiveTab('verification');
+                        setShowNotifications(false);
+                      }}
+                    >
                       {note}
                     </li>
                   ))
                 )}
               </ul>
             </motion.div>
+            </>
           )}
         </AnimatePresence>
       </motion.header>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Routes, Route, NavLink } from 'react-router-dom';
 import {
@@ -9,25 +9,60 @@ import {
   X,
   List,
   ChartLine,
+  BookOpen,
 } from 'phosphor-react';
 import { useLanguage, useTheme } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { translations } from '../utils/translations';
+import { supabase } from '../lib/supabaseClient';
+import toast from 'react-hot-toast';
 import ThemeLanguageToggler from '../components/ThemeLanguageToggler';
 import AdminOverview from './admin/AdminOverview';
 import AdminApplications from './admin/AdminApplications';
 import AdminSlots from './admin/AdminSlots';
+import AdminQuestions from './admin/AdminQuestions';
 
 const AdminPanel = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { theme } = useTheme();
-  const { signOut } = useAuth();
+  const { signOut, user, userProfile } = useAuth();
   const t = translations[language];
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [notifications, setNotifications] = useState([]);
 
-  const menuItems = [
+  // Check if user is admin, redirect if not
+  useEffect(() => {
+    if (user && userProfile && userProfile.role !== 'admin') {
+      toast.error(language === 'en' ? 'Access denied. Admin only.' : 'প্রবেশাধিকার নেই। শুধুমাত্র প্রশাসক।');
+      navigate('/dashboard');
+    }
+  }, [user, userProfile, navigate, language]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [language]);
+
+  const fetchNotifications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('recipient_type', 'admin')
+        .eq('is_read', false)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      
+      setNotifications(data || []);
+    } catch (error) {
+      console.error('Error fetching admin notifications:', error);
+    }
+  };
+
+  const tabs = [
     { 
       path: '/admin/overview', 
       label: language === 'en' ? 'Overview' : 'সংক্ষিপ্ত বিবরণ',
@@ -43,12 +78,11 @@ const AdminPanel = () => {
       label: language === 'en' ? 'Test Slots' : 'পরীক্ষার স্লট',
       icon: CalendarBlank 
     },
-  ];
-
-  const notifications = [
-    "3 new user registrations today.",
-    "System maintenance scheduled for Friday.",
-    "License application flagged for review."
+    { 
+      path: '/admin/questions', 
+      label: language === 'en' ? 'Questions' : 'প্রশ্নসমূহ',
+      icon: BookOpen 
+    },
   ];
 
   const monthlyData = [
@@ -127,7 +161,9 @@ const AdminPanel = () => {
                 aria-label="Notifications"
               >
                 <Bell size={24} className="text-primary" />
-                <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">{notifications.length}</span>
+                {notifications && notifications.length > 0 && (
+                  <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">{notifications.length}</span>
+                )}
               </button>
               <ThemeLanguageToggler />
             </div>
@@ -137,12 +173,19 @@ const AdminPanel = () => {
         {/* Notifications Dropdown */}
         <AnimatePresence>
           {showNotifications && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="absolute right-6 top-20 w-80 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 p-4"
-            >
+            <>
+              {/* Backdrop to close on click */}
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setShowNotifications(false)}
+              />
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="absolute right-6 top-20 w-80 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 p-4"
+                onClick={(e) => e.stopPropagation()}
+              >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Bell size={20} className="text-primary dark:text-green-400" />
@@ -157,13 +200,26 @@ const AdminPanel = () => {
                   <li className="italic text-gray-400 dark:text-gray-500">{language === 'en' ? 'No notifications' : 'কোনো বিজ্ঞপ্তি নেই'}</li>
                 ) : (
                   notifications.map((note, idx) => (
-                    <li key={idx} className="bg-primary/5 dark:bg-primary/10 rounded-lg px-3 py-2 shadow-sm border border-primary/10 dark:border-primary/20 text-gray-800 dark:text-gray-200 text-sm">
-                      {note}
+                    <li 
+                      key={idx} 
+                      className="bg-primary/5 dark:bg-primary/10 rounded-lg px-3 py-2 shadow-sm border border-primary/10 dark:border-primary/20 text-gray-800 dark:text-gray-200 text-sm cursor-pointer hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors"
+                      onClick={() => {
+                        setActiveView('applications');
+                        setShowNotifications(false);
+                      }}
+                    >
+                      <div className="font-semibold text-primary dark:text-green-400 mb-1">
+                        {language === 'en' ? note.title_en : note.title_bn}
+                      </div>
+                      <div>
+                        {language === 'en' ? note.message_en : note.message_bn}
+                      </div>
                     </li>
                   ))
                 )}
               </ul>
             </motion.div>
+            </>
           )}
         </AnimatePresence>
       </motion.header>
@@ -180,7 +236,7 @@ const AdminPanel = () => {
               className="fixed left-0 top-[calc(4rem+1px)] h-[calc(100vh-4rem-1px)] w-64 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl shadow-2xl border-r-2 border-gray-200/50 dark:border-gray-700/50 z-40 overflow-y-auto"
             >
               <nav className="p-4 space-y-2">
-                {menuItems.map((item) => (
+                {tabs.map((item) => (
                   <NavLink
                     key={item.path}
                     to={item.path}
@@ -233,6 +289,7 @@ const AdminPanel = () => {
               <Route path="/overview" element={<AdminOverview />} />
               <Route path="/applications" element={<AdminApplications />} />
               <Route path="/slots" element={<AdminSlots />} />
+              <Route path="/questions" element={<AdminQuestions />} />
               <Route path="/" element={<AdminOverview />} />
             </Routes>
           </div>

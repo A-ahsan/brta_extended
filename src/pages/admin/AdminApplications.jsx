@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   CheckCircle,
@@ -9,26 +9,63 @@ import {
 } from 'phosphor-react';
 import { useLanguage } from '../../contexts/AppContext';
 import { translations } from '../../utils/translations';
+import { supabase } from '../../lib/supabaseClient';
+import toast from 'react-hot-toast';
 
 const AdminApplications = () => {
   const { language } = useLanguage();
   const t = translations[language];
   const [filterType, setFilterType] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [applications, setApplications] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const pendingApplications = [
-    { id: 1, name: 'Ahmed Khan', type: 'New License', date: '2025-11-12', applicationNo: 'DL2025010', status: 'pending' },
-    { id: 2, name: 'Fatima Rahman', type: 'Renewal', date: '2025-11-11', applicationNo: 'DL2025011', status: 'pending' },
-    { id: 3, name: 'Karim Hossain', type: 'Duplicate', date: '2025-11-10', applicationNo: 'DL2025012', status: 'pending' },
-    { id: 4, name: 'Ayesha Begum', type: 'New License', date: '2025-11-09', applicationNo: 'DL2025013', status: 'pending' },
-    { id: 5, name: 'Rahim Uddin', type: 'Renewal', date: '2025-11-08', applicationNo: 'DL2025014', status: 'pending' },
-    { id: 6, name: 'Nasrin Akter', type: 'New License', date: '2025-11-07', applicationNo: 'DL2025015', status: 'pending' },
-  ];
+  useEffect(() => {
+    fetchApplications();
+  }, []);
 
-  const filteredApplications = pendingApplications.filter(app => {
-    const matchesType = filterType === 'all' || app.type === filterType;
-    const matchesSearch = app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          app.applicationNo.toLowerCase().includes(searchTerm.toLowerCase());
+  const fetchApplications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('license_applications')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setApplications(data || []);
+    } catch (error) {
+      console.error('Error fetching applications:', error);
+      toast.error(language === 'en' ? 'Failed to load applications' : 'আবেদন লোড করতে ব্যর্থ');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusUpdate = async (appId, newStatus) => {
+    try {
+      const { error } = await supabase
+        .from('license_applications')
+        .update({ 
+          status: newStatus,
+          [`${newStatus}_completed_at`]: new Date().toISOString()
+        })
+        .eq('id', appId);
+
+      if (error) throw error;
+
+      toast.success(language === 'en' ? 'Status updated successfully' : 'স্ট্যাটাস সফলভাবে আপডেট হয়েছে');
+      fetchApplications();
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast.error(language === 'en' ? 'Failed to update status' : 'স্ট্যাটাস আপডেট করতে ব্যর্থ');
+    }
+  };
+
+  const filteredApplications = applications.filter(app => {
+    const matchesType = filterType === 'all' || app.license_type === filterType;
+    const matchesSearch = (app.full_name_en?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          app.full_name_bn?.includes(searchTerm) ||
+                          app.application_number?.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchesType && matchesSearch;
   });
 
@@ -50,8 +87,8 @@ const AdminApplications = () => {
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-500 dark:text-gray-400">{language === 'en' ? 'Total Pending' : 'মোট মুলতুবি'}</p>
-              <p className="text-3xl font-bold text-yellow-600">{pendingApplications.length}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{language === 'en' ? 'Total Applications' : 'মোট আবেদন'}</p>
+              <p className="text-3xl font-bold text-blue-600">{applications.length}</p>
             </div>
           </div>
 
@@ -78,9 +115,8 @@ const AdminApplications = () => {
                 className="w-full pl-12 pr-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white transition-all appearance-none cursor-pointer"
               >
                 <option value="all">{language === 'en' ? 'All Types' : 'সকল ধরন'}</option>
-                <option value="New License">{language === 'en' ? 'New License' : 'নতুন লাইসেন্স'}</option>
-                <option value="Renewal">{language === 'en' ? 'Renewal' : 'নবায়ন'}</option>
-                <option value="Duplicate">{language === 'en' ? 'Duplicate' : 'প্রতিলিপি'}</option>
+                <option value="Light">{language === 'en' ? 'Light (Bike)' : 'লাইট (বাইক)'}</option>
+                <option value="Motor">{language === 'en' ? 'Motor (Car)' : 'মোটর (গাড়ি)'}</option>
               </select>
             </div>
           </div>
@@ -88,7 +124,7 @@ const AdminApplications = () => {
           {/* Results Count */}
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {language === 'en' ? 'Showing' : 'দেখানো হচ্ছে'} <span className="font-bold text-primary">{filteredApplications.length}</span> {language === 'en' ? 'of' : 'এর মধ্যে'} <span className="font-bold">{pendingApplications.length}</span> {language === 'en' ? 'applications' : 'আবেদন'}
+              {language === 'en' ? 'Showing' : 'দেখানো হচ্ছে'} <span className="font-bold text-primary">{filteredApplications.length}</span> {language === 'en' ? 'of' : 'এর মধ্যে'} <span className="font-bold">{applications.length}</span> {language === 'en' ? 'applications' : 'আবেদন'}
             </p>
             {(searchTerm || filterType !== 'all') && (
               <button
@@ -123,7 +159,16 @@ const AdminApplications = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredApplications.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-12 text-center">
+                      <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
+                      <p className="mt-4 text-gray-600 dark:text-gray-400">
+                        {language === 'en' ? 'Loading applications...' : 'আবেদন লোড হচ্ছে...'}
+                      </p>
+                    </td>
+                  </tr>
+                ) : filteredApplications.length === 0 ? (
                   <tr>
                     <td colSpan="5" className="px-6 py-12 text-center">
                       <p className="text-gray-500 dark:text-gray-400 text-lg">
@@ -141,18 +186,20 @@ const AdminApplications = () => {
                       className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                     >
                       <td className="px-6 py-4">
-                        <p className="font-bold text-gray-800 dark:text-white">{app.applicationNo}</p>
+                        <p className="font-bold text-gray-800 dark:text-white font-mono">{app.application_number}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-gray-800 dark:text-white">{app.name}</p>
+                        <p className="text-gray-800 dark:text-white">{language === 'en' ? app.full_name_en : app.full_name_bn}</p>
                       </td>
                       <td className="px-6 py-4">
                         <span className="px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400 rounded-full text-xs font-semibold">
-                          {app.type}
+                          {app.license_type} - {app.license_category}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{app.date}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {new Date(app.created_at).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD')}
+                        </p>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex justify-center gap-2">

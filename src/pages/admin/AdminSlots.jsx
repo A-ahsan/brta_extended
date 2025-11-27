@@ -73,7 +73,8 @@ const AdminSlots = () => {
             nid_number
           )
         `)
-        .eq('exam_date', selectedDate);
+        .eq('exam_date', selectedDate)
+        .eq('status', 'scheduled');
 
       if (error) throw error;
       setBookingsData(data || []);
@@ -130,12 +131,12 @@ const AdminSlots = () => {
             full_name_en,
             full_name_bn,
             nid_number,
-            phone,
             date_of_birth
           )
         `)
         .eq('test_center_id', center.id)
         .eq('exam_date', selectedDate)
+        .eq('status', 'scheduled')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -151,13 +152,12 @@ const AdminSlots = () => {
     if (!detailedBookings.length) return;
     
     const csv = [
-      ['Application No', 'Name (EN)', 'Name (BN)', 'NID', 'Phone', 'DOB', 'Booking Date'],
+      ['Application No', 'Name (EN)', 'Name (BN)', 'NID', 'DOB', 'Booking Date'],
       ...detailedBookings.map(b => [
         b.license_applications?.application_number || 'N/A',
         b.license_applications?.full_name_en || 'N/A',
         b.license_applications?.full_name_bn || 'N/A',
         b.license_applications?.nid_number || 'N/A',
-        b.license_applications?.phone || 'N/A',
         b.license_applications?.date_of_birth || 'N/A',
         new Date(b.created_at).toLocaleDateString(),
       ])

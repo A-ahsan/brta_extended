@@ -360,14 +360,7 @@ export default function FaceVerificationModal({ open, onClose, application }) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Disable landmark drawing for better UX
-    // faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
-    
-    // Disable detection box for cleaner look
-    // const box = resizedDetections.detection.box;
-    // ctx.strokeStyle = '#10b981';
-    // ctx.lineWidth = 3;
-    // ctx.strokeRect(box.x, box.y, box.width, box.height);
+
   };
 
   // Perform face matching with NID image

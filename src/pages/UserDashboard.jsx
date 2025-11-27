@@ -72,12 +72,34 @@ const UserDashboard = () => {
     try {
       const { data, error } = await supabase
         .from('license_applications')
-        .select('*')
+        .select(`
+          *,
+          physical_exam_booking:physical_exam_bookings!physical_exam_bookings_application_id_fkey(
+            id,
+            test_center_id,
+            exam_date,
+            status,
+            test_centers(center_name_en, center_name_bn, address_en, address_bn)
+          )
+        `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setLicenseApplications(data || []);
+      
+      // Post-process to get only scheduled booking
+      const processedData = (data || []).map(app => {
+        let booking = null;
+        if (Array.isArray(app.physical_exam_booking)) {
+          booking = app.physical_exam_booking.find(b => b.status === 'scheduled') || null;
+        }
+        return {
+          ...app,
+          physical_exam_booking: booking
+        };
+      });
+      
+      setLicenseApplications(processedData);
     } catch (error) {
       console.error('Error fetching applications:', error);
       toast.error(language === 'en' ? 'Failed to load applications' : 'আবেদন লোড করতে ব্যর্থ');

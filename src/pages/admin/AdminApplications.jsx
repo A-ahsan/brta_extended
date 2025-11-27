@@ -19,10 +19,15 @@ const AdminApplications = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('all'); // all, physical_exam
+  const [physicalExamBookings, setPhysicalExamBookings] = useState([]);
 
   useEffect(() => {
     fetchApplications();
-  }, []);
+    if (activeTab === 'physical_exam') {
+      fetchPhysicalExamBookings();
+    }
+  }, [activeTab]);
 
   const fetchApplications = async () => {
     try {
@@ -38,6 +43,92 @@ const AdminApplications = () => {
       toast.error(language === 'en' ? 'Failed to load applications' : 'আবেদন লোড করতে ব্যর্থ');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPhysicalExamBookings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('physical_exam_bookings')
+        .select(`
+          *,
+          license_applications!inner (
+            application_number,
+            full_name_en,
+            full_name_bn,
+            license_type,
+            license_category
+          ),
+          test_centers!inner (
+            center_name_en,
+            center_name_bn,
+            address_en
+          )
+        `)
+        .eq('status', 'scheduled')
+        .order('exam_date', { ascending: true });
+
+      if (error) throw error;
+      setPhysicalExamBookings(data || []);
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+      toast.error(language === 'en' ? 'Failed to load bookings' : 'বুকিং লোড করতে ব্যর্থ');
+    }
+  };
+
+  const handlePhysicalExamResult = async (bookingId, applicationId, result, remarks = '') => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+
+      // Update booking with result
+      const { error: bookingError } = await supabase
+        .from('physical_exam_bookings')
+        .update({
+          status: 'completed',
+          result: result,
+          admin_remarks: remarks,
+          evaluated_by: userData.user.id,
+          evaluated_at: new Date().toISOString()
+        })
+        .eq('id', bookingId);
+
+      if (bookingError) throw bookingError;
+
+      // Update application status
+      const updateData = {
+        physical_exam: result === 'passed' ? 1 : 0,
+        status: result === 'passed' ? 'physical_exam_passed' : 'physical_exam_failed',
+      };
+
+      if (result === 'passed') {
+        updateData.physical_exam_completed_at = new Date().toISOString();
+      }
+
+      const { error: appError } = await supabase
+        .from('license_applications')
+        .update(updateData)
+        .eq('id', applicationId);
+
+      if (appError) throw appError;
+
+      // Send notification to user
+      const notificationMessage = result === 'passed'
+        ? 'Congratulations! You have passed the physical driving exam.'
+        : 'Unfortunately, you did not pass the physical driving exam. Please book again.';
+
+      await supabase.rpc('create_dual_notification', {
+        p_user_id: (await supabase.from('license_applications').select('user_id').eq('id', applicationId).single()).data.user_id,
+        p_title: result === 'passed' ? 'Physical Exam Passed' : 'Physical Exam Failed',
+        p_message: notificationMessage + (remarks ? ` Remarks: ${remarks}` : ''),
+        p_admin_title: 'Physical Exam Evaluated',
+        p_admin_message: `Physical exam evaluated as ${result} for application.`,
+      });
+
+      toast.success(language === 'en' ? `Exam marked as ${result}` : `পরীক্ষা ${result} হিসাবে চিহ্নিত`);
+      fetchPhysicalExamBookings();
+    } catch (error) {
+      console.error('Error updating exam result:', error);
+      toast.error(language === 'en' ? 'Failed to update result' : 'ফলাফল আপডেট করতে ব্যর্থ');
     }
   };
 
@@ -80,7 +171,7 @@ const AdminApplications = () => {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
-                {language === 'en' ? 'Pending Applications' : 'মুলতুবি আবেদন'}
+                {language === 'en' ? 'Applications Management' : 'আবেদন পরিচালনা'}
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
                 {language === 'en' ? 'Review and manage license applications' : 'লাইসেন্স আবেদন পর্যালোচনা এবং পরিচালনা করুন'}
@@ -92,7 +183,39 @@ const AdminApplications = () => {
             </div>
           </div>
 
+          {/* Tabs */}
+          <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex gap-4">
+              <button
+                onClick={() => setActiveTab('all')}
+                className={`px-6 py-3 font-semibold transition-all border-b-2 ${
+                  activeTab === 'all'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                📋 {language === 'en' ? 'All Applications' : 'সকল আবেদন'}
+              </button>
+              <button
+                onClick={() => setActiveTab('physical_exam')}
+                className={`px-6 py-3 font-semibold transition-all border-b-2 ${
+                  activeTab === 'physical_exam'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                🚗 {language === 'en' ? 'Physical Exams' : 'শারীরিক পরীক্ষা'} 
+                {physicalExamBookings.length > 0 && (
+                  <span className="ml-2 px-2 py-1 bg-red-500 text-white text-xs rounded-full">
+                    {physicalExamBookings.length}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
           {/* Filters */}
+          {activeTab === 'all' && (
           <div className="grid md:grid-cols-2 gap-4 mb-6">
             {/* Search */}
             <div className="relative">
@@ -120,8 +243,125 @@ const AdminApplications = () => {
               </select>
             </div>
           </div>
+          )}
+
+          {/* Physical Exam Bookings Table */}
+          {activeTab === 'physical_exam' && (
+            <div className="overflow-x-auto rounded-xl border-2 border-gray-200 dark:border-gray-700">
+              <table className="w-full">
+                <thead className="bg-gradient-to-r from-blue-100 to-green-50 dark:from-blue-900 dark:to-green-900">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 dark:text-gray-300 uppercase">
+                      {language === 'en' ? 'App No' : 'আবেদন নং'}
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 dark:text-gray-300 uppercase">
+                      {language === 'en' ? 'Applicant' : 'আবেদনকারী'}
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 dark:text-gray-300 uppercase">
+                      {language === 'en' ? 'Test Center' : 'পরীক্ষা কেন্দ্র'}
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 dark:text-gray-300 uppercase">
+                      {language === 'en' ? 'Date & Time' : 'তারিখ ও সময়'}
+                    </th>
+                    <th className="px-6 py-4 text-center text-sm font-bold text-gray-700 dark:text-gray-300 uppercase">
+                      {language === 'en' ? 'Actions' : 'কার্যক্রম'}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {physicalExamBookings.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-12 text-center">
+                        <p className="text-gray-500 dark:text-gray-400 text-lg">
+                          {language === 'en' ? 'No scheduled physical exams' : 'কোনো নির্ধারিত শারীরিক পরীক্ষা নেই'}
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    physicalExamBookings.map((booking) => (
+                      <motion.tr
+                        key={booking.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="hover:bg-blue-50 dark:hover:bg-gray-700/50 transition-colors"
+                      >
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-gray-800 dark:text-white font-mono">
+                            {booking.license_applications.application_number}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-gray-800 dark:text-white">
+                            {language === 'en' 
+                              ? booking.license_applications.full_name_en 
+                              : booking.license_applications.full_name_bn}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {booking.license_applications.license_type} - {booking.license_applications.license_category}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-gray-700 dark:text-gray-300">
+                            {language === 'en' 
+                              ? booking.test_centers.center_name_en 
+                              : booking.test_centers.center_name_bn}
+                          </p>
+                          <p className="text-xs text-gray-500">{booking.test_centers.address_en}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-gray-800 dark:text-white">
+                            📅 {new Date(booking.exam_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD')}
+                          </p>
+                          <p className="text-sm text-blue-600 dark:text-blue-400 font-semibold">
+                            ⏰ 9:00 AM
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex justify-center gap-3">
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => {
+                                const remarks = prompt(language === 'en' 
+                                  ? 'Add remarks (optional):' 
+                                  : 'মন্তব্য যোগ করুন (ঐচ্ছিক):');
+                                handlePhysicalExamResult(booking.id, booking.application_id, 'passed', remarks || '');
+                              }}
+                              className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2"
+                              title={language === 'en' ? 'Mark as Passed' : 'উত্তীর্ণ হিসাবে চিহ্নিত করুন'}
+                            >
+                              <CheckCircle size={20} weight="bold" />
+                              {language === 'en' ? 'Pass' : 'উত্তীর্ণ'}
+                            </motion.button>
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => {
+                                const remarks = prompt(language === 'en' 
+                                  ? 'Add remarks (required):' 
+                                  : 'মন্তব্য যোগ করুন (প্রয়োজনীয়):');
+                                if (remarks) {
+                                  handlePhysicalExamResult(booking.id, booking.application_id, 'failed', remarks);
+                                }
+                              }}
+                              className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors flex items-center gap-2"
+                              title={language === 'en' ? 'Mark as Failed' : 'ব্যর্থ হিসাবে চিহ্নিত করুন'}
+                            >
+                              <XCircle size={20} weight="bold" />
+                              {language === 'en' ? 'Fail' : 'ব্যর্থ'}
+                            </motion.button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Results Count */}
+          {activeTab === 'all' && (
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               {language === 'en' ? 'Showing' : 'দেখানো হচ্ছে'} <span className="font-bold text-primary">{filteredApplications.length}</span> {language === 'en' ? 'of' : 'এর মধ্যে'} <span className="font-bold">{applications.length}</span> {language === 'en' ? 'applications' : 'আবেদন'}
@@ -135,8 +375,10 @@ const AdminApplications = () => {
               </button>
             )}
           </div>
+          )}
 
           {/* Table */}
+          {activeTab === 'all' && (
           <div className="overflow-x-auto rounded-xl border-2 border-gray-200 dark:border-gray-700">
             <table className="w-full">
               <thead className="bg-gradient-to-r from-gray-100 to-gray-50 dark:from-gray-700 dark:to-gray-800">
@@ -235,6 +477,7 @@ const AdminApplications = () => {
               </tbody>
             </table>
           </div>
+          )}
         </div>
       </motion.div>
     </div>

@@ -8,6 +8,14 @@ export const useTheme = () => useContext(ThemeContext);
 export const useLanguage = () => useContext(LanguageContext);
 export const useDownload = () => useContext(DownloadContext);
 
+// Combined hook for convenience
+export const useApp = () => {
+  const theme = useTheme();
+  const language = useLanguage();
+  const download = useDownload();
+  return { ...theme, ...language, ...download };
+};
+
 export const ThemeProvider = ({ children }) => {
   const [isDark, setIsDark] = useState(() => {
     const saved = localStorage.getItem('theme');

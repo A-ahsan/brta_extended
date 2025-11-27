@@ -262,7 +262,7 @@ export default function OnlineExamModal({ open, onClose, application }) {
   // Handle exam passed
   const handleExamPassed = async (totalCorrect, mcqCorrect, roadSignCorrect) => {
     try {
-      // Update application
+      // Update application with both flag and status
       const { error: updateError } = await supabase
         .from('license_applications')
         .update({
@@ -296,10 +296,11 @@ export default function OnlineExamModal({ open, onClose, application }) {
         document.exitFullscreen();
       }
 
+      // Wait longer before closing to let user see success
       setTimeout(() => {
         onClose();
         window.location.reload();
-      }, 5000);
+      }, 4000);
 
     } catch (error) {
       console.error('Error updating exam status:', error);
@@ -628,30 +629,30 @@ export default function OnlineExamModal({ open, onClose, application }) {
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="text-center py-12"
+      className="text-center py-8"
     >
       <motion.div
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
       >
-        <Trophy size={96} className="text-yellow-500 mx-auto mb-4" weight="fill" />
+        <Trophy size={80} className="text-yellow-500 mx-auto mb-4" weight="fill" />
       </motion.div>
-      <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
         {isEnglish ? 'Congratulations!' : 'অভিনন্দন!'}
       </h3>
-      <p className="text-xl text-green-600 dark:text-green-400 font-semibold mb-4">
+      <p className="text-lg text-green-600 dark:text-green-400 font-semibold mb-4">
         {isEnglish ? 'You Passed the Online Exam!' : 'আপনি অনলাইন পরীক্ষায় উত্তীর্ণ হয়েছেন!'}
       </p>
-      <div className="bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-xl p-6 max-w-md mx-auto">
-        <p className="text-gray-700 dark:text-gray-300 mb-4">
+      <div className="bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg p-4 max-w-md mx-auto">
+        <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
           {isEnglish 
-            ? 'Your application is moving to the next step. You will receive a notification shortly.'
-            : 'আপনার আবেদন পরবর্তী ধাপে যাচ্ছে। শীঘ্রই আপনি একটি বিজ্ঞপ্তি পাবেন।'}
+            ? 'Your application is moving to the next step. Page will reload automatically.'
+            : 'আপনার আবেদন পরবর্তী ধাপে যাচ্ছে। পেজ স্বয়ংক্রিয়ভাবে রিলোড হবে।'}
         </p>
         <div className="flex items-center justify-center gap-2 text-primary">
-          <Target size={20} weight="fill" />
-          <span className="font-semibold">
+          <Target size={18} weight="fill" />
+          <span className="text-sm font-semibold">
             {isEnglish ? 'Next Step: Physical Exam' : 'পরবর্তী ধাপ: শারীরিক পরীক্ষা'}
           </span>
         </div>

@@ -4,6 +4,7 @@ import { useLanguage } from '../contexts/AppContext';
 import { useState } from 'react';
 import FaceVerificationModal from './FaceVerificationModal';
 import OnlineExamModal from './OnlineExamModal';
+import PhysicalExamBooking from './PhysicalExamBooking';
 
 const steps = [
   { 
@@ -55,6 +56,7 @@ export default function ProgressTracker({ application }) {
   const isEnglish = language === 'en';
   const [showFaceModal, setShowFaceModal] = useState(false);
   const [showExamModal, setShowExamModal] = useState(false);
+  const [showPhysicalExamModal, setShowPhysicalExamModal] = useState(false);
 
   // Check step status based on flags (0 or 1)
   const getStepStatus = (step) => {
@@ -226,6 +228,16 @@ export default function ProgressTracker({ application }) {
                   </button>
                 )}
 
+                {/* Action button for physical exam */}
+                {step.key === 'physical_exam' && isActive && (
+                  <button 
+                    onClick={() => setShowPhysicalExamModal(true)}
+                    className="mt-3 text-xs px-4 py-2 bg-gradient-to-r from-primary to-green-600 hover:from-primary-dark hover:to-green-700 text-white rounded-md font-semibold transition-all shadow-md"
+                  >
+                    {isEnglish ? 'Schedule Exam' : 'পরীক্ষা নির্ধারণ'}
+                  </button>
+                )}
+
                 {/* Re-verify/Re-take button for failed steps */}
                 {status === 'failed' && step.key !== 'approved' && (
                   <button className="mt-3 text-xs px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-md font-semibold transition-colors">
@@ -271,6 +283,14 @@ export default function ProgressTracker({ application }) {
         open={showExamModal}
         onClose={() => setShowExamModal(false)}
         application={application}
+      />
+
+      {/* Physical Exam Booking Modal */}
+      <PhysicalExamBooking 
+        isOpen={showPhysicalExamModal}
+        onClose={() => setShowPhysicalExamModal(false)}
+        applicationId={application.id}
+        currentBooking={application.physical_exam_booking || null}
       />
     </div>
   );

@@ -22,6 +22,7 @@ import AdminOverview from './admin/AdminOverview';
 import AdminApplications from './admin/AdminApplications';
 import AdminSlots from './admin/AdminSlots';
 import AdminQuestions from './admin/AdminQuestions';
+import AdminTestCenters from './admin/AdminTestCenters';
 
 const AdminPanel = () => {
   const navigate = useNavigate();
@@ -117,6 +118,11 @@ const AdminPanel = () => {
       path: '/admin/applications', 
       label: language === 'en' ? 'Applications' : 'আবেদনপত্র',
       icon: CheckCircle 
+    },
+    { 
+      path: '/admin/test-centers', 
+      label: language === 'en' ? 'Test Centers' : 'পরীক্ষা কেন্দ্র',
+      icon: CalendarBlank 
     },
     { 
       path: '/admin/slots', 
@@ -401,6 +407,7 @@ const AdminPanel = () => {
             <Routes>
               <Route path="/overview" element={<AdminOverview />} />
               <Route path="/applications" element={<AdminApplications />} />
+              <Route path="/test-centers" element={<AdminTestCenters />} />
               <Route path="/slots" element={<AdminSlots />} />
               <Route path="/questions" element={<AdminQuestions />} />
               <Route path="/" element={<AdminOverview />} />

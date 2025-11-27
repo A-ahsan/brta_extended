@@ -19,6 +19,9 @@ const FeatureDetail = lazy(() => import('./pages/FeatureDetail'));
 const FeeCalculator = lazy(() => import('./pages/FeeCalculator'));
 const Notices = lazy(() => import('./pages/Notices'));
 const AboutUs = lazy(() => import('./pages/AboutUs'));
+const UserNotifications = lazy(() => import('./pages/UserNotifications'));
+const AdminNotifications = lazy(() => import('./pages/admin/AdminNotifications'));
+const PoliceNotifications = lazy(() => import('./pages/police/PoliceNotifications'));
 
 function App() {
   return (
@@ -85,6 +88,14 @@ function App() {
                     } 
                   />
                   <Route 
+                    path="/notifications" 
+                    element={
+                      <ProtectedRoute allowedRoles={['user']}>
+                        <UserNotifications />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
                     path="/admin/*" 
                     element={
                       <ProtectedRoute allowedRoles={['admin']}>
@@ -93,10 +104,26 @@ function App() {
                     } 
                   />
                   <Route 
+                    path="/admin/notifications" 
+                    element={
+                      <ProtectedRoute allowedRoles={['admin']}>
+                        <AdminNotifications />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
                     path="/police-dashboard/*" 
                     element={
                       <ProtectedRoute allowedRoles={['police']}>
                         <PoliceDashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/police/notifications" 
+                    element={
+                      <ProtectedRoute allowedRoles={['police']}>
+                        <PoliceNotifications />
                       </ProtectedRoute>
                     } 
                   />

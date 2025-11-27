@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Routes, Route, NavLink } from 'react-router-dom';
 import {
@@ -13,11 +13,14 @@ import {
   Database,
   ClockCounterClockwise,
   List,
+  Eye,
 } from 'phosphor-react';
 import StatCard from '../components/StatCard';
 import { useLanguage } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { translations } from '../utils/translations';
+import { supabase } from '../lib/supabaseClient';
+import toast from 'react-hot-toast';
 import ThemeLanguageToggler from '../components/ThemeLanguageToggler';
 import PoliceVerification from './police/PoliceVerification';
 import PoliceRecords from './police/PoliceRecords';
@@ -30,12 +33,73 @@ const PoliceDashboard = () => {
   const t = translations[language];
   const [showNotifications, setShowNotifications] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
+  const [notifications, setNotifications] = useState([]);
 
-  const notifications = [
-    "Incident reported at checkpoint.",
-    "License verification required.",
-    "Patrol schedule updated."
-  ];
+  useEffect(() => {
+    fetchNotifications();
+  }, [language]);
+
+  const fetchNotifications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('recipient_type', 'police')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      
+      setNotifications(data || []);
+    } catch (error) {
+      console.error('Error fetching police notifications:', error);
+    }
+  };
+
+  const markNotificationAsRead = async (notificationId) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq('id', notificationId);
+
+      if (error) throw error;
+      
+      setNotifications(prev => 
+        prev.map(n => n.id === notificationId ? { ...n, is_read: true, read_at: new Date().toISOString() } : n)
+      );
+      
+      toast.success(language === 'en' ? 'Marked as read' : 'পঠিত হিসাবে চিহ্নিত');
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    try {
+      const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
+      if (unreadIds.length === 0) {
+        toast.info(language === 'en' ? 'No unread notifications' : 'কোনো অপঠিত বিজ্ঞপ্তি নেই');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .in('id', unreadIds);
+
+      if (error) throw error;
+      
+      setNotifications(prev => 
+        prev.map(n => ({ ...n, is_read: true, read_at: n.read_at || new Date().toISOString() }))
+      );
+      
+      toast.success(language === 'en' ? 'All notifications marked as read' : 'সব বিজ্ঞপ্তি পঠিত চিহ্নিত');
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+      toast.error(language === 'en' ? 'Failed to mark all as read' : 'সব পঠিত চিহ্নিত করতে ব্যর্থ');
+    }
+  };
 
   const menuItems = [
     { 
@@ -109,7 +173,9 @@ const PoliceDashboard = () => {
               aria-label="Notifications"
             >
               <Bell size={20} className="sm:w-6 sm:h-6 text-primary" />
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold min-w-[20px] text-center">{notifications.length}</span>
+              {notifications && notifications.filter(n => !n.is_read).length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold min-w-[20px] text-center">{notifications.filter(n => !n.is_read).length}</span>
+              )}
             </button>
             <ThemeLanguageToggler />
           </div>
@@ -128,37 +194,110 @@ const PoliceDashboard = () => {
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="absolute right-3 sm:right-6 top-16 sm:top-20 w-[calc(100vw-24px)] sm:w-80 max-w-md bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 p-4"
+                className="absolute right-3 sm:right-6 top-16 sm:top-20 w-[calc(100vw-24px)] sm:w-96 max-w-md bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50"
                 onClick={(e) => e.stopPropagation()}
               >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Bell size={20} className="text-primary dark:text-green-400" />
-                  <span className="font-bold text-lg text-gray-800 dark:text-white">{language === 'en' ? 'Police Notifications' : 'পুলিশ বিজ্ঞপ্তি'}</span>
-                </div>
-                <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                  <X size={20} />
-                </button>
-              </div>
-              <ul className="space-y-2 max-h-60 overflow-y-auto">
-                {notifications.length === 0 ? (
-                  <li className="italic text-gray-400 dark:text-gray-500">{language === 'en' ? 'No notifications' : 'কোনো বিজ্ঞপ্তি নেই'}</li>
-                ) : (
-                  notifications.map((note, idx) => (
-                    <li 
-                      key={idx} 
-                      className="bg-primary/5 dark:bg-primary/10 rounded-lg px-3 py-2 shadow-sm border border-primary/10 dark:border-primary/20 text-gray-800 dark:text-gray-200 text-sm cursor-pointer hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors"
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Bell size={20} className="text-cyan-600 dark:text-cyan-400" />
+                      <span className="font-bold text-lg text-gray-800 dark:text-white">
+                        {language === 'en' ? 'Police Notifications' : 'পুলিশ বিজ্ঞপ্তি'}
+                      </span>
+                      {notifications.filter(n => !n.is_read).length > 0 && (
+                        <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full font-bold">
+                          {notifications.filter(n => !n.is_read).length}
+                        </span>
+                      )}
+                    </div>
+                    <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                      <X size={20} />
+                    </button>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
                       onClick={() => {
-                        setActiveTab('verification');
+                        navigate('/police/notifications');
                         setShowNotifications(false);
                       }}
+                      className="flex-1 px-3 py-2 bg-cyan-600/10 hover:bg-cyan-600/20 text-cyan-600 dark:text-cyan-400 font-semibold rounded-lg transition-colors text-sm"
                     >
-                      {note}
+                      {language === 'en' ? 'See All' : 'সব দেখুন'}
+                    </button>
+                    {notifications.filter(n => !n.is_read).length > 0 && (
+                      <button
+                        onClick={markAllNotificationsAsRead}
+                        className="flex-1 px-3 py-2 bg-green-100 hover:bg-green-200 dark:bg-green-900/20 dark:hover:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold rounded-lg transition-colors text-sm"
+                      >
+                        {language === 'en' ? 'Mark All Read' : 'সব পঠিত করুন'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <ul className="space-y-2 max-h-96 overflow-y-auto p-4">
+                  {notifications.length === 0 ? (
+                    <li className="text-center py-8">
+                      <Bell size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-2" weight="duotone" />
+                      <p className="text-gray-400 dark:text-gray-500">
+                        {language === 'en' ? 'No new notifications' : 'কোনো নতুন বিজ্ঞপ্তি নেই'}
+                      </p>
                     </li>
-                  ))
-                )}
-              </ul>
-            </motion.div>
+                  ) : (
+                    notifications.map((note) => (
+                      <motion.li 
+                        key={note.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className={`relative rounded-lg px-3 py-3 shadow-sm text-gray-800 dark:text-gray-200 text-sm transition-all group ${
+                          note.is_read 
+                            ? 'bg-gray-100 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 opacity-75'
+                            : 'bg-cyan-50 dark:bg-cyan-900/10 border border-cyan-200 dark:border-cyan-800 hover:bg-cyan-100 dark:hover:bg-cyan-900/20'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 cursor-pointer" onClick={() => {
+                            if (!note.is_read) markNotificationAsRead(note.id);
+                            navigate('/police/verification');
+                            setShowNotifications(false);
+                          }}>
+                            <div className="font-semibold text-cyan-600 dark:text-cyan-400 mb-1 flex items-center gap-2">
+                              {language === 'en' ? note.title_en : note.title_bn}
+                              {!note.is_read && (
+                                <span className="w-2 h-2 bg-cyan-600 rounded-full animate-pulse"></span>
+                              )}
+                            </div>
+                            <div className={`line-clamp-2 ${note.is_read ? 'text-gray-600 dark:text-gray-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                              {language === 'en' ? note.message_en : note.message_bn}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {new Date(note.created_at).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          </div>
+                          {!note.is_read && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markNotificationAsRead(note.id);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-all"
+                              title={language === 'en' ? 'Mark as read' : 'পঠিত চিহ্নিত করুন'}
+                            >
+                              <Eye size={16} className="text-green-600" weight="duotone" />
+                            </button>
+                          )}
+                        </div>
+                      </motion.li>
+                    ))
+                  )}
+                </ul>
+              </motion.div>
             </>
           )}
         </AnimatePresence>

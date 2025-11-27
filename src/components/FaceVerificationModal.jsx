@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Camera, CheckCircle, WarningCircle, CircleNotch, ArrowLeft, ArrowRight, Eye } from 'phosphor-react';
 import * as faceapi from 'face-api.js';
@@ -16,6 +17,8 @@ export default function FaceVerificationModal({ open, onClose, application }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
+  const previousEARRef = useRef(0.3);
+  const blinkStateRef = useRef('open');
 
   const [step, setStep] = useState('camera'); // camera, instructions, verification, processing, success, failed
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -33,20 +36,17 @@ export default function FaceVerificationModal({ open, onClose, application }) {
       en: 'Look straight at the camera',
       bn: 'ক্যামেরার দিকে সোজা তাকান',
       icon: Camera,
-      duration: 2000,
-      check: (landmarks) => true // Always pass for center
-    },
-    {
-      id: 'left',
-      en: 'Turn your head to the LEFT',
-      bn: 'আপনার মাথা বামে ঘুরান',
-      icon: ArrowLeft,
-      duration: 2000,
+      duration: 3000,
       check: (landmarks) => {
-        // Check if face is turned left (nose tip x < eye center x)
+        // Check if face is centered (nose between eyes)
         const nose = landmarks.getNose();
         const leftEye = landmarks.getLeftEye();
-        return nose[3].x < leftEye[0].x + 20;
+        const rightEye = landmarks.getRightEye();
+        const eyeCenterX = (leftEye[0].x + rightEye[3].x) / 2;
+        const noseTipX = nose[3].x;
+        const diff = Math.abs(noseTipX - eyeCenterX);
+        console.log('Center check - diff:', diff);
+        return diff < 50; // More lenient - roughly centered
       }
     },
     {
@@ -56,10 +56,33 @@ export default function FaceVerificationModal({ open, onClose, application }) {
       icon: ArrowRight,
       duration: 2000,
       check: (landmarks) => {
-        // Check if face is turned right
+        // User turns right = nose moves left in mirrored view
         const nose = landmarks.getNose();
+        const leftEye = landmarks.getLeftEye();
         const rightEye = landmarks.getRightEye();
-        return nose[3].x > rightEye[3].x - 20;
+        const noseTipX = nose[3].x;
+        const eyeCenterX = (leftEye[0].x + rightEye[3].x) / 2;
+        const diff = eyeCenterX - noseTipX;
+        console.log('Right turn check - nose moved left by:', diff.toFixed(1));
+        return diff > 25; // Nose significantly left of center
+      }
+    },
+    {
+      id: 'left',
+      en: 'Turn your head to the LEFT',
+      bn: 'আপনার মাথা বামে ঘুরান',
+      icon: ArrowLeft,
+      duration: 2000,
+      check: (landmarks) => {
+        // User turns left = nose moves right in mirrored view
+        const nose = landmarks.getNose();
+        const leftEye = landmarks.getLeftEye();
+        const rightEye = landmarks.getRightEye();
+        const noseTipX = nose[3].x;
+        const eyeCenterX = (leftEye[0].x + rightEye[3].x) / 2;
+        const diff = noseTipX - eyeCenterX;
+        console.log('Left turn check - nose moved right by:', diff.toFixed(1));
+        return diff > 25; // Nose significantly right of center
       }
     },
     {
@@ -69,12 +92,38 @@ export default function FaceVerificationModal({ open, onClose, application }) {
       icon: Eye,
       duration: 1500,
       check: (landmarks) => {
-        // Check eye aspect ratio for blink detection
+        // Detect blink by relative EAR drop
         const leftEye = landmarks.getLeftEye();
         const rightEye = landmarks.getRightEye();
         const leftEAR = calculateEAR(leftEye);
         const rightEAR = calculateEAR(rightEye);
-        return (leftEAR + rightEAR) / 2 < 0.2; // Threshold for closed eyes
+        const avgEAR = (leftEAR + rightEAR) / 2;
+        const prevEAR = previousEARRef.current;
+        const currentState = blinkStateRef.current;
+        
+        // Calculate drop percentage from baseline
+        const dropPercent = ((prevEAR - avgEAR) / prevEAR) * 100;
+        
+        console.log('Blink1 EAR:', avgEAR.toFixed(3), 'Prev:', prevEAR.toFixed(3), 'Drop%:', dropPercent.toFixed(1), 'State:', currentState);
+        
+        // Detect significant drop (10% or more)
+        if (currentState === 'open' && dropPercent > 10) {
+          blinkStateRef.current = 'closed';
+          console.log('Eyes closing - drop detected!');
+        }
+        // Eyes opening again (EAR rising by at least 5%)
+        else if (currentState === 'closed') {
+          const risePercent = ((avgEAR - prevEAR) / prevEAR) * 100;
+          if (risePercent > 5) {
+            blinkStateRef.current = 'open';
+            previousEARRef.current = avgEAR;
+            console.log('BLINK DETECTED!');
+            return true;
+          }
+        }
+        
+        previousEARRef.current = avgEAR;
+        return false;
       }
     },
     {
@@ -84,11 +133,38 @@ export default function FaceVerificationModal({ open, onClose, application }) {
       icon: Eye,
       duration: 1500,
       check: (landmarks) => {
+        // Detect blink by relative EAR drop
         const leftEye = landmarks.getLeftEye();
         const rightEye = landmarks.getRightEye();
         const leftEAR = calculateEAR(leftEye);
         const rightEAR = calculateEAR(rightEye);
-        return (leftEAR + rightEAR) / 2 < 0.2;
+        const avgEAR = (leftEAR + rightEAR) / 2;
+        const prevEAR = previousEARRef.current;
+        const currentState = blinkStateRef.current;
+        
+        // Calculate drop percentage
+        const dropPercent = ((prevEAR - avgEAR) / prevEAR) * 100;
+        
+        console.log('Blink2 EAR:', avgEAR.toFixed(3), 'Prev:', prevEAR.toFixed(3), 'Drop%:', dropPercent.toFixed(1), 'State:', currentState);
+        
+        // Detect significant drop (10% or more)
+        if (currentState === 'open' && dropPercent > 10) {
+          blinkStateRef.current = 'closed';
+          console.log('Eyes closing - drop detected!');
+        }
+        // Eyes opening again (EAR rising by at least 5%)
+        else if (currentState === 'closed') {
+          const risePercent = ((avgEAR - prevEAR) / prevEAR) * 100;
+          if (risePercent > 5) {
+            blinkStateRef.current = 'open';
+            previousEARRef.current = avgEAR;
+            console.log('BLINK DETECTED!');
+            return true;
+          }
+        }
+        
+        previousEARRef.current = avgEAR;
+        return false;
       }
     }
   ];
@@ -215,6 +291,8 @@ export default function FaceVerificationModal({ open, onClose, application }) {
 
       // Wait for gesture detection
       const startTime = Date.now();
+      let gestureDetected = false;
+      
       const detectionInterval = setInterval(async () => {
         if (!videoRef.current || videoRef.current.paused) {
           clearInterval(detectionInterval);
@@ -231,7 +309,10 @@ export default function FaceVerificationModal({ open, onClose, application }) {
           drawLandmarks(detections);
 
           // Check if gesture is performed
-          if (instruction.check(detections.landmarks)) {
+          if (!gestureDetected && instruction.check(detections.landmarks)) {
+            gestureDetected = true;
+            console.log(`Gesture detected for ${instruction.id}`);
+            
             // Capture frame
             const canvas = document.createElement('canvas');
             canvas.width = videoRef.current.videoWidth;
@@ -248,21 +329,17 @@ export default function FaceVerificationModal({ open, onClose, application }) {
 
             clearInterval(detectionInterval);
             
-            // Move to next instruction after delay
+            // Reset blink state for next instruction
+            blinkStateRef.current = 'open';
+            
+            // Move to next instruction after brief pause
             setTimeout(() => {
               instructionIndex++;
               processInstruction();
             }, 500);
           }
         }
-
-        // Timeout if gesture not detected
-        if (Date.now() - startTime > instruction.duration + 5000) {
-          clearInterval(detectionInterval);
-          setError(isEnglish ? 'Gesture not detected. Please try again.' : 'অঙ্গভঙ্গি সনাক্ত করা যায়নি। আবার চেষ্টা করুন।');
-          setStep('failed');
-        }
-      }, 100);
+      }, 200); // Check every 200ms
     };
 
     processInstruction();
@@ -283,14 +360,14 @@ export default function FaceVerificationModal({ open, onClose, application }) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Draw face landmarks
-    faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
+    // Disable landmark drawing for better UX
+    // faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
     
-    // Draw face detection box
-    const box = resizedDetections.detection.box;
-    ctx.strokeStyle = '#10b981';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(box.x, box.y, box.width, box.height);
+    // Disable detection box for cleaner look
+    // const box = resizedDetections.detection.box;
+    // ctx.strokeStyle = '#10b981';
+    // ctx.lineWidth = 3;
+    // ctx.strokeRect(box.x, box.y, box.width, box.height);
   };
 
   // Perform face matching with NID image
@@ -298,41 +375,72 @@ export default function FaceVerificationModal({ open, onClose, application }) {
     try {
       setProcessing(true);
 
-      // Load NID face image
+      console.log('=== Starting Face Matching ===');
+      console.log('Application:', application);
+      console.log('NID Face URL:', application?.nid_face_extracted_url);
+      
+      if (!application || !application.nid_face_extracted_url) {
+        throw new Error('NID face image URL is missing');
+      }
+
+      console.log('Loading NID image from:', application.nid_face_extracted_url);
+      
+      // Load NID face image with better options
       const nidImage = await faceapi.fetchImage(application.nid_face_extracted_url);
+      console.log('NID image loaded, size:', nidImage.width, 'x', nidImage.height);
+      console.log('Detecting face in NID image...');
+      
+      // Try with more lenient detection options for NID image
       const nidDetection = await faceapi
-        .detectSingleFace(nidImage, new faceapi.TinyFaceDetectorOptions())
+        .detectSingleFace(nidImage, new faceapi.TinyFaceDetectorOptions({
+          inputSize: 512,
+          scoreThreshold: 0.3
+        }))
         .withFaceLandmarks()
         .withFaceDescriptor();
 
       if (!nidDetection) {
-        throw new Error('Could not detect face in NID image');
+        console.error('Failed to detect face in NID image');
+        throw new Error('Could not detect face in NID image. Please ensure the NID image contains a clear, frontal face photo.');
       }
 
+      console.log('Face detected in NID image successfully');
+      console.log('NID face descriptor length:', nidDetection.descriptor.length);
+
       // Compare with captured frames
-      const distances = frames.map(frame => 
-        faceapi.euclideanDistance(nidDetection.descriptor, frame.descriptor)
-      );
+      console.log('Comparing with', frames.length, 'captured frames...');
+      const distances = frames.map((frame, idx) => {
+        const dist = faceapi.euclideanDistance(nidDetection.descriptor, frame.descriptor);
+        console.log(`Frame ${idx + 1} (${frame.instruction}): distance = ${dist.toFixed(4)}`);
+        return dist;
+      });
 
       const avgDistance = distances.reduce((a, b) => a + b, 0) / distances.length;
       const similarityScore = Math.max(0, (1 - avgDistance) * 100);
 
+      console.log('Average distance:', avgDistance.toFixed(4));
+      console.log('Similarity score:', similarityScore.toFixed(2) + '%');
+      
       setMatchScore(similarityScore);
 
-      // Threshold for match (typically 0.6 distance = 40% similarity)
-      if (similarityScore >= 60) {
-        // Match successful
+      // Threshold: 50%
+      if (similarityScore >= 50) {
+        console.log('Match successful! Updating application...');
         await updateApplicationStatus(frames[0].image, similarityScore);
       } else {
+        console.log('Match failed - score too low');
         setStep('failed');
         setError(isEnglish 
-          ? `Face verification failed. Match score: ${similarityScore.toFixed(1)}%. Please try again.`
-          : `ফেস যাচাইকরণ ব্যর্থ। মিল স্কোর: ${similarityScore.toFixed(1)}%। আবার চেষ্টা করুন।`
+          ? `Face verification failed. Match score: ${similarityScore.toFixed(1)}%. Required: 50%. Please try again with better lighting and face the camera directly.`
+          : `ফেস যাচাইকরণ ব্যর্থ। মিল স্কোর: ${similarityScore.toFixed(1)}%। প্রয়োজন: 50%। ভাল আলোয় এবং সরাসরি ক্যামেরার দিকে তাকিয়ে আবার চেষ্টা করুন।`
         );
       }
     } catch (error) {
       console.error('Face matching error:', error);
-      setError(isEnglish ? 'Face verification failed. Please try again.' : 'ফেস যাচাইকরণ ব্যর্থ। আবার চেষ্টা করুন।');
+      setError(isEnglish 
+        ? `Face verification error: ${error.message}` 
+        : `ফেস যাচাইকরণ ত্রুটি: ${error.message}`
+      );
       setStep('failed');
     } finally {
       setProcessing(false);
@@ -357,14 +465,14 @@ export default function FaceVerificationModal({ open, onClose, application }) {
         p_user_id: user.id,
         p_title_en: 'Face Verification Successful',
         p_title_bn: 'ফেস যাচাইকরণ সফল',
-        p_message_en: `Your face verification for application ${application.application_number} is complete. Match score: ${score.toFixed(1)}%. Next step: Online Exam.`,
-        p_message_bn: `আপনার আবেদন ${application.application_number} এর ফেস যাচাইকরণ সম্পন্ন। মিল স্কোর: ${score.toFixed(1)}%। পরবর্তী ধাপ: অনলাইন পরীক্ষা।`,
+        p_message_en: `Your face verification for application ${application.application_number} is complete. Next step: Online Exam.`,
+        p_message_bn: `আপনার আবেদন ${application.application_number} এর ফেস যাচাইকরণ সম্পন্ন। পরবর্তী ধাপ: অনলাইন পরীক্ষা।`,
         p_type: 'verification',
         p_application_id: application.id,
         p_admin_title_en: 'Face Verified',
         p_admin_title_bn: 'ফেস যাচাই সম্পন্ন',
-        p_admin_message_en: `${application.license_type}-${application.license_category}: ${application.full_name_en} (${application.application_number}) - ${score.toFixed(1)}%`,
-        p_admin_message_bn: `${application.license_type}-${application.license_category}: ${application.full_name_bn} (${application.application_number}) - ${score.toFixed(1)}%`
+        p_admin_message_en: `${application.license_type}-${application.license_category}: ${application.full_name_en} (${application.application_number})`,
+        p_admin_message_bn: `${application.license_type}-${application.license_category}: ${application.full_name_bn} (${application.application_number})`
       });
 
       setStep('success');
@@ -510,9 +618,6 @@ export default function FaceVerificationModal({ open, onClose, application }) {
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
               {isEnglish ? 'Verification Successful' : 'যাচাইকরণ সফল'}
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              {isEnglish ? 'Match Score:' : 'মিল স্কোর:'} <span className="font-bold text-green-600">{matchScore.toFixed(1)}%</span>
-            </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {isEnglish ? 'Your application is moving to the next step...' : 'আপনার আবেদন পরবর্তী ধাপে যাচ্ছে...'}
             </p>
@@ -550,14 +655,14 @@ export default function FaceVerificationModal({ open, onClose, application }) {
 
   if (!open) return null;
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        style={{ zIndex: 99999 }}
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black/70 flex items-center justify-center p-4"
+        style={{ zIndex: 9999 }}
         onClick={(e) => {
           if (e.target === e.currentTarget && step !== 'instructions' && step !== 'verification') {
             handleClose();
@@ -601,4 +706,6 @@ export default function FaceVerificationModal({ open, onClose, application }) {
       </motion.div>
     </AnimatePresence>
   );
+
+  return createPortal(modalContent, document.body);
 }

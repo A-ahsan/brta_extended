@@ -2,6 +2,9 @@ import { motion } from 'framer-motion';
 import { CheckCircle, Clock, XCircle, IdentificationCard, User, FileText, FirstAid, CreditCard, Check } from 'phosphor-react';
 import { useLanguage } from '../contexts/AppContext';
 import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabaseClient';
+import toast from 'react-hot-toast';
 import FaceVerificationModal from './FaceVerificationModal';
 import OnlineExamModal from './OnlineExamModal';
 import PhysicalExamBooking from './PhysicalExamBooking';
@@ -54,9 +57,53 @@ const steps = [
 export default function ProgressTracker({ application }) {
   const { language } = useLanguage();
   const isEnglish = language === 'en';
+  const { user } = useAuth();
   const [showFaceModal, setShowFaceModal] = useState(false);
   const [showExamModal, setShowExamModal] = useState(false);
   const [showPhysicalExamModal, setShowPhysicalExamModal] = useState(false);
+  const [initiating, setInitiating] = useState(false);
+  // License fee (should match UserPayments)
+  const LICENSE_FEE = 2230;
+
+  // Payment handler (copied/adapted from UserPayments)
+  async function handlePay() {
+    setInitiating(true);
+    const tran_id = `DL${Date.now()}${Math.floor(Math.random()*1000)}`;
+    try {
+      // Insert payment record as initiated
+      await supabase.from('payments').insert({
+        user_id: user.id,
+        application_id: application.id,
+        amount: LICENSE_FEE,
+        currency: 'BDT',
+        tran_id,
+        status: 'initiated',
+      });
+      // Call backend to get payment URL
+      const res = await fetch('http://localhost:5000/api/payment/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: LICENSE_FEE,
+          customerName: user.user_metadata?.full_name || user.email,
+          customerEmail: user.email,
+          tran_id,
+          application_id: application.id,
+          user_id: user.id,
+        }),
+      });
+      const data = await res.json();
+      setInitiating(false);
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error(isEnglish ? 'Failed to initiate payment' : 'পেমেন্ট শুরু করতে ব্যর্থ');
+      }
+    } catch (err) {
+      setInitiating(false);
+      toast.error(isEnglish ? 'Failed to initiate payment' : 'পেমেন্ট শুরু করতে ব্যর্থ');
+    }
+  }
 
   // Check step status based on flags (0 or 1)
   const getStepStatus = (step) => {
@@ -235,6 +282,19 @@ export default function ProgressTracker({ application }) {
                     className="mt-3 text-xs px-4 py-2 bg-gradient-to-r from-primary to-green-600 hover:from-primary-dark hover:to-green-700 text-white rounded-md font-semibold transition-all shadow-md"
                   >
                     {isEnglish ? 'Schedule Exam' : 'পরীক্ষা নির্ধারণ'}
+                  </button>
+                )}
+
+                {/* Action button for payment */}
+                {step.key === 'payment' && isActive && (
+                  <button
+                    onClick={handlePay}
+                    disabled={initiating}
+                    className="mt-3 text-xs px-4 py-2 bg-gradient-to-r from-primary to-green-600 hover:from-primary-dark hover:to-green-700 text-white rounded-md font-semibold transition-all shadow-md disabled:opacity-60"
+                  >
+                    {initiating
+                      ? (isEnglish ? 'Processing...' : 'প্রসেস হচ্ছে...')
+                      : (isEnglish ? 'Pay Now' : 'এখনই পরিশোধ করুন')}
                   </button>
                 )}
 

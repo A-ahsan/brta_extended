@@ -678,6 +678,7 @@ const UserDashboard = () => {
     { id: 'vehicle', icon: <Car size={24} weight="duotone" />, label: t.vehicleRegistration },
     { id: 'questionbank', icon: <BookOpen size={24} weight="duotone" />, label: language === 'en' ? 'Question Bank' : 'প্রশ্ন ব্যাংক' },
     { id: 'calculator', icon: <Calculator size={24} weight="duotone" />, label: t.costCalculator },
+    // Removed 'dlpayment' tab. Payment is now only in Progress Tracker.
     { id: 'payments', icon: <CreditCard size={24} weight="duotone" />, label: t.myPayments },
     { id: 'profile', icon: <User size={24} weight="duotone" />, label: t.profile },
     { id: 'settings', icon: <Gear size={24} weight="duotone" />, label: t.settings },
@@ -713,6 +714,10 @@ const UserDashboard = () => {
         return 'bg-gray-500/20 text-gray-600 border-gray-500';
     }
   };
+
+
+  // Import UserPayments page at the top (add this line to your imports):
+  // import UserPayments from './UserPayments.jsx';
 
   const renderContent = () => {
     switch (activeTab) {
@@ -809,44 +814,10 @@ const UserDashboard = () => {
           </div>
         );
 
+      // Removed 'dlpayment' tab logic. Payment is now only in Progress Tracker.
       case 'payments':
-        return (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">{t.myPayments}</h2>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-primary text-white">
-                  <tr>
-                    <th className="px-6 py-4 text-left">{language === 'en' ? 'Purpose' : 'উদ্দেশ্য'}</th>
-                    <th className="px-6 py-4 text-left">{language === 'en' ? 'Amount' : 'পরিমাণ'}</th>
-                    <th className="px-6 py-4 text-left">{language === 'en' ? 'Date' : 'তারিখ'}</th>
-                    <th className="px-6 py-4 text-left">{language === 'en' ? 'Status' : 'অবস্থা'}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.map((payment, index) => (
-                    <motion.tr
-                      key={payment.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      <td className="px-6 py-4 text-gray-800 dark:text-white">{payment.purpose}</td>
-                      <td className="px-6 py-4 text-gray-800 dark:text-white font-semibold">{payment.amount}</td>
-                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{payment.date}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(payment.status)}`}>
-                          {payment.status}
-                        </span>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
+        // ...existing code for generic payments/history if needed
+        return null;
 
       case 'booking':
         return (

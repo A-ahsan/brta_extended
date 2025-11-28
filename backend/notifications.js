@@ -1,0 +1,46 @@
+// Notification helpers for backend
+import { supabase } from './supabaseClient.js';
+
+async function sendPaymentNotification({ user_id, application_id, status, amount, tran_id, isAdmin = false }) {
+  // Compose bilingual messages
+  let title_en, title_bn, message_en, message_bn;
+  if (status === 'success') {
+    title_en = 'Payment Successful';
+    title_bn = 'পেমেন্ট সফল হয়েছে';
+    message_en = `Your payment of BDT ${amount} for application ${tran_id} was successful.`;
+    message_bn = `আপনার আবেদন ${tran_id} এর জন্য BDT ${amount} পেমেন্ট সফল হয়েছে।`;
+  } else if (status === 'failed') {
+    title_en = 'Payment Failed';
+    title_bn = 'পেমেন্ট ব্যর্থ হয়েছে';
+    message_en = `Your payment for application ${tran_id} failed. Please try again.`;
+    message_bn = `আপনার আবেদন ${tran_id} এর জন্য পেমেন্ট ব্যর্থ হয়েছে। আবার চেষ্টা করুন।`;
+  } else if (status === 'cancelled') {
+    title_en = 'Payment Cancelled';
+    title_bn = 'পেমেন্ট বাতিল হয়েছে';
+    message_en = `Your payment for application ${tran_id} was cancelled.`;
+    message_bn = `আপনার আবেদন ${tran_id} এর জন্য পেমেন্ট বাতিল হয়েছে।`;
+  }
+
+  // Admin gets a different message
+  if (isAdmin) {
+    title_en = `User Payment ${status.charAt(0).toUpperCase() + status.slice(1)}`;
+    title_bn = `ইউজার পেমেন্ট ${status === 'success' ? 'সফল' : status === 'failed' ? 'ব্যর্থ' : 'বাতিল'}`;
+    message_en = `User (ID: ${user_id}) payment for application ${tran_id}: ${status.toUpperCase()}. Amount: BDT ${amount}`;
+    message_bn = `ইউজার (ID: ${user_id}) আবেদন ${tran_id} এর জন্য পেমেন্ট: ${status === 'success' ? 'সফল' : status === 'failed' ? 'ব্যর্থ' : 'বাতিল'}। পরিমাণ: BDT ${amount}`;
+  }
+
+  // Insert notification
+  await supabase.from('notifications').insert({
+    user_id: isAdmin ? null : user_id, // null for admin notification
+    application_id,
+    title_en,
+    title_bn,
+    message_en,
+    message_bn,
+    type: 'payment',
+    recipient_type: isAdmin ? 'admin' : 'user',
+    created_at: new Date().toISOString(),
+  });
+}
+
+export { sendPaymentNotification };

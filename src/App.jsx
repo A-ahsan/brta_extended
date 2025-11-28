@@ -22,6 +22,8 @@ const AboutUs = lazy(() => import('./pages/AboutUs'));
 const UserNotifications = lazy(() => import('./pages/UserNotifications'));
 const AdminNotifications = lazy(() => import('./pages/admin/AdminNotifications'));
 const PoliceNotifications = lazy(() => import('./pages/police/PoliceNotifications'));
+const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'));
+const PaymentFail = lazy(() => import('./pages/PaymentFail'));
 
 function App() {
   return (
@@ -71,6 +73,8 @@ function App() {
                   <Route path="/fee-calculator" element={<FeeCalculator />} />
                   <Route path="/notices" element={<Notices />} />
                   <Route path="/about" element={<AboutUs />} />
+                  <Route path="/payment-success" element={<PaymentSuccess />} />
+                  <Route path="/payment-fail" element={<PaymentFail />} />
                   
                   {/* Authentication Routes */}
                   <Route path="/login" element={<Login />} />

@@ -3,41 +3,57 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MegaphoneSimple, X, Sparkle, CalendarBlank, CurrencyDollar, DeviceMobile, Lightning } from 'phosphor-react';
 import { useLanguage } from '../contexts/AppContext';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient';
 
 const NoticesTicker = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
+  const [tickerNotices, setTickerNotices] = useState([]);
 
-  // Mock ticker notices with professional icons
-  const tickerNotices = [
-    {
-      en: 'NEW: Online License Renewal System Now Live - Apply from Home',
-      bn: 'নতুন: অনলাইন লাইসেন্স নবায়ন সিস্টেম চালু - ঘর থেকে আবেদন করুন',
-      badge: 'NEW'
-    },
-    {
-      en: 'SCHEDULE: Driving Test December 2025 - Book Your Slots Now',
-      bn: 'সময়সূচী: ড্রাইভিং পরীক্ষা ডিসেম্বর ২০২৫ - এখনই স্লট বুক করুন',
-      badge: 'SCHEDULE'
-    },
-    {
-      en: 'EXTENDED: Tax Token Payment Deadline - Dec 31, 2025',
-      bn: 'বর্ধিত: ট্যাক্স টোকেন পেমেন্টের সময়সীমা - ৩১ ডিসেম্বর, ২০২৫',
-      badge: 'EXTENDED'
-    },
-    {
-      en: 'UPDATE: BRTA Go Mobile App Available - Download Now',
-      bn: 'আপডেট: BRTA Go মোবাইল অ্যাপ উপলব্ধ - এখনই ডাউনলোড করুন',
-      badge: 'UPDATE'
-    },
-    {
-      en: 'NOTICE: 100% Digital Services Available 24/7 - No Middlemen',
-      bn: 'নোটিশ: ১০০% ডিজিটাল সেবা ২৪/৭ উপলব্ধ - কোন মধ্যস্থতাকারী নেই',
-      badge: 'NOTICE'
-    }
-  ];
+  // Fetch ticker notices from database
+  useEffect(() => {
+    const fetchTickerNotices = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('notices')
+          .select('title_en, title_bn, badge')
+          .eq('is_active', true)
+          .eq('show_in_ticker', true)
+          .order('publish_date', { ascending: false });
+
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          setTickerNotices(data.map(notice => ({
+            en: notice.badge ? `${notice.badge}: ${notice.title_en}` : notice.title_en,
+            bn: notice.badge ? `${notice.badge}: ${notice.title_bn}` : notice.title_bn,
+            badge: notice.badge
+          })));
+        }
+      } catch (error) {
+        console.error('Error fetching ticker notices:', error);
+      }
+    };
+
+    fetchTickerNotices();
+
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel('ticker_notices_changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'notices' },
+        () => {
+          fetchTickerNotices();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Format notices with professional badges
   const formatNotice = (notice) => {
@@ -45,7 +61,9 @@ const NoticesTicker = () => {
     return text;
   };
 
-  const noticeText = tickerNotices.map(formatNotice).join('  •  ');
+  const noticeText = tickerNotices.length > 0 
+    ? tickerNotices.map(formatNotice).join('  •  ')
+    : (language === 'en' ? 'Welcome to BRTA Digital Services' : 'BRTA ডিজিটাল সেবায় স্বাগতম');
 
   if (!isVisible) return null;
 
@@ -83,20 +101,21 @@ const NoticesTicker = () => {
             onClick={() => navigate('/notices')}
           >
             <motion.div
-              className="whitespace-nowrap"
+              className="whitespace-nowrap inline-block"
               animate={{
-                x: isPaused ? 0 : [0, -2000]
+                x: isPaused ? 0 : ["0%", "-50%"]
               }}
               transition={{
                 x: {
-                  duration: isPaused ? 0 : 40,
+                  duration: isPaused ? 0 : 20,
                   repeat: Infinity,
-                  ease: "linear"
+                  ease: "linear",
+                  repeatType: "loop"
                 }
               }}
             >
               <span className="text-white font-medium text-sm md:text-base">
-                {noticeText}  •  {noticeText}  •  {noticeText}
+                {noticeText}  •  {noticeText}
               </span>
             </motion.div>
           </div>

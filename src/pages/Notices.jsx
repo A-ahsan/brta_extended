@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   MegaphoneSimple, Calendar, Tag, ArrowRight, X, 
@@ -7,106 +7,71 @@ import {
 import { useLanguage } from '../contexts/AppContext';
 import { translations } from '../utils/translations';
 import Navbar from '../components/Navbar';
+import { supabase } from '../lib/supabaseClient';
 
 const Notices = () => {
   const { language } = useLanguage();
   const t = translations[language].noticesPage;
   const [selectedNotice, setSelectedNotice] = useState(null);
   const [filterCategory, setFilterCategory] = useState('all');
+  const [notices, setNotices] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock notices data
-  const notices = [
-    {
-      id: 1,
-      title: language === 'en' 
-        ? 'New Online License Renewal System Launch' 
-        : 'নতুন অনলাইন লাইসেন্স নবায়ন সিস্টেম চালু',
-      category: 'license',
-      date: '2025-11-20',
-      excerpt: language === 'en'
-        ? 'BRTA introduces a fully digital license renewal system. No physical visit required.'
-        : 'BRTA সম্পূর্ণ ডিজিটাল লাইসেন্স নবায়ন সিস্টেম চালু করেছে। কোন শারীরিক উপস্থিতির প্রয়োজন নেই।',
-      content: language === 'en'
-        ? 'We are excited to announce the launch of our new online license renewal system. Citizens can now renew their driving licenses from the comfort of their homes. The system includes biometric verification, online payment, and instant processing. Valid from December 1, 2025.'
-        : 'আমরা আমাদের নতুন অনলাইন লাইসেন্স নবায়ন সিস্টেম চালুর ঘোষণা দিতে পেরে আনন্দিত। নাগরিকরা এখন তাদের ঘর থেকে তাদের ড্রাইভিং লাইসেন্স নবায়ন করতে পারবেন। সিস্টেমে বায়োমেট্রিক যাচাইকরণ, অনলাইন পেমেন্ট এবং তাৎক্ষণিক প্রক্রিয়াকরণ অন্তর্ভুক্ত রয়েছে। ১ ডিসেম্বর, ২০২৫ থেকে কার্যকর।',
-      trending: false
-    },
-    {
-      id: 2,
-      title: language === 'en'
-        ? 'Driving Test Schedule - December 2025'
-        : 'ড্রাইভিং পরীক্ষার সময়সূচী - ডিসেম্বর ২০২৫',
-      category: 'exam',
-      date: '2025-11-18',
-      excerpt: language === 'en'
-        ? 'Updated schedule for driving tests in all regional offices.'
-        : 'সকল আঞ্চলিক অফিসে ড্রাইভিং পরীক্ষার আপডেট সময়সূচী।',
-      content: language === 'en'
-        ? 'The driving test schedule for December 2025 has been published. Tests will be conducted from December 5-20 in all major cities. Slots are now available for booking through our online portal. Please bring your acknowledgment receipt and original documents.'
-        : 'ডিসেম্বর ২০২৫ এর জন্য ড্রাইভিং পরীক্ষার সময়সূচী প্রকাশিত হয়েছে। সকল প্রধান শহরে ৫-২০ ডিসেম্বর পরীক্ষা অনুষ্ঠিত হবে। আমাদের অনলাইন পোর্টালের মাধ্যমে স্লট বুকিং এখন উপলব্ধ। অনুগ্রহ করে আপনার স্বীকৃতি রসিদ এবং মূল নথি আনুন।',
-      trending: false
-    },
-    {
-      id: 3,
-      title: language === 'en'
-        ? 'Tax Token Payment Deadline Extended'
-        : 'ট্যাক্স টোকেন পেমেন্টের সময়সীমা বর্ধিত',
-      category: 'tax',
-      date: '2025-11-15',
-      excerpt: language === 'en'
-        ? 'Annual tax token payment deadline extended to December 31, 2025.'
-        : 'বার্ষিক ট্যাক্স টোকেন পেমেন্টের সময়সীমা ৩১ ডিসেম্বর, ২০২৫ পর্যন্ত বর্ধিত।',
-      content: language === 'en'
-        ? 'In consideration of public convenience, the deadline for annual tax token payment has been extended to December 31, 2025. No late fees will be charged for payments made before this date. Pay online to avoid queues.'
-        : 'জনসাধারণের সুবিধার কথা বিবেচনা করে, বার্ষিক ট্যাক্স টোকেন পেমেন্টের সময়সীমা ৩১ ডিসেম্বর, ২০২৫ পর্যন্ত বর্ধিত করা হয়েছে। এই তারিখের আগে করা পেমেন্টের জন্য কোন বিলম্ব ফি চার্জ করা হবে না। লাইন এড়াতে অনলাইনে পেমেন্ট করুন।',
-      trending: false
-    },
-    {
-      id: 4,
-      title: language === 'en'
-        ? 'System Maintenance Notice'
-        : 'সিস্টেম রক্ষণাবেক্ষণ নোটিশ',
-      category: 'maintenance',
-      date: '2025-11-12',
-      excerpt: language === 'en'
-        ? 'Scheduled maintenance on November 25, 2025 from 12 AM to 6 AM.'
-        : '২৫ নভেম্বর, ২০২৫ রাত ১২টা থেকে সকাল ৬টা পর্যন্ত নির্ধারিত রক্ষণাবেক্ষণ।',
-      content: language === 'en'
-        ? 'Our online services will be temporarily unavailable due to scheduled system maintenance on November 25, 2025, from 12:00 AM to 6:00 AM. We apologize for any inconvenience. All services will resume normal operation after 6 AM.'
-        : 'আমাদের অনলাইন সেবা ২৫ নভেম্বর, ২০২৫ রাত ১২:০০টা থেকে সকাল ৬:০০টা পর্যন্ত নির্ধারিত সিস্টেম রক্ষণাবেক্ষণের কারণে সাময়িকভাবে অনুপলব্ধ থাকবে। যেকোনো অসুবিধার জন্য আমরা দুঃখিত। সকাল ৬টার পরে সমস্ত সেবা স্বাভাবিক কার্যক্রম পুনরায় শুরু করবে।',
-      trending: false
-    },
-    {
-      id: 5,
-      title: language === 'en'
-        ? 'New Vehicle Registration Fees Announced'
-        : 'নতুন যানবাহন নিবন্ধন ফি ঘোষণা',
-      category: 'vehicle',
-      date: '2025-11-10',
-      excerpt: language === 'en'
-        ? 'Updated fee structure for vehicle registration effective from January 1, 2026.'
-        : '১ জানুয়ারী, ২০২৬ থেকে কার্যকর যানবাহন নিবন্ধনের জন্য আপডেট ফি কাঠামো।',
-      content: language === 'en'
-        ? 'The government has announced a new fee structure for vehicle registration. The updated fees will be effective from January 1, 2026. Please use our online fee calculator to estimate your registration costs. Discounts available for electric vehicles.'
-        : 'সরকার যানবাহন নিবন্ধনের জন্য একটি নতুন ফি কাঠামো ঘোষণা করেছে। আপডেট করা ফি ১ জানুয়ারী, ২০২৬ থেকে কার্যকর হবে। আপনার নিবন্ধন খরচ অনুমান করতে অনুগ্রহ করে আমাদের অনলাইন ফি ক্যালকুলেটর ব্যবহার করুন। বৈদ্যুতিক যানবাহনের জন্য ছাড় উপলব্ধ।',
-      trending: false
-    },
-    {
-      id: 6,
-      title: language === 'en'
-        ? 'Mobile App Launch - BRTA Go'
-        : 'মোবাইল অ্যাপ লঞ্চ - BRTA Go',
-      category: 'general',
-      date: '2025-11-08',
-      excerpt: language === 'en'
-        ? 'Download the new BRTA Go app for seamless access to all services.'
-        : 'সকল সেবায় নির্বিঘ্ন প্রবেশের জন্য নতুন BRTA Go অ্যাপ ডাউনলোড করুন।',
-      content: language === 'en'
-        ? 'BRTA is proud to launch its official mobile application - BRTA Go. The app provides all services including license applications, vehicle registration, fee payment, and slot booking. Available on iOS and Android. Download now from your app store.'
-        : 'BRTA তার অফিসিয়াল মোবাইল অ্যাপ্লিকেশন - BRTA Go চালু করতে পেরে গর্বিত। অ্যাপটি লাইসেন্স আবেদন, যানবাহন নিবন্ধন, ফি পেমেন্ট এবং স্লট বুকিং সহ সকল সেবা প্রদান করে। iOS এবং Android এ উপলব্ধ। আপনার অ্যাপ স্টোর থেকে এখনই ডাউনলোড করুন।',
-      trending: false
-    }
-  ];
+  // Fetch notices from database
+  useEffect(() => {
+    const fetchNotices = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('notices')
+          .select('*')
+          .eq('is_active', true)
+          .order('publish_date', { ascending: false });
+
+        if (error) throw error;
+        
+        if (data) {
+          // Transform data to match the expected format
+          const transformedNotices = data.map(notice => ({
+            id: notice.id,
+            title: language === 'en' ? notice.title_en : notice.title_bn,
+            category: notice.category,
+            date: notice.publish_date,
+            excerpt: language === 'en' ? notice.excerpt_en : notice.excerpt_bn,
+            content: language === 'en' ? notice.content_en : notice.content_bn,
+            trending: notice.is_trending,
+            // Store both languages for modal display
+            _raw: notice
+          }));
+          setNotices(transformedNotices);
+        }
+      } catch (error) {
+        console.error('Error fetching notices:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNotices();
+
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel('notices_changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'notices' },
+        () => {
+          fetchNotices();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [language]);
+
+  // Mock notices data (REMOVED - now fetched from database)
+  const mockNotices = [];
 
   const getCategoryColor = (category) => {
     const colors = {
@@ -217,11 +182,15 @@ const Notices = () => {
           </motion.div>
 
           {/* Notices Grid */}
-          <motion.div
-            className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            <AnimatePresence mode="wait">
-              {filteredNotices.map((notice, index) => (
+          {loading ? (
+            <div className="text-center py-20">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-4 text-gray-600 dark:text-gray-400">Loading notices...</p>
+            </div>
+          ) : (
+            <motion.div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <AnimatePresence mode="wait">
+                {filteredNotices.map((notice, index) => (
                 <motion.div
                   key={notice.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -296,11 +265,12 @@ const Notices = () => {
                   />
                 </motion.div>
               ))}
-            </AnimatePresence>
-          </motion.div>
+              </AnimatePresence>
+            </motion.div>
+          )}
 
           {/* No Results */}
-          {filteredNotices.length === 0 && (
+          {!loading && filteredNotices.length === 0 && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

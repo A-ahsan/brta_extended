@@ -11,6 +11,7 @@ import {
   ChartLine,
   BookOpen,
   Eye,
+  MegaphoneSimple,
 } from 'phosphor-react';
 import { useLanguage, useTheme } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,6 +24,7 @@ import AdminApplications from './admin/AdminApplications';
 import AdminSlots from './admin/AdminSlots';
 import AdminQuestions from './admin/AdminQuestions';
 import AdminTestCenters from './admin/AdminTestCenters';
+import AdminNoticesManagement from './admin/AdminNoticesManagement';
 
 const AdminPanel = () => {
   const navigate = useNavigate();
@@ -133,6 +135,11 @@ const AdminPanel = () => {
       path: '/admin/questions', 
       label: language === 'en' ? 'Questions' : 'প্রশ্নসমূহ',
       icon: BookOpen 
+    },
+    { 
+      path: '/admin/notices', 
+      label: language === 'en' ? 'Notices' : 'নোটিশসমূহ',
+      icon: MegaphoneSimple 
     },
   ];
 
@@ -410,6 +417,7 @@ const AdminPanel = () => {
               <Route path="/test-centers" element={<AdminTestCenters />} />
               <Route path="/slots" element={<AdminSlots />} />
               <Route path="/questions" element={<AdminQuestions />} />
+              <Route path="/notices" element={<AdminNoticesManagement />} />
               <Route path="/" element={<AdminOverview />} />
             </Routes>
           </div>

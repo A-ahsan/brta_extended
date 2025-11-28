@@ -208,9 +208,9 @@ const Notices = () => {
                   {/* Trending Badge */}
                   {notice.trending && (
                     <motion.div
-                      initial={{ x: -100 }}
+                      initial={{ x: 100 }}
                       animate={{ x: 0 }}
-                      className="absolute top-4 -left-8 bg-red-500 text-white px-10 py-1 transform -rotate-45 text-xs font-bold flex items-center gap-1"
+                      className="absolute top-4 -right-8 bg-red-500 text-white px-10 py-1 transform rotate-45 text-xs font-bold flex items-center gap-1 z-10"
                     >
                       <TrendUp size={14} weight="bold" />
                       {language === 'en' ? 'TRENDING' : 'জনপ্রিয়'}

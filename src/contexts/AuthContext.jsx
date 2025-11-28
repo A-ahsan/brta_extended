@@ -112,9 +112,17 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const signIn = async (email, password) => {
+  const signIn = async (email, password, remember = true) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // If remember is false, create a temp client with persistSession: false
+      let client = supabase;
+      if (remember === false) {
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        client = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } });
+      }
+      const { data, error } = await client.auth.signInWithPassword({
         email,
         password
       });

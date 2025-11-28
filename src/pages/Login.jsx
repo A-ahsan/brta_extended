@@ -23,7 +23,7 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    const result = await signIn(formData.email, formData.password);
+    const result = await signIn(formData.email, formData.password, formData.remember);
 
     setIsLoading(false);
 

@@ -134,20 +134,20 @@ const AdminApplications = () => {
 
       // Bilingual notification messages for user (no DL info)
       const userTitleEn = result === 'passed' ? 'Physical Exam Passed ✅' : 'Physical Exam Failed ❌';
-      const userTitleBn = result === 'passed' ? 'শারীরিক পরীক্ষা উত্তীর্ণ ✅' : 'শারীরিক পরীক্ষা ব্যর্থ ❌';
+      const userTitleBn = result === 'passed' ? ' পরীক্ষা উত্তীর্ণ ✅' : ' পরীক্ষা ব্যর্থ ❌';
       const userMsgEn = result === 'passed'
         ? `Congratulations! You have passed the physical driving exam.${remarks ? ' Remarks: ' + remarks : ''}`
         : `Unfortunately, you did not pass the physical driving exam. Please book again.${remarks ? ' Remarks: ' + remarks : ''}`;
       const userMsgBn = result === 'passed'
-        ? `অভিনন্দন! আপনি শারীরিক ড্রাইভিং পরীক্ষায় উত্তীর্ণ হয়েছেন।${remarks ? ' মন্তব্য: ' + remarks : ''}`
-        : `দুঃখিত, আপনি শারীরিক ড্রাইভিং পরীক্ষায় উত্তীর্ণ হননি। অনুগ্রহ করে আবার বুক করুন।${remarks ? ' মন্তব্য: ' + remarks : ''}`;
+        ? `অভিনন্দন! আপনি  ড্রাইভিং পরীক্ষায় উত্তীর্ণ হয়েছেন।${remarks ? ' মন্তব্য: ' + remarks : ''}`
+        : `দুঃখিত, আপনি  ড্রাইভিং পরীক্ষায় উত্তীর্ণ হননি। অনুগ্রহ করে আবার বুক করুন।${remarks ? ' মন্তব্য: ' + remarks : ''}`;
 
       // Admin notification with DL info
       const dlInfo = `DL: ${booking.license_applications.application_number} (${booking.license_applications.license_type} - ${booking.license_applications.license_category})`;
       const adminTitleEn = 'Physical Exam Evaluated 📋';
-      const adminTitleBn = 'শারীরিক পরীক্ষা মূল্যায়ন 📋';
+      const adminTitleBn = ' পরীক্ষা মূল্যায়ন 📋';
       const adminMsgEn = `Physical exam ${result} for ${booking.license_applications.full_name_en}. ${dlInfo}`;
-      const adminMsgBn = `${booking.license_applications.full_name_bn} এর শারীরিক পরীক্ষা ${result === 'passed' ? 'উত্তীর্ণ' : 'ব্যর্থ'}। ${dlInfo}`;
+      const adminMsgBn = `${booking.license_applications.full_name_bn} এর  পরীক্ষা ${result === 'passed' ? 'উত্তীর্ণ' : 'ব্যর্থ'}। ${dlInfo}`;
 
       // Send bilingual notifications
       await supabase.rpc('create_dual_notification', {
@@ -206,7 +206,7 @@ const AdminApplications = () => {
               <p className="text-gray-600 dark:text-gray-400">
                 {language === 'en' 
                   ? 'Monitor automated license applications and approve physical driving test results' 
-                  : 'স্বয়ংক্রিয় লাইসেন্স আবেদন পর্যবেক্ষণ করুন এবং শারীরিক ড্রাইভিং পরীক্ষার ফলাফল অনুমোদন করুন'}
+                  : 'স্বয়ংক্রিয় লাইসেন্স আবেদন পর্যবেক্ষণ করুন এবং  ড্রাইভিং পরীক্ষার ফলাফল অনুমোদন করুন'}
               </p>
             </div>
             <div className="text-right">
@@ -236,7 +236,7 @@ const AdminApplications = () => {
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                🚗 {language === 'en' ? 'Physical Exams' : 'শারীরিক পরীক্ষা'} 
+                🚗 {language === 'en' ? 'Physical Exams' : 'ড্রাইভিং পরীক্ষা'} 
                 {physicalExamBookings.length > 0 && (
                   <span className="ml-2 px-2 py-1 bg-red-500 text-white text-xs rounded-full">
                     {physicalExamBookings.length}
@@ -326,7 +326,7 @@ const AdminApplications = () => {
                     <tr>
                       <td colSpan="5" className="px-6 py-12 text-center">
                         <p className="text-gray-500 dark:text-gray-400 text-lg">
-                          {language === 'en' ? 'No scheduled physical exams' : 'কোনো নির্ধারিত শারীরিক পরীক্ষা নেই'}
+                          {language === 'en' ? 'No scheduled physical exams' : 'কোনো নির্ধারিত ড্রাইভিং পরীক্ষা নেই'}
                         </p>
                       </td>
                     </tr>
@@ -503,7 +503,7 @@ const AdminApplications = () => {
                                 app.status === 'pending' ? 'অপেক্ষমান' :
                                 app.status === 'face_verified' ? 'মুখ যাচাই সম্পন্ন' :
                                 app.status === 'online_exam_passed' ? 'অনলাইন পরীক্ষা উত্তীর্ণ' :
-                                app.status === 'physical_exam_passed' ? 'শারীরিক পরীক্ষা উত্তীর্ণ' :
+                                app.status === 'physical_exam_passed' ? 'ড্রাইভিং পরীক্ষা উত্তীর্ণ' :
                                 app.status === 'approved' ? 'অনুমোদিত' :
                                 app.status === 'rejected' ? 'প্রত্যাখ্যাত' : app.status
                               }
@@ -695,7 +695,7 @@ const AdminApplications = () => {
                       detailsModal.application.physical_exam === 1 ? 'text-green-600' : 'text-gray-400'
                     }`} />
                     <div className="font-semibold text-base mb-2">
-                      {language === 'en' ? 'Physical Test' : 'শারীরিক পরীক্ষা'}
+                      {language === 'en' ? 'Physical Test' : 'ড্রাইভিং পরীক্ষা'}
                     </div>
                     <div className="text-xs mt-2">
                       {detailsModal.application.physical_exam === 1 

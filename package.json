@@ -11,7 +11,7 @@
     "@lottiefiles/dotlottie-react": "^0.17.7",
     "@lottiefiles/react-lottie-player": "^3.6.0",
     "@mediapipe/face_mesh": "^0.4.1633559619",
-    "@supabase/supabase-js": "^2.84.0",
+    "@supabase/supabase-js": "^2.86.0",
     "@tensorflow-models/face-landmarks-detection": "^1.0.6",
     "@tensorflow/tfjs": "^4.22.0",
     "axios": "^1.13.2",

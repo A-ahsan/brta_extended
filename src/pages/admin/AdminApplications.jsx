@@ -7,6 +7,21 @@ import {
   MagnifyingGlass,
   FunnelSimple,
   Eye,
+  X,
+  Calendar,
+  User,
+  IdentificationCard,
+  MapPin,
+  Phone,
+  Heart,
+  GenderMale,
+  GenderFemale,
+  Check,
+  Clock,
+  CreditCard,
+  UserCircle,
+  Car,
+  FileText,
 } from 'phosphor-react';
 import { useLanguage } from '../../contexts/AppContext';
 import { translations } from '../../utils/translations';
@@ -25,6 +40,7 @@ const AdminApplications = () => {
   const [remarksModal, setRemarksModal] = useState({ open: false, booking: null, result: '', remarks: '' });
   const [examSearchTerm, setExamSearchTerm] = useState('');
   const [examDateFilter, setExamDateFilter] = useState('');
+  const [detailsModal, setDetailsModal] = useState({ open: false, application: null });
 
   useEffect(() => {
     fetchApplications();
@@ -158,26 +174,6 @@ const AdminApplications = () => {
     }
   };
 
-  const handleStatusUpdate = async (appId, newStatus) => {
-    try {
-      const { error } = await supabase
-        .from('license_applications')
-        .update({ 
-          status: newStatus,
-          [`${newStatus}_completed_at`]: new Date().toISOString()
-        })
-        .eq('id', appId);
-
-      if (error) throw error;
-
-      toast.success(language === 'en' ? 'Status updated successfully' : 'স্ট্যাটাস সফলভাবে আপডেট হয়েছে');
-      fetchApplications();
-    } catch (error) {
-      console.error('Error updating status:', error);
-      toast.error(language === 'en' ? 'Failed to update status' : 'স্ট্যাটাস আপডেট করতে ব্যর্থ');
-    }
-  };
-
   const filteredApplications = applications.filter(app => {
     const matchesType = filterType === 'all' || app.license_type === filterType;
     const matchesSearch = (app.full_name_en?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -208,7 +204,9 @@ const AdminApplications = () => {
                 {language === 'en' ? 'Applications Management' : 'আবেদন পরিচালনা'}
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
-                {language === 'en' ? 'Review and manage license applications' : 'লাইসেন্স আবেদন পর্যালোচনা এবং পরিচালনা করুন'}
+                {language === 'en' 
+                  ? 'Monitor automated license applications and approve physical driving test results' 
+                  : 'স্বয়ংক্রিয় লাইসেন্স আবেদন পর্যবেক্ষণ করুন এবং শারীরিক ড্রাইভিং পরীক্ষার ফলাফল অনুমোদন করুন'}
               </p>
             </div>
             <div className="text-right">
@@ -436,6 +434,9 @@ const AdminApplications = () => {
                       {language === 'en' ? 'Type' : 'ধরন'}
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      {language === 'en' ? 'Status' : 'স্ট্যাটাস'}
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       {language === 'en' ? 'Date' : 'তারিখ'}
                     </th>
                     <th className="px-6 py-4 text-center text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
@@ -482,6 +483,53 @@ const AdminApplications = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4">
+                          <div className="flex flex-col gap-1">
+                            {/* Status Badge */}
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1 w-fit ${
+                              app.status === 'approved' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
+                              app.status === 'rejected' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' :
+                              app.status === 'physical_exam_passed' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
+                              app.status === 'online_exam_passed' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400' :
+                              app.status === 'face_verified' ? 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400' :
+                              'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
+                            }`}>
+                              {app.status === 'approved' && <CheckCircle size={14} weight="fill" />}
+                              {app.status === 'rejected' && <XCircle size={14} weight="fill" />}
+                              {app.status === 'physical_exam_passed' && <Car size={14} weight="fill" />}
+                              {app.status === 'online_exam_passed' && <FileText size={14} weight="fill" />}
+                              {app.status === 'face_verified' && <UserCircle size={14} weight="fill" />}
+                              {!['approved', 'rejected', 'physical_exam_passed', 'online_exam_passed', 'face_verified'].includes(app.status) && <Clock size={14} weight="fill" />}
+                              {language === 'en' ? app.status.replace(/_/g, ' ').toUpperCase() : 
+                                app.status === 'pending' ? 'অপেক্ষমান' :
+                                app.status === 'face_verified' ? 'মুখ যাচাই সম্পন্ন' :
+                                app.status === 'online_exam_passed' ? 'অনলাইন পরীক্ষা উত্তীর্ণ' :
+                                app.status === 'physical_exam_passed' ? 'শারীরিক পরীক্ষা উত্তীর্ণ' :
+                                app.status === 'approved' ? 'অনুমোদিত' :
+                                app.status === 'rejected' ? 'প্রত্যাখ্যাত' : app.status
+                              }
+                            </span>
+                            {/* Progress Indicators */}
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className={`flex items-center gap-0.5 ${app.face_verification === 1 ? 'text-green-600' : 'text-gray-400'}`} title="Face Verification">
+                                <UserCircle size={16} weight={app.face_verification === 1 ? 'fill' : 'regular'} />
+                                {app.face_verification === 1 ? <Check size={12} weight="bold" /> : <Clock size={12} />}
+                              </span>
+                              <span className={`flex items-center gap-0.5 ${app.online_exam === 1 ? 'text-green-600' : 'text-gray-400'}`} title="Online Exam">
+                                <FileText size={16} weight={app.online_exam === 1 ? 'fill' : 'regular'} />
+                                {app.online_exam === 1 ? <Check size={12} weight="bold" /> : <Clock size={12} />}
+                              </span>
+                              <span className={`flex items-center gap-0.5 ${app.physical_exam === 1 ? 'text-green-600' : 'text-gray-400'}`} title="Physical Exam">
+                                <Car size={16} weight={app.physical_exam === 1 ? 'fill' : 'regular'} />
+                                {app.physical_exam === 1 ? <Check size={12} weight="bold" /> : <Clock size={12} />}
+                              </span>
+                              <span className={`flex items-center gap-0.5 ${app.payment === 1 ? 'text-green-600' : 'text-gray-400'}`} title="Payment">
+                                <CreditCard size={16} weight={app.payment === 1 ? 'fill' : 'regular'} />
+                                {app.payment === 1 ? <Check size={12} weight="bold" /> : <Clock size={12} />}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
                           <p className="text-sm text-gray-600 dark:text-gray-400">
                             {new Date(app.created_at).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD')}
                           </p>
@@ -491,26 +539,11 @@ const AdminApplications = () => {
                             <motion.button
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.9 }}
+                              onClick={() => setDetailsModal({ open: true, application: app })}
                               className="p-2 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
                               title={language === 'en' ? 'View Details' : 'বিস্তারিত দেখুন'}
                             >
                               <Eye size={20} weight="bold" />
-                            </motion.button>
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              className="p-2 bg-success/20 text-success rounded-lg hover:bg-success hover:text-white transition-colors"
-                              title={language === 'en' ? 'Approve' : 'অনুমোদন'}
-                            >
-                              <CheckCircle size={20} weight="bold" />
-                            </motion.button>
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              className="p-2 bg-danger/20 text-danger rounded-lg hover:bg-danger hover:text-white transition-colors"
-                              title={language === 'en' ? 'Reject' : 'প্রত্যাখ্যান'}
-                            >
-                              <XCircle size={20} weight="bold" />
                             </motion.button>
                           </div>
                         </td>
@@ -573,6 +606,311 @@ const AdminApplications = () => {
             </motion.button>
           </div>
         </motion.div>
+      </Modal>
+
+      {/* Application Details Modal */}
+      <Modal
+        isOpen={detailsModal.open}
+        onRequestClose={() => setDetailsModal({ open: false, application: null })}
+        className="fixed inset-0 flex items-center justify-center z-50 p-4"
+        overlayClassName="fixed inset-0 bg-black bg-opacity-50 z-40"
+        ariaHideApp={false}
+      >
+        {detailsModal.application && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl mx-auto max-h-[85vh] overflow-y-auto"
+          >
+            {/* Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-primary to-green-600 p-6 rounded-t-2xl z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <IdentificationCard size={32} weight="duotone" className="text-white" />
+                  <div>
+                    <h3 className="text-2xl font-bold text-white">
+                      {language === 'en' ? 'Application Details' : 'আবেদনের বিস্তারিত'}
+                    </h3>
+                    <p className="text-white/80 font-mono text-sm">{detailsModal.application.application_number}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setDetailsModal({ open: false, application: null })}
+                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                >
+                  <X size={24} weight="bold" className="text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-8 space-y-8">
+              {/* Progress Timeline */}
+              <div className="bg-gradient-to-br from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 p-8 rounded-xl border-2 border-blue-200 dark:border-blue-800">
+                <h4 className="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
+                  <Clock size={28} weight="duotone" className="text-primary" />
+                  {language === 'en' ? 'Application Progress' : 'আবেদনের অগ্রগতি'}
+                </h4>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className={`p-6 rounded-lg text-center transition-all ${
+                    detailsModal.application.face_verification === 1 
+                      ? 'bg-green-100 dark:bg-green-900/30 border-2 border-green-500 shadow-lg' 
+                      : 'bg-gray-100 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600'
+                  }`}>
+                    <User size={40} weight="duotone" className={`mx-auto mb-3 ${
+                      detailsModal.application.face_verification === 1 ? 'text-green-600' : 'text-gray-400'
+                    }`} />
+                    <div className="font-semibold text-base mb-2">
+                      {language === 'en' ? 'Face Verify' : 'মুখ যাচাই'}
+                    </div>
+                    <div className="text-xs mt-2">
+                      {detailsModal.application.face_verification === 1 
+                        ? <Check size={24} weight="bold" className="text-green-600 mx-auto" />
+                        : <Clock size={24} className="text-gray-400 mx-auto" />}
+                    </div>
+                  </div>
+                  <div className={`p-6 rounded-lg text-center transition-all ${
+                    detailsModal.application.online_exam === 1 
+                      ? 'bg-green-100 dark:bg-green-900/30 border-2 border-green-500 shadow-lg' 
+                      : 'bg-gray-100 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600'
+                  }`}>
+                    <CheckCircle size={40} weight="duotone" className={`mx-auto mb-3 ${
+                      detailsModal.application.online_exam === 1 ? 'text-green-600' : 'text-gray-400'
+                    }`} />
+                    <div className="font-semibold text-base mb-2">
+                      {language === 'en' ? 'Online Exam' : 'অনলাইন পরীক্ষা'}
+                    </div>
+                    <div className="text-xs mt-2">
+                      {detailsModal.application.online_exam === 1 
+                        ? <Check size={24} weight="bold" className="text-green-600 mx-auto" />
+                        : <Clock size={24} className="text-gray-400 mx-auto" />}
+                    </div>
+                  </div>
+                  <div className={`p-6 rounded-lg text-center transition-all ${
+                    detailsModal.application.physical_exam === 1 
+                      ? 'bg-green-100 dark:bg-green-900/30 border-2 border-green-500 shadow-lg' 
+                      : 'bg-gray-100 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600'
+                  }`}>
+                    <IdentificationCard size={40} weight="duotone" className={`mx-auto mb-3 ${
+                      detailsModal.application.physical_exam === 1 ? 'text-green-600' : 'text-gray-400'
+                    }`} />
+                    <div className="font-semibold text-base mb-2">
+                      {language === 'en' ? 'Physical Test' : 'শারীরিক পরীক্ষা'}
+                    </div>
+                    <div className="text-xs mt-2">
+                      {detailsModal.application.physical_exam === 1 
+                        ? <Check size={24} weight="bold" className="text-green-600 mx-auto" />
+                        : <Clock size={24} className="text-gray-400 mx-auto" />}
+                    </div>
+                  </div>
+                  <div className={`p-6 rounded-lg text-center transition-all ${
+                    detailsModal.application.payment === 1 
+                      ? 'bg-green-100 dark:bg-green-900/30 border-2 border-green-500 shadow-lg' 
+                      : 'bg-gray-100 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600'
+                  }`}>
+                    <CheckCircle size={40} weight="duotone" className={`mx-auto mb-3 ${
+                      detailsModal.application.payment === 1 ? 'text-green-600' : 'text-gray-400'
+                    }`} />
+                    <div className="font-semibold text-base mb-2">
+                      {language === 'en' ? 'Payment' : 'পেমেন্ট'}
+                    </div>
+                    <div className="text-xs mt-2">
+                      {detailsModal.application.payment === 1 
+                        ? <Check size={24} weight="bold" className="text-green-600 mx-auto" />
+                        : <Clock size={24} className="text-gray-400 mx-auto" />}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Personal Information */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 p-8 rounded-xl">
+                <h4 className="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
+                  <User size={28} weight="duotone" className="text-primary" />
+                  {language === 'en' ? 'Personal Information' : 'ব্যক্তিগত তথ্য'}
+                </h4>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      {language === 'en' ? 'Full Name (English)' : 'পুরো নাম (ইংরেজি)'}
+                    </label>
+                    <p className="font-bold text-gray-800 dark:text-white text-lg">{detailsModal.application.full_name_en}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      {language === 'en' ? 'Full Name (Bengali)' : 'পুরো নাম (বাংলা)'}
+                    </label>
+                    <p className="font-bold text-gray-800 dark:text-white text-lg">{detailsModal.application.full_name_bn}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      {language === 'en' ? 'Father\'s Name' : 'পিতার নাম'}
+                    </label>
+                    <p className="font-semibold text-gray-800 dark:text-white">{detailsModal.application.father_name}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      {language === 'en' ? 'Mother\'s Name' : 'মাতার নাম'}
+                    </label>
+                    <p className="font-semibold text-gray-800 dark:text-white">{detailsModal.application.mother_name}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase flex items-center gap-1 tracking-wide">
+                      <Calendar size={14} /> {language === 'en' ? 'Date of Birth' : 'জন্ম তারিখ'}
+                    </label>
+                    <p className="font-semibold text-gray-800 dark:text-white">
+                      {new Date(detailsModal.application.date_of_birth).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD')}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase flex items-center gap-1 tracking-wide">
+                      {detailsModal.application.gender === 'Male' ? <GenderMale size={14} /> : <GenderFemale size={14} />}
+                      {language === 'en' ? 'Gender' : 'লিঙ্গ'}
+                    </label>
+                    <p className="font-semibold text-gray-800 dark:text-white">{detailsModal.application.gender}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase flex items-center gap-1 tracking-wide">
+                      <Heart size={14} /> {language === 'en' ? 'Blood Group' : 'রক্তের গ্রুপ'}
+                    </label>
+                    <p className="font-semibold text-gray-800 dark:text-white">{detailsModal.application.blood_group}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase flex items-center gap-1 tracking-wide">
+                      <IdentificationCard size={14} /> {language === 'en' ? 'NID Number' : 'এনআইডি নম্বর'}
+                    </label>
+                    <p className="font-semibold text-gray-800 dark:text-white font-mono">{detailsModal.application.nid_number}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* License Information */}
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 p-6 rounded-xl border-2 border-yellow-200 dark:border-yellow-800">
+                <h4 className="text-lg font-bold text-gray-800 dark:text-white mb-4">
+                  {language === 'en' ? 'License Information' : 'লাইসেন্স তথ্য'}
+                </h4>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+                      {language === 'en' ? 'License Type' : 'লাইসেন্সের ধরন'}
+                    </label>
+                    <p className="font-semibold text-gray-800 dark:text-white text-lg">{detailsModal.application.license_type}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+                      {language === 'en' ? 'Category' : 'ক্যাটাগরি'}
+                    </label>
+                    <p className="font-semibold text-gray-800 dark:text-white text-lg">{detailsModal.application.license_category}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Address */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl">
+                <h4 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                  <MapPin size={24} weight="duotone" className="text-primary" />
+                  {language === 'en' ? 'Address' : 'ঠিকানা'}
+                </h4>
+                <div className="grid md:grid-cols-3 gap-4 mb-3">
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+                      {language === 'en' ? 'Division' : 'বিভাগ'}
+                    </label>
+                    <p className="font-semibold text-gray-800 dark:text-white">{detailsModal.application.division}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+                      {language === 'en' ? 'District' : 'জেলা'}
+                    </label>
+                    <p className="font-semibold text-gray-800 dark:text-white">{detailsModal.application.district}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+                      {language === 'en' ? 'Upazila' : 'উপজেলা'}
+                    </label>
+                    <p className="font-semibold text-gray-800 dark:text-white">{detailsModal.application.upazila}</p>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+                    {language === 'en' ? 'Full Address' : 'সম্পূর্ণ ঠিকানা'}
+                  </label>
+                  <p className="font-semibold text-gray-800 dark:text-white">{detailsModal.application.address}</p>
+                </div>
+              </div>
+
+              {/* Timestamps */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-xl border-2 border-blue-200 dark:border-blue-800">
+                <h4 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                  <Calendar size={24} weight="duotone" className="text-primary" />
+                  {language === 'en' ? 'Timeline' : 'সময়রেখা'}
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {language === 'en' ? 'Submitted:' : 'জমা দেওয়া:'}
+                    </span>
+                    <span className="font-semibold text-gray-800 dark:text-white">
+                      {new Date(detailsModal.application.submitted_at).toLocaleString(language === 'en' ? 'en-US' : 'bn-BD')}
+                    </span>
+                  </div>
+                  {detailsModal.application.face_verified_at && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        {language === 'en' ? 'Face Verified:' : 'মুখ যাচাই:'}
+                      </span>
+                      <span className="font-semibold text-green-600">
+                        {new Date(detailsModal.application.face_verified_at).toLocaleString(language === 'en' ? 'en-US' : 'bn-BD')}
+                      </span>
+                    </div>
+                  )}
+                  {detailsModal.application.online_exam_completed_at && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        {language === 'en' ? 'Online Exam:' : 'অনলাইন পরীক্ষা:'}
+                      </span>
+                      <span className="font-semibold text-green-600">
+                        {new Date(detailsModal.application.online_exam_completed_at).toLocaleString(language === 'en' ? 'en-US' : 'bn-BD')}
+                      </span>
+                    </div>
+                  )}
+                  {detailsModal.application.physical_exam_completed_at && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        {language === 'en' ? 'Physical Exam:' : 'শারীরিক পরীক্ষা:'}
+                      </span>
+                      <span className="font-semibold text-green-600">
+                        {new Date(detailsModal.application.physical_exam_completed_at).toLocaleString(language === 'en' ? 'en-US' : 'bn-BD')}
+                      </span>
+                    </div>
+                  )}
+                  {detailsModal.application.payment_completed_at && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        {language === 'en' ? 'Payment:' : 'পেমেন্ট:'}
+                      </span>
+                      <span className="font-semibold text-green-600">
+                        {new Date(detailsModal.application.payment_completed_at).toLocaleString(language === 'en' ? 'en-US' : 'bn-BD')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <div className="flex justify-end">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setDetailsModal({ open: false, application: null })}
+                  className="px-6 py-3 bg-gradient-to-r from-primary to-green-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
+                >
+                  {language === 'en' ? 'Close' : 'বন্ধ করুন'}
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </Modal>
     </div>
   );

@@ -385,10 +385,17 @@ const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking })
             </>
           )}
           {getSortedCenters().map(center => (
-            <Marker key={center.id} position={[center.latitude, center.longitude]}>
+            <Marker key={center.id} position={[center.latitude, center.longitude]} eventHandlers={{ click: () => handleSelectCenter(center) }}>
               <Popup>
                 <strong>{center.center_name_en}</strong><br/>
                 {center.address_en}
+                <br/>
+                <button
+                  className="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-sm"
+                  onClick={(e) => { e.stopPropagation(); handleSelectCenter(center); }}
+                >
+                  Select This Center
+                </button>
               </Popup>
             </Marker>
           ))}

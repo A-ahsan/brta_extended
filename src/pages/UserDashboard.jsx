@@ -679,7 +679,6 @@ const UserDashboard = () => {
     { id: 'questionbank', icon: <BookOpen size={24} weight="duotone" />, label: language === 'en' ? 'Question Bank' : 'প্রশ্ন ব্যাংক' },
     { id: 'calculator', icon: <Calculator size={24} weight="duotone" />, label: t.costCalculator },
     { id: 'payments', icon: <CreditCard size={24} weight="duotone" />, label: t.myPayments },
-    { id: 'booking', icon: <CalendarCheck size={24} weight="duotone" />, label: t.testBooking },
     { id: 'profile', icon: <User size={24} weight="duotone" />, label: t.profile },
     { id: 'settings', icon: <Gear size={24} weight="duotone" />, label: t.settings },
   ];

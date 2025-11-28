@@ -5,6 +5,7 @@ import { EnvelopeSimple, LockKey, Eye, EyeSlash, SignIn } from 'phosphor-react';
 import { useLanguage } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { translations } from '../utils/translations';
+import toast from 'react-hot-toast';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -28,6 +29,10 @@ const Login = () => {
     setIsLoading(false);
 
     if (result.success) {
+      // Show welcome toast
+      const userName = result.userName || result.profile?.full_name || formData.email.split('@')[0];
+      toast.success(`Welcome back, ${userName}`);
+      
       // Check role and redirect accordingly
       const role = result.profile?.role || 'user';
       

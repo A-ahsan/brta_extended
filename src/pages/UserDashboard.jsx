@@ -65,6 +65,29 @@ const UserDashboard = () => {
     if (user) {
       fetchLicenseApplications();
       fetchNotifications();
+      
+      // Subscribe to realtime notifications
+      const notificationSubscription = supabase
+        .channel('user-notifications')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Notification change:', payload);
+            // Refetch notifications on any change
+            fetchNotifications();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        notificationSubscription.unsubscribe();
+      };
     }
   }, [user]);
 
@@ -109,7 +132,14 @@ const UserDashboard = () => {
   };
 
   const fetchNotifications = async () => {
+    if (!user?.id) {
+      console.log('No user ID available for fetching notifications');
+      return;
+    }
+    
     try {
+      console.log('Fetching notifications for user:', user.id);
+      
       // Fetch ALL notifications for current user (both read and unread)
       const { data, error } = await supabase
         .from('notifications')
@@ -119,8 +149,12 @@ const UserDashboard = () => {
         .order('created_at', { ascending: false })
         .limit(10);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Notification fetch error:', error);
+        throw error;
+      }
       
+      console.log('Fetched notifications:', data?.length || 0);
       setNotifications(data || []);
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -1637,6 +1671,7 @@ const UserDashboard = () => {
             open={isModalOpen}
             onClose={() => setIsModalOpen(false)}
             language={language}
+            onSuccess={fetchLicenseApplications}
           />
         )}
       </AnimatePresence>

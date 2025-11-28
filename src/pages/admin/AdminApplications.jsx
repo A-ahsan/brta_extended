@@ -47,6 +47,49 @@ const AdminApplications = () => {
     if (activeTab === 'physical_exam') {
       fetchPhysicalExamBookings();
     }
+
+    // Subscribe to realtime updates for applications
+    const applicationsChannel = supabase
+      .channel('admin-applications')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'license_applications'
+        },
+        (payload) => {
+          console.log('📋 Admin applications update:', payload);
+          fetchApplications();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Admin applications subscription status:', status);
+      });
+
+    // Subscribe to realtime updates for physical exam bookings
+    const bookingsChannel = supabase
+      .channel('admin-exam-bookings')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'physical_exam_bookings'
+        },
+        (payload) => {
+          console.log('🚗 Admin exam bookings update:', payload);
+          if (activeTab === 'physical_exam') {
+            fetchPhysicalExamBookings();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(applicationsChannel);
+      supabase.removeChannel(bookingsChannel);
+    };
   }, [activeTab]);
 
   const fetchApplications = async () => {

@@ -3,19 +3,24 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Moon, Sun, Globe, CaretDown } from 'phosphor-react';
 import { Bell } from 'phosphor-react';
 import { useLocation } from 'react-router-dom';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ThemeLanguageToggler from './ThemeLanguageToggler';
 import { useTheme, useLanguage } from '../contexts/AppContext';
+import { useAuth } from '../contexts/AuthContext';
 import { translations } from '../utils/translations';
+import { supabase } from '../lib/supabaseClient';
 
 const Navbar = () => {
   const location = useLocation();
   const { isDark, toggleTheme } = useTheme();
   const { language, toggleLanguage } = useLanguage();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const t = translations[language];
   const [showPanel, setShowPanel] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Determine role based on route
   let role = null;
@@ -23,10 +28,81 @@ const Navbar = () => {
   else if (location.pathname.startsWith('/admin')) role = 'admin';
   else if (location.pathname.startsWith('/police')) role = 'police';
 
-  const notifications = {
-    user: ["Welcome to your dashboard!", "Your license renewal is pending.", "Profile updated successfully."],
-    admin: ["3 new user registrations today.", "System maintenance scheduled for Friday.", "License application flagged for review."],
-    police: ["Incident reported at checkpoint.", "License verification required.", "Patrol schedule updated."]
+  // Fetch notifications when user is logged in and on a dashboard page
+  useEffect(() => {
+    if (!user || !role) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    console.log('Setting up navbar notifications for role:', role, 'user:', user.id);
+    fetchNotifications();
+
+    // Subscribe to realtime notifications
+    const channel = supabase
+      .channel(`${role}-navbar-notifications-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: role === 'user' 
+            ? `user_id=eq.${user.id}`
+            : `recipient_type=eq.${role}`
+        },
+        (payload) => {
+          console.log('🔔 Navbar notification received:', payload);
+          fetchNotifications();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Navbar notification subscription status:', status);
+      });
+
+    return () => {
+      console.log('Cleaning up navbar notification subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [user, role]);
+
+  const fetchNotifications = async () => {
+    if (!user || !role) return;
+
+    try {
+      let query = supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (role === 'user') {
+        query = query.eq('user_id', user.id).eq('recipient_type', 'user');
+      } else {
+        query = query.eq('recipient_type', role);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      setNotifications(data || []);
+      setUnreadCount(data?.filter(n => !n.is_read).length || 0);
+    } catch (error) {
+      console.error('Error fetching navbar notifications:', error);
+    }
+  };
+
+  const handleNotificationClick = () => {
+    setShowPanel(false);
+    if (role === 'user') {
+      navigate('/dashboard/notifications');
+    } else if (role === 'admin') {
+      navigate('/admin/notifications');
+    } else if (role === 'police') {
+      navigate('/police/notifications');
+    }
   };
 
   return (
@@ -107,7 +183,7 @@ const Navbar = () => {
           <div className="flex items-center gap-4 relative">
             <ThemeLanguageToggler />
             {/* Notification Bell only on dashboard pages */}
-            {role && (
+            {role && user && (
               <>
                 <button
                   className="relative p-2 rounded-full hover:bg-primary/10 transition"
@@ -115,26 +191,64 @@ const Navbar = () => {
                   aria-label="Notifications"
                 >
                   <Bell size={28} className="text-primary" />
-                  <span className="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">{notifications[role].length}</span>
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">
+                      {unreadCount}
+                    </span>
+                  )}
                 </button>
                 {/* Notification Dropdown Panel */}
                 {showPanel && (
                   <div className="absolute right-0 top-12 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-lg z-50 p-4">
-                    <div className="flex items-center mb-2">
-                      <Bell size={22} className="text-primary mr-2" />
-                      <span className="font-bold text-lg capitalize">{role} Notifications</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center">
+                        <Bell size={22} className="text-primary mr-2" />
+                        <span className="font-bold text-lg capitalize">
+                          {language === 'en' ? 'Notifications' : 'বিজ্ঞপ্তি'}
+                        </span>
+                      </div>
+                      {unreadCount > 0 && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {unreadCount} {language === 'en' ? 'unread' : 'অপঠিত'}
+                        </span>
+                      )}
                     </div>
                     <ul className="space-y-2 max-h-60 overflow-y-auto">
-                      {notifications[role].length === 0 ? (
-                        <li className="italic text-gray-400">No notifications</li>
+                      {notifications.length === 0 ? (
+                        <li className="italic text-gray-400 text-center py-4">
+                          {language === 'en' ? 'No notifications' : 'কোন বিজ্ঞপ্তি নেই'}
+                        </li>
                       ) : (
-                        notifications[role].map((note, idx) => (
-                          <li key={idx} className="bg-primary/5 rounded px-3 py-2 shadow-sm border border-primary/10 text-gray-800 dark:text-gray-200">
-                            {note}
+                        notifications.map((note) => (
+                          <li 
+                            key={note.id} 
+                            className={`rounded px-3 py-2 shadow-sm border cursor-pointer transition-colors ${
+                              note.is_read 
+                                ? 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700' 
+                                : 'bg-primary/5 border-primary/10'
+                            } text-gray-800 dark:text-gray-200 hover:bg-primary/10`}
+                          >
+                            <div className="font-semibold text-sm">
+                              {language === 'en' ? note.title_en : note.title_bn}
+                            </div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                              {language === 'en' ? note.message_en : note.message_bn}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-1">
+                              {new Date(note.created_at).toLocaleString()}
+                            </div>
                           </li>
                         ))
                       )}
                     </ul>
+                    {notifications.length > 0 && (
+                      <button
+                        onClick={handleNotificationClick}
+                        className="w-full mt-3 py-2 text-sm text-primary hover:text-primary-dark font-semibold transition-colors"
+                      >
+                        {language === 'en' ? 'View All Notifications' : 'সকল বিজ্ঞপ্তি দেখুন'}
+                      </button>
+                    )}
                   </div>
                 )}
               </>

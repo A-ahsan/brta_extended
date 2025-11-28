@@ -447,7 +447,8 @@ export default function FaceVerificationModal({ open, onClose, application }) {
         .from('license_applications')
         .update({
           face_verification: 1,
-          face_verified_at: new Date().toISOString()
+          face_verified_at: new Date().toISOString(),
+          status: 'face_verified'
         })
         .eq('id', application.id);
 

@@ -4,13 +4,16 @@ import toast from 'react-hot-toast';
 
 const AuthContext = createContext({});
 
-export const useAuth = () => {
+// Named export for HMR compatibility
+function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
-};
+}
+
+export { useAuth };
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -18,41 +21,125 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
+    let mounted = true;
+    
+    // Initialize auth state
+    const initAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
+        if (error) {
+          console.error('Session error:', error);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
 
-    // Listen for changes on auth state (sign in, sign out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-        setUser(session?.user ?? null);
         if (session?.user) {
-          // Don't wait for profile fetch on SIGNED_IN event (handled by login/signup)
-          if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-            // Skip profile fetch, it's already done in signIn/signUp
-            setLoading(false);
-          } else {
-            await fetchProfile(session.user.id);
+          console.log('Session found on init:', session.user.email);
+          // SET USER IMMEDIATELY - don't wait for profile
+          setUser(session.user);
+          
+          // Fetch profile in background
+          try {
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+
+            if (!mounted) return;
+
+            if (profileError) {
+              console.error('Profile fetch error:', profileError);
+              // Set minimal profile to allow app to work
+              setProfile({ id: session.user.id, email: session.user.email, role: 'user' });
+            } else {
+              console.log('Profile fetched:', profileData?.email);
+              setProfile(profileData);
+            }
+          } catch (profileError) {
+            console.error('Profile fetch exception:', profileError);
+            if (mounted) {
+              setProfile({ id: session.user.id, email: session.user.email, role: 'user' });
+            }
+          } finally {
+            if (mounted) {
+              setLoading(false);
+            }
           }
         } else {
+          console.log('No session found');
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Init auth error:', error);
+        if (mounted) {
+          setUser(null);
           setProfile(null);
           setLoading(false);
         }
       }
+    };
+
+    initAuth();
+
+    // Listen for auth changes (login, logout, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+        
+        console.log('Auth event:', event, session?.user?.email || 'no user');
+        
+        // Handle SIGNED_OUT
+        if (event === 'SIGNED_OUT') {
+          console.log('SIGNED_OUT event - clearing user state');
+          if (mounted) {
+            setUser(null);
+            setProfile(null);
+            setLoading(false);
+          }
+          return;
+        }
+        
+        // Handle TOKEN_REFRESHED - keep existing state
+        if (event === 'TOKEN_REFRESHED') {
+          console.log('TOKEN_REFRESHED event - keeping existing state');
+          if (mounted && session?.user) {
+            setUser(session.user);
+          }
+          return;
+        }
+        
+        // Handle SIGNED_IN - don't refetch profile, it's set in signIn function
+        if (event === 'SIGNED_IN') {
+          console.log('SIGNED_IN event - profile already set in signIn');
+          return;
+        }
+        
+        // Handle INITIAL_SESSION - session already restored in initAuth
+        if (event === 'INITIAL_SESSION') {
+          console.log('INITIAL_SESSION event - session already restored');
+          return;
+        }
+      }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchProfile = async (userId, retryCount = 0) => {
     try {
+      console.log('Fetching profile for:', userId);
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -63,18 +150,21 @@ export const AuthProvider = ({ children }) => {
         // If profile doesn't exist yet (new signup), retry up to 3 times
         if (error.code === 'PGRST116' && retryCount < 3) {
           console.log(`Profile not found, retrying... (${retryCount + 1}/3)`);
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+          await new Promise(resolve => setTimeout(resolve, 1000));
           return fetchProfile(userId, retryCount + 1);
         }
         throw error;
       }
+      
+      console.log('Profile fetched:', data?.email);
       setProfile(data);
+      return data;
     } catch (error) {
       console.error('Error fetching profile:', error);
       // Set a minimal profile so app doesn't stay stuck
-      setProfile({ id: userId, role: 'user' });
-    } finally {
-      setLoading(false);
+      const minimalProfile = { id: userId, role: 'user' };
+      setProfile(minimalProfile);
+      return minimalProfile;
     }
   };
 
@@ -100,6 +190,7 @@ export const AuthProvider = ({ children }) => {
         // Set profile immediately so we don't wait for trigger
         setProfile({ id: data.user.id, email, full_name: fullName, role: 'user', phone });
         setUser(data.user);
+        // Don't show toast here - let the page handle it
         return { success: true, data, userName: fullName };
       }
 
@@ -114,15 +205,10 @@ export const AuthProvider = ({ children }) => {
 
   const signIn = async (email, password, remember = true) => {
     try {
-      // If remember is false, create a temp client with persistSession: false
-      let client = supabase;
-      if (remember === false) {
-        const { createClient } = await import('@supabase/supabase-js');
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-        client = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } });
-      }
-      const { data, error } = await client.auth.signInWithPassword({
+      console.log('SignIn called with remember:', remember);
+      
+      // ALWAYS use the main supabase client (it already has persistSession: true)
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
@@ -130,6 +216,8 @@ export const AuthProvider = ({ children }) => {
       if (error) throw error;
 
       if (data?.user) {
+        console.log('Login successful:', data.user.email);
+        
         // Fetch profile with timeout to prevent hanging
         let profileData = null;
         try {
@@ -161,8 +249,10 @@ export const AuthProvider = ({ children }) => {
         setProfile(profileData || { id: data.user.id, email, role: 'user' });
         setUser(data.user);
         
-        toast.success(`Welcome back, ${userName}`);
-        return { success: true, data, profile: profileData };
+        console.log('User state set, profile:', profileData?.email || 'minimal');
+        
+        // Only show welcome toast on actual login, not on session restore
+        return { success: true, data, profile: profileData, userName };
       }
 
       // Handle case where signin completes but no user returned

@@ -18,7 +18,7 @@ const licenseAnimations = {
   nonProfessional: '/idcard.json',
 };
 
-export default function NewApplicationModal({ open, onClose }) {
+export default function NewApplicationModal({ open, onClose, onSuccess }) {
   const { user } = useAuth();
   const { language } = useLanguage();
   const isEnglish = language === 'en';
@@ -138,7 +138,7 @@ export default function NewApplicationModal({ open, onClose }) {
       }
 
       setNidData(data);
-      toast.success(isEnglish ? `Welcome, ${data.full_name_en}!` : `স্বাগতম, ${data.full_name_bn}!`);
+      toast.success(isEnglish ? 'NID verified successfully!' : 'এনআইডি সফলভাবে যাচাই করা হয়েছে!');
       
       // Proceed to face cropping
       setStep(4);
@@ -255,7 +255,8 @@ export default function NewApplicationModal({ open, onClose }) {
       if (appError) throw appError;
 
       // 5. Create notifications (user + admin with different messages)
-      await supabase.rpc('create_dual_notification', {
+      console.log('Creating notification for application:', appData.id);
+      const { data: notifData, error: notifError } = await supabase.rpc('create_dual_notification', {
         p_user_id: user.id,
         p_title_en: 'Application Submitted',
         p_title_bn: 'আবেদন জমা দেওয়া হয়েছে',
@@ -268,13 +269,20 @@ export default function NewApplicationModal({ open, onClose }) {
         p_admin_message_en: `${licenseType}-${licenseCategory}: ${nidData.full_name_en} (${appNumber})`,
         p_admin_message_bn: `${licenseType}-${licenseCategory}: ${nidData.full_name_bn} (${appNumber})`,
       });
+      
+      if (notifError) {
+        console.error('❌ Notification creation error:', notifError);
+      } else {
+        console.log('✅ Notification created successfully:', notifData);
+      }
 
       toast.success(isEnglish ? `Application submitted! Number: ${appNumber}` : `আবেদন জমা দেওয়া হয়েছে! নম্বর: ${appNumber}`);
       
       setTimeout(() => {
         onClose();
-        window.location.reload(); // Refresh to show new application
-      }, 2000);
+        // Call success callback to refresh applications list
+        if (onSuccess) onSuccess();
+      }, 1500);
 
     } catch (error) {
       console.error('Submission Error:', error);
@@ -297,8 +305,8 @@ export default function NewApplicationModal({ open, onClose }) {
             {/* License Type Selection */}
             <div className="grid grid-cols-3 gap-4">
               {[
-                { type: 'Light', label: isEnglish ? 'Light (Bike)' : 'লাইট (বাইক)', animation: vehicleAnimations.motorcycle },
-                { type: 'Motor', label: isEnglish ? 'Motor (Car)' : 'মোটর (গাড়ি)', animation: vehicleAnimations.car },
+                { type: 'Light', label: isEnglish ? 'Light (Bike)' : 'লাইট (বাইক)', animation: vehicleAnimations.car },
+                { type: 'Motor', label: isEnglish ? 'Motor (Car)' : 'মোটর (গাড়ি)', animation: vehicleAnimations.motorcycle },
                 { type: 'Light+Motor', label: isEnglish ? 'Light + Motor' : 'লাইট + মোটর', animation: null },
               ].map((item) => (
                 <motion.button
@@ -319,10 +327,10 @@ export default function NewApplicationModal({ open, onClose }) {
                   ) : (
                     <div className="flex gap-2 justify-center mb-2 h-20 items-center">
                       <div className="w-10 h-10">
-                        <DotLottieReact src={vehicleAnimations.motorcycle} autoplay loop style={{ width: '100%', height: '100%' }} />
+                        <DotLottieReact src={vehicleAnimations.car} autoplay loop style={{ width: '100%', height: '100%' }} />
                       </div>
                       <div className="w-10 h-10">
-                        <DotLottieReact src={vehicleAnimations.car} autoplay loop style={{ width: '100%', height: '100%' }} />
+                        <DotLottieReact src={vehicleAnimations.motorcycle} autoplay loop style={{ width: '100%', height: '100%' }} />
                       </div>
                     </div>
                   )}

@@ -1,16 +1,16 @@
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { CheckCircle } from 'lucide-react';
 
 export default function PaymentSuccess() {
   const navigate = useNavigate();
+  const [seconds, setSeconds] = useState(3);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (seconds === 0) {
       navigate('/dashboard');
-    }, 3000);
+      return;
+    }
+    const timer = setTimeout(() => setSeconds(s => s - 1), 1000);
     return () => clearTimeout(timer);
-  }, [navigate]);
+  }, [seconds, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-light via-white to-muted dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -28,7 +28,7 @@ export default function PaymentSuccess() {
           </p>
           <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 mb-6">
             <p className="text-sm text-gray-700 dark:text-gray-300">
-              Redirecting to your dashboard in <span className="font-semibold text-primary">3 seconds</span>...
+              Redirecting to your dashboard in <span className="font-semibold text-primary">{seconds} second{seconds !== 1 ? 's' : ''}</span>...
             </p>
           </div>
           <button
@@ -42,3 +42,6 @@ export default function PaymentSuccess() {
     </div>
   );
 }
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { CheckCircle } from 'lucide-react';

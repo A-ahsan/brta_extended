@@ -1,17 +1,16 @@
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { XCircle } from 'lucide-react';
 
 export default function PaymentFail() {
   const navigate = useNavigate();
+  const [seconds, setSeconds] = useState(4);
 
   useEffect(() => {
-    // Auto redirect to dashboard after 4 seconds
-    const timer = setTimeout(() => {
+    if (seconds === 0) {
       navigate('/dashboard');
-    }, 4000);
+      return;
+    }
+    const timer = setTimeout(() => setSeconds(s => s - 1), 1000);
     return () => clearTimeout(timer);
-  }, [navigate]);
+  }, [seconds, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-light via-white to-muted dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -29,7 +28,7 @@ export default function PaymentFail() {
           </p>
           <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 mb-6">
             <p className="text-sm text-gray-700 dark:text-gray-300">
-              Redirecting to your dashboard in <span className="font-semibold text-red-700 dark:text-red-400">4 seconds</span>...
+              Redirecting to your dashboard in <span className="font-semibold text-red-700 dark:text-red-400">{seconds} second{seconds !== 1 ? 's' : ''}</span>...
             </p>
           </div>
           <button
@@ -43,3 +42,6 @@ export default function PaymentFail() {
     </div>
   );
 }
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { XCircle } from 'lucide-react';

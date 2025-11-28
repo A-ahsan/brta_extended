@@ -35,24 +35,72 @@ async function updatePaymentAndNotify({ status, sslczData }) {
       .eq('id', payment.application_id);
   }
 
-  // Send user notification
-  await sendPaymentNotification({
-    user_id: payment.user_id,
-    application_id: payment.application_id,
-    status,
-    amount: payment.amount,
-    tran_id,
-    isAdmin: false
+  // Compose bilingual, role-specific messages
+  let userTitleEn, userTitleBn, userMsgEn, userMsgBn;
+  let adminTitleEn, adminTitleBn, adminMsgEn, adminMsgBn;
+  if (status === 'success') {
+    userTitleEn = 'Payment Successful';
+    userTitleBn = 'পেমেন্ট সফল হয়েছে';
+    userMsgEn = `Your payment of BDT ${payment.amount} for application ${tran_id} was successful.`;
+    userMsgBn = `আপনার আবেদন ${tran_id} এর জন্য BDT ${payment.amount} পেমেন্ট সফল হয়েছে।`;
+    adminTitleEn = 'User Payment Successful';
+    adminTitleBn = 'ইউজার পেমেন্ট সফল';
+    adminMsgEn = `User (ID: ${payment.user_id}) payment for application ${tran_id}: SUCCESS. Amount: BDT ${payment.amount}`;
+    adminMsgBn = `ইউজার (ID: ${payment.user_id}) আবেদন ${tran_id} এর জন্য পেমেন্ট সফল। পরিমাণ: BDT ${payment.amount}`;
+  } else if (status === 'failed') {
+    userTitleEn = 'Payment Failed';
+    userTitleBn = 'পেমেন্ট ব্যর্থ হয়েছে';
+    userMsgEn = `Your payment for application ${tran_id} failed. Please try again.`;
+    userMsgBn = `আপনার আবেদন ${tran_id} এর জন্য পেমেন্ট ব্যর্থ হয়েছে। আবার চেষ্টা করুন।`;
+    adminTitleEn = 'User Payment Failed';
+    adminTitleBn = 'ইউজার পেমেন্ট ব্যর্থ';
+    adminMsgEn = `User (ID: ${payment.user_id}) payment for application ${tran_id}: FAILED. Amount: BDT ${payment.amount}`;
+    adminMsgBn = `ইউজার (ID: ${payment.user_id}) আবেদন ${tran_id} এর জন্য পেমেন্ট ব্যর্থ। পরিমাণ: BDT ${payment.amount}`;
+  } else if (status === 'cancelled') {
+    userTitleEn = 'Payment Cancelled';
+    userTitleBn = 'পেমেন্ট বাতিল হয়েছে';
+    userMsgEn = `Your payment for application ${tran_id} was cancelled.`;
+    userMsgBn = `আপনার আবেদন ${tran_id} এর জন্য পেমেন্ট বাতিল হয়েছে।`;
+    adminTitleEn = 'User Payment Cancelled';
+    adminTitleBn = 'ইউজার পেমেন্ট বাতিল';
+    adminMsgEn = `User (ID: ${payment.user_id}) payment for application ${tran_id}: CANCELLED. Amount: BDT ${payment.amount}`;
+    adminMsgBn = `ইউজার (ID: ${payment.user_id}) আবেদন ${tran_id} এর জন্য পেমেন্ট বাতিল। পরিমাণ: BDT ${payment.amount}`;
+  }
+
+  // Use the dual notification RPC for both user and admin
+  console.log('Calling create_dual_notification RPC with:', {
+    p_user_id: payment.user_id,
+    p_title_en: userTitleEn,
+    p_title_bn: userTitleBn,
+    p_message_en: userMsgEn,
+    p_message_bn: userMsgBn,
+    p_type: 'payment',
+    p_application_id: payment.application_id,
+    p_action_url: null,
+    p_admin_title_en: adminTitleEn,
+    p_admin_title_bn: adminTitleBn,
+    p_admin_message_en: adminMsgEn,
+    p_admin_message_bn: adminMsgBn
   });
-  // Send admin notification
-  await sendPaymentNotification({
-    user_id: payment.user_id,
-    application_id: payment.application_id,
-    status,
-    amount: payment.amount,
-    tran_id,
-    isAdmin: true
+  const { data: notifData, error: notifError } = await supabase.rpc('create_dual_notification', {
+    p_user_id: payment.user_id,
+    p_title_en: userTitleEn,
+    p_title_bn: userTitleBn,
+    p_message_en: userMsgEn,
+    p_message_bn: userMsgBn,
+    p_type: 'payment',
+    p_application_id: payment.application_id,
+    p_action_url: null,
+    p_admin_title_en: adminTitleEn,
+    p_admin_title_bn: adminTitleBn,
+    p_admin_message_en: adminMsgEn,
+    p_admin_message_bn: adminMsgBn
   });
+  if (notifError) {
+    console.error('Notification RPC error:', notifError);
+  } else {
+    console.log('Notification RPC success:', notifData);
+  }
 }
 
 export { updatePaymentAndNotify };

@@ -16,6 +16,7 @@ const AdminNoticesManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingNotice, setEditingNotice] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [togglingId, setTogglingId] = useState(null);
   const [formData, setFormData] = useState({
     title_en: '',
     title_bn: '',
@@ -63,11 +64,17 @@ const AdminNoticesManagement = () => {
   useEffect(() => {
     fetchNotices();
 
-    // Subscribe to realtime changes
+    // Subscribe to realtime changes for create/delete only
     const channel = supabase
       .channel('notices_changes')
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'notices' },
+        { event: 'INSERT', schema: 'public', table: 'notices' },
+        () => {
+          fetchNotices();
+        }
+      )
+      .on('postgres_changes', 
+        { event: 'DELETE', schema: 'public', table: 'notices' },
         () => {
           fetchNotices();
         }
@@ -134,6 +141,9 @@ const AdminNoticesManagement = () => {
 
   // Handle toggle active
   const handleToggleActive = async (id, currentStatus) => {
+    if (togglingId === id) return; // Prevent multiple clicks
+    
+    setTogglingId(id);
     const newStatus = !currentStatus;
     
     try {
@@ -144,7 +154,7 @@ const AdminNoticesManagement = () => {
 
       if (error) throw error;
       
-      // Update local state after successful DB update
+      // Update local state immediately
       setNotices(prev => prev.map(n => 
         n.id === id ? { ...n, is_active: newStatus } : n
       ));
@@ -153,11 +163,16 @@ const AdminNoticesManagement = () => {
     } catch (error) {
       console.error('Error toggling notice:', error);
       toast.error('Failed to update notice');
+    } finally {
+      setTogglingId(null);
     }
   };
 
   // Handle toggle trending
   const handleToggleTrending = async (id, currentStatus) => {
+    if (togglingId === id) return; // Prevent multiple clicks
+    
+    setTogglingId(id);
     const newStatus = !currentStatus;
     
     try {
@@ -168,7 +183,7 @@ const AdminNoticesManagement = () => {
 
       if (error) throw error;
       
-      // Update local state after successful DB update
+      // Update local state immediately
       setNotices(prev => prev.map(n => 
         n.id === id ? { ...n, is_trending: newStatus } : n
       ));
@@ -177,6 +192,8 @@ const AdminNoticesManagement = () => {
     } catch (error) {
       console.error('Error toggling trending:', error);
       toast.error('Failed to update notice');
+    } finally {
+      setTogglingId(null);
     }
   };
 

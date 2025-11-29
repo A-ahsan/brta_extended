@@ -7,10 +7,11 @@ import {
   DownloadSimple,
   MapPin,
   Phone,
-  Sparkle
+  Sparkle,
+  Warning
 } from 'phosphor-react';
 
-const LicenseCard = ({ license, language, onDownload, generateLicenseQRCode }) => {
+const LicenseCard = ({ license, language, onDownload, onRenew, generateLicenseQRCode }) => {
   const [flipped, setFlipped] = useState(false);
 
   const formatDate = (dateString) => {
@@ -157,25 +158,41 @@ const LicenseCard = ({ license, language, onDownload, generateLicenseQRCode }) =
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 bg-red-500/20 border border-red-300/30 rounded-lg px-3 py-2">
+                    <Warning size={20} weight="fill" />
                     <span className="text-sm font-semibold">
-                      {language === 'en' ? '⚠️ License Expired' : '⚠️ লাইসেন্স মেয়াদোত্তীর্ণ'}
+                      {language === 'en' ? 'License Expired' : 'লাইসেন্স মেয়াদোত্তীর্ণ'}
                     </span>
                   </div>
                 )}
 
                 {/* Action Buttons */}
-                <motion.button
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDownload(license);
-                  }}
-                  className="w-full px-4 py-3.5 bg-white text-green-600 hover:bg-green-50 rounded-lg font-bold text-base flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all"
-                >
-                  <DownloadSimple size={20} weight="bold" />
-                  {language === 'en' ? 'Download' : 'ডাউনলোড'}
-                </motion.button>
+                {isExpired ? (
+                  <motion.button
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRenew(license);
+                    }}
+                    className="w-full px-4 py-3.5 bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 rounded-lg font-bold text-base flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all"
+                  >
+                    <ArrowsClockwise size={20} weight="bold" />
+                    {language === 'en' ? 'Renew License' : 'লাইসেন্স নবায়ন করুন'}
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDownload(license);
+                    }}
+                    className="w-full px-4 py-3.5 bg-white text-green-600 hover:bg-green-50 rounded-lg font-bold text-base flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all"
+                  >
+                    <DownloadSimple size={20} weight="bold" />
+                    {language === 'en' ? 'Download' : 'ডাউনলোড'}
+                  </motion.button>
+                )}
               </div>
             </div>
           </div>

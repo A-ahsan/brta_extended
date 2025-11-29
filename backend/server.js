@@ -387,6 +387,221 @@ app.get('/api/licenses/:license_number', async (req, res) => {
   }
 });
 
+// License Renewal Endpoints
+
+// Check if license needs renewal
+app.get('/api/licenses/:license_id/renewal-status', async (req, res) => {
+  try {
+    const { license_id } = req.params;
+
+    const { data: license, error } = await supabase
+      .from('licenses')
+      .select('*')
+      .eq('id', license_id)
+      .single();
+
+    if (error || !license) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'License not found' 
+      });
+    }
+
+    const expiryDate = new Date(license.expiry_date);
+    const today = new Date();
+    const daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+    const isExpired = daysUntilExpiry < 0;
+    const needsRenewal = isExpired || daysUntilExpiry <= 30;
+
+    // Get renewal fee (matching calculator fees)
+    const renewalFee = license.license_category === 'Professional' ? 2387 : 4212;
+
+    res.json({
+      success: true,
+      renewal_status: {
+        license_id: license.id,
+        license_number: license.license_number,
+        expiry_date: license.expiry_date,
+        is_expired: isExpired,
+        days_until_expiry: daysUntilExpiry,
+        needs_renewal: needsRenewal,
+        renewal_fee: renewalFee,
+        license_category: license.license_category
+      }
+    });
+
+  } catch (error) {
+    console.error('Error checking renewal status:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Internal server error' 
+    });
+  }
+});
+
+// Initiate renewal payment
+app.post('/api/licenses/renewal/initiate', async (req, res) => {
+  try {
+    const { license_id, user_id, tran_id, frontend_url } = req.body;
+
+    if (!license_id || !user_id || !tran_id) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields: license_id, user_id, tran_id' 
+      });
+    }
+
+    // Get license details
+    const { data: license, error: licenseError } = await supabase
+      .from('licenses')
+      .select('*')
+      .eq('id', license_id)
+      .eq('user_id', user_id)
+      .single();
+
+    if (licenseError || !license) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'License not found or does not belong to user' 
+      });
+    }
+
+    // Calculate renewal fee (matching calculator fees)
+    const renewalFee = license.license_category === 'Professional' ? 2387 : 4212;
+
+    // Create payment record
+    const { data: payment, error: paymentError } = await supabase
+      .from('payments')
+      .insert([{
+        user_id: user_id,
+        license_id: license_id,
+        amount: renewalFee,
+        currency: 'BDT',
+        tran_id: tran_id,
+        status: 'initiated',
+        payment_type: 'renewal'
+      }])
+      .select()
+      .single();
+
+    if (paymentError) {
+      console.error('Error creating payment record:', paymentError);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to create payment record' 
+      });
+    }
+
+    res.json({
+      success: true,
+      payment: payment,
+      renewal_fee: renewalFee,
+      message: 'Renewal payment initiated'
+    });
+
+  } catch (error) {
+    console.error('Renewal initiation error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Internal server error' 
+    });
+  }
+});
+
+// Process license renewal after successful payment
+app.post('/api/licenses/renewal/process', async (req, res) => {
+  try {
+    const { license_id, user_id, payment_id } = req.body;
+
+    if (!license_id || !user_id || !payment_id) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields: license_id, user_id, payment_id' 
+      });
+    }
+
+    // Verify payment is successful
+    const { data: payment, error: paymentError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', payment_id)
+      .eq('user_id', user_id)
+      .eq('license_id', license_id)
+      .eq('status', 'success')
+      .single();
+
+    if (paymentError || !payment) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Payment not found or not successful' 
+      });
+    }
+
+    // Call the renewal processing function
+    const { data: result, error: renewalError } = await supabase
+      .rpc('process_license_renewal', {
+        p_license_id: license_id,
+        p_user_id: user_id,
+        p_payment_id: payment_id,
+        p_amount: payment.amount
+      });
+
+    if (renewalError) {
+      console.error('Error processing renewal:', renewalError);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to process license renewal' 
+      });
+    }
+
+    res.json({
+      success: true,
+      renewal: result,
+      message: 'License renewed successfully'
+    });
+
+  } catch (error) {
+    console.error('Renewal processing error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Internal server error' 
+    });
+  }
+});
+
+// Get renewal history for a license
+app.get('/api/licenses/:license_id/renewals', async (req, res) => {
+  try {
+    const { license_id } = req.params;
+
+    const { data: renewals, error } = await supabase
+      .from('license_renewals')
+      .select('*')
+      .eq('license_id', license_id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching renewals:', error);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to fetch renewal history' 
+      });
+    }
+
+    res.json({
+      success: true,
+      renewals: renewals || []
+    });
+
+  } catch (error) {
+    console.error('Error fetching renewals:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Internal server error' 
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
 });

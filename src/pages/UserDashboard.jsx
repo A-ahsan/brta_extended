@@ -33,9 +33,11 @@ import QuestionBank from './QuestionBank';
 import UserPayments from './UserPayments.jsx';
 import ProgressTracker from '../components/ProgressTracker';
 import LicenseCard from '../components/LicenseCard';
+import RenewalPaymentModal from '../components/RenewalPaymentModal';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import axios from 'axios';
 
 const UserDashboard = () => {
   const navigate = useNavigate();
@@ -57,6 +59,10 @@ const UserDashboard = () => {
   const [passwordData, setPasswordData] = useState({ current: '', new: '', confirm: '' });
   const [newPhone, setNewPhone] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Renewal state
+  const [showRenewalModal, setShowRenewalModal] = useState(false);
+  const [renewalLicense, setRenewalLicense] = useState(null);
   
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -1170,6 +1176,10 @@ const UserDashboard = () => {
                           'Category': lic.license_category,
                           'address': lic.address
                         })}
+                        onRenew={(lic) => {
+                          setRenewalLicense(lic);
+                          setShowRenewalModal(true);
+                        }}
                       />
                     </motion.div>
                   ))}
@@ -1953,6 +1963,31 @@ const UserDashboard = () => {
               </form>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Renewal Payment Modal */}
+      <AnimatePresence>
+        {showRenewalModal && renewalLicense && (
+          <RenewalPaymentModal
+            open={showRenewalModal}
+            onClose={() => {
+              setShowRenewalModal(false);
+              setRenewalLicense(null);
+            }}
+            license={renewalLicense}
+            language={language}
+            onSuccess={() => {
+              setShowRenewalModal(false);
+              setRenewalLicense(null);
+              fetchLicenses();
+              toast.success(
+                language === 'en' 
+                  ? 'License renewal initiated. Complete the payment.' 
+                  : 'লাইসেন্স নবায়ন শুরু হয়েছে। পেমেন্ট সম্পূর্ণ করুন।'
+              );
+            }}
+          />
         )}
       </AnimatePresence>
 

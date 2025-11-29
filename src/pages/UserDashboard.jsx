@@ -29,6 +29,7 @@ import NewApplicationModal from '../components/NewApplicationModalEnhanced';
 import ThemeLanguageToggler from '../components/ThemeLanguageToggler';
 import EmbeddedCalculator from '../components/EmbeddedCalculator';
 import QuestionBank from './QuestionBank';
+import UserPayments from './UserPayments.jsx';
 import ProgressTracker from '../components/ProgressTracker';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
@@ -85,8 +86,47 @@ const UserDashboard = () => {
         )
         .subscribe();
 
+      // Subscribe to realtime license application updates
+      const applicationSubscription = supabase
+        .channel('user-license-applications')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'license_applications',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('License Application change:', payload);
+            // Refetch applications on any change
+            fetchLicenseApplications();
+          }
+        )
+        .subscribe();
+
+      // Subscribe to physical exam booking changes (for exam scheduling updates)
+      const examBookingSubscription = supabase
+        .channel('user-exam-bookings')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'physical_exam_bookings'
+          },
+          (payload) => {
+            console.log('Physical Exam Booking change:', payload);
+            // Refetch applications to get updated booking info
+            fetchLicenseApplications();
+          }
+        )
+        .subscribe();
+
       return () => {
         notificationSubscription.unsubscribe();
+        applicationSubscription.unsubscribe();
+        examBookingSubscription.unsubscribe();
       };
     }
   }, [user]);
@@ -850,8 +890,7 @@ const UserDashboard = () => {
 
       // Removed 'dlpayment' tab logic. Payment is now only in Progress Tracker.
       case 'payments':
-        // ...existing code for generic payments/history if needed
-        return null;
+        return <UserPayments />;
 
       case 'booking':
         return (

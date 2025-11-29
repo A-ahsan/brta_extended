@@ -540,6 +540,14 @@ export default function NewApplicationModal({ open, onClose, onSuccess }) {
                   </p>
                 </div>
                 <div>
+                  <span className="text-gray-600 dark:text-gray-400">{isEnglish ? 'License Type:' : 'লাইসেন্সের ধরন:'}</span>
+                  <p className="font-semibold text-gray-900 dark:text-white">{licenseType}</p>
+                </div>
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">{isEnglish ? 'License Category:' : 'লাইসেন্স শ্রেণী:'}</span>
+                  <p className="font-semibold text-gray-900 dark:text-white">{licenseCategory}</p>
+                </div>
+                <div>
                   <span className="text-gray-600 dark:text-gray-400">{isEnglish ? 'Father\'s Name:' : 'পিতার নাম:'}</span>
                   <p className="font-semibold text-gray-900 dark:text-white">{nidData?.father_name}</p>
                 </div>
@@ -605,7 +613,7 @@ export default function NewApplicationModal({ open, onClose, onSuccess }) {
             <button
               onClick={handleSubmit}
               disabled={processing || !userPhoto}
-              className="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-gradient-to-r from-primary to-green-600 hover:from-primary-dark hover:to-green-700 text-white font-semibold rounded-lg transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {processing ? (
                 <span className="flex items-center justify-center gap-2">

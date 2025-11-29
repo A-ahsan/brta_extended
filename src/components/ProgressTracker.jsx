@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { CheckCircle, Clock, XCircle, IdentificationCard, User, FileText, FirstAid, CreditCard, Check } from 'phosphor-react';
+import { CheckCircle, Clock, XCircle, IdentificationCard, User, FileText, FirstAid, CreditCard, ShieldCheck, IdentificationBadge } from 'phosphor-react';
 import { useLanguage } from '../contexts/AppContext';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -46,11 +46,11 @@ const steps = [
     flag: 'payment'
   },
   { 
-    key: 'approved', 
-    icon: Check,
-    en: 'Approved', 
-    bn: 'অনুমোদিত',
-    flag: 'approved'
+    key: 'generate_license', 
+    icon: IdentificationBadge,
+    en: 'Generate License', 
+    bn: 'লাইসেন্স তৈরি করুন',
+    flag: 'license_generated'
   },
 ];
 
@@ -110,9 +110,9 @@ export default function ProgressTracker({ application }) {
     // NID is always verified when application exists
     if (step.key === 'nid_verified') return 'completed';
     
-    // Approved is special
-    if (step.key === 'approved') {
-      return application.status === 'approved' ? 'completed' : 'pending';
+    // Generate License step (becomes available after payment)
+    if (step.key === 'generate_license') {
+      return application.license_generated === 1 ? 'completed' : 'pending';
     }
 
     const flagValue = application[step.flag];
@@ -139,7 +139,7 @@ export default function ProgressTracker({ application }) {
         (step.key === 'online_exam' && application.face_verification === 1) ||
         (step.key === 'physical_exam' && application.online_exam === 1) ||
         (step.key === 'payment' && application.physical_exam === 1) ||
-        (step.key === 'approved' && application.payment === 1)
+        (step.key === 'generate_license' && application.payment === 1 && application.license_generated !== 1)
       );
       
       if (isActive) {
@@ -220,7 +220,7 @@ export default function ProgressTracker({ application }) {
             (step.key === 'online_exam' && application.face_verification === 1 && application.online_exam === 0) ||
             (step.key === 'physical_exam' && application.online_exam === 1 && application.physical_exam === 0) ||
             (step.key === 'payment' && application.physical_exam === 1 && application.payment === 0) ||
-            (step.key === 'approved' && application.payment === 1 && application.status !== 'approved')
+            (step.key === 'generate_license' && application.payment === 1 && application.license_generated !== 1)
           );
 
           return (
@@ -249,7 +249,7 @@ export default function ProgressTracker({ application }) {
                   isActive ? 'text-primary dark:text-green-400' : 
                   'text-gray-500 dark:text-gray-400'
                 }`}>
-                  {status === 'completed' ? (isEnglish ? '✓ Done' : '✓ সম্পন্ন') : 
+                  {status === 'completed' ? (isEnglish ? '✓ Completed' : '✓ সম্পন্ন') : 
                    status === 'failed' ? (isEnglish ? '✗ Failed' : '✗ ব্যর্থ') :
                    isActive ? (isEnglish ? '⏳ Pending' : '⏳ অপেক্ষমাণ') :
                    (isEnglish ? 'Waiting' : 'অপেক্ষায়')}
@@ -298,8 +298,18 @@ export default function ProgressTracker({ application }) {
                   </button>
                 )}
 
+                {/* Action button for generate license */}
+                {step.key === 'generate_license' && isActive && (
+                  <button
+                    onClick={() => window.location.href = '/license'}
+                    className="mt-3 text-xs px-4 py-2 bg-gradient-to-r from-primary to-green-600 hover:from-primary-dark hover:to-green-700 text-white rounded-md font-semibold transition-all shadow-md"
+                  >
+                    {isEnglish ? 'Generate License' : 'লাইসেন্স তৈরি করুন'}
+                  </button>
+                )}
+
                 {/* Re-verify/Re-take button for failed steps */}
-                {status === 'failed' && step.key !== 'approved' && (
+                {status === 'failed' && step.key !== 'generate_license' && (
                   <button className="mt-3 text-xs px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-md font-semibold transition-colors">
                     {isEnglish ? 'Re-verify' : 'পুনরায় যাচাই'}
                   </button>
@@ -313,11 +323,18 @@ export default function ProgressTracker({ application }) {
       {/* Status Message */}
       <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-primary/30 dark:border-primary/50 rounded-lg p-4 mt-8">
         <p className="text-sm text-gray-700 dark:text-gray-300">
-          {application.status === 'approved' ? (
+          {application.license_generated === 1 ? (
             <>
               {isEnglish 
-                ? '🎉 Congratulations! Your license has been approved. You will receive it soon.'
-                : '🎉 অভিনন্দন! আপনার লাইসেন্স অনুমোদিত হয়েছে। আপনি শীঘ্রই এটি পাবেন।'
+                ? '🎉 Congratulations! Your license has been generated successfully. You can download it now.'
+                : '🎉 অভিনন্দন! আপনার লাইসেন্স সফলভাবে তৈরি করা হয়েছে। আপনি এখন এটি ডাউনলোড করতে পারেন।'
+              }
+            </>
+          ) : application.payment === 1 ? (
+            <>
+              {isEnglish 
+                ? '✅ Payment completed! Please generate your license card.'
+                : '✅ পেমেন্ট সম্পন্ন হয়েছে! অনুগ্রহ করে আপনার লাইসেন্স কার্ড তৈরি করুন।'
               }
             </>
           ) : (

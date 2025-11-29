@@ -15,6 +15,9 @@ export default function UserPayments() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [initiating, setInitiating] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("date");
+  const [filterStatus, setFilterStatus] = useState("success");
 
   useEffect(() => {
     if (user) fetchPayments();
@@ -79,25 +82,70 @@ export default function UserPayments() {
     }
   }
 
+  // Filter, search, and sort payments
+  const filteredPayments = payments
+    .filter(p => filterStatus === 'all' ? true : p.status === filterStatus)
+    .filter(p => {
+      if (!search) return true;
+      const s = search.toLowerCase();
+      return (
+        p.tran_id?.toLowerCase().includes(s) ||
+        String(p.amount).includes(s) ||
+        new Date(p.created_at).toLocaleString(language === 'en' ? 'en-US' : 'bn-BD').toLowerCase().includes(s)
+      );
+    })
+    .sort((a, b) => {
+      if (sortBy === 'date') return new Date(b.created_at) - new Date(a.created_at);
+      if (sortBy === 'amount') return b.amount - a.amount;
+      return 0;
+    });
+
   return (
-    <div className="max-w-2xl mx-auto p-6">
+    <div className="max-w-3xl mx-auto p-6">
       <motion.h2 initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">
-        {language === 'en' ? 'Driving License Payment' : 'ড্রাইভিং লাইসেন্স পেমেন্ট'}
+        {language === 'en' ? 'My Payments' : 'আমার পেমেন্টসমূহ'}
       </motion.h2>
       <div className="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow p-6 flex flex-col gap-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <span className="font-semibold text-gray-700 dark:text-gray-200">{language === 'en' ? 'License Fee' : 'লাইসেন্স ফি'}</span>
           <span className="text-lg font-bold text-primary">৳ {LICENSE_FEE}</span>
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handlePay}
+            disabled={initiating}
+            className="px-6 py-3 bg-primary text-white rounded-lg font-semibold shadow hover:bg-primary-dark transition disabled:opacity-60"
+          >
+            {initiating ? (language === 'en' ? 'Processing...' : 'প্রসেস হচ্ছে...') : (language === 'en' ? 'Pay Now' : 'এখনই পরিশোধ করুন')}
+          </motion.button>
         </div>
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={handlePay}
-          disabled={initiating}
-          className="mt-4 px-6 py-3 bg-primary text-white rounded-lg font-semibold shadow hover:bg-primary-dark transition disabled:opacity-60"
+      </div>
+      <div className="mb-4 flex flex-col md:flex-row gap-2 items-center justify-between">
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder={language === 'en' ? 'Search by ID, amount, date...' : 'আইডি, পরিমাণ, তারিখ দিয়ে খুঁজুন...'}
+          className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-white w-full md:w-1/3"
+        />
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value)}
+          className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
         >
-          {initiating ? (language === 'en' ? 'Processing...' : 'প্রসেস হচ্ছে...') : (language === 'en' ? 'Pay Now' : 'এখনই পরিশোধ করুন')}
-        </motion.button>
+          <option value="date">{language === 'en' ? 'Sort by Date' : 'তারিখ অনুযায়ী সাজান'}</option>
+          <option value="amount">{language === 'en' ? 'Sort by Amount' : 'পরিমাণ অনুযায়ী সাজান'}</option>
+        </select>
+        <select
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value)}
+          className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
+        >
+          <option value="success">{language === 'en' ? 'Successful' : 'সফল'}</option>
+          <option value="pending">{language === 'en' ? 'Pending' : 'অপেক্ষমাণ'}</option>
+          <option value="failed">{language === 'en' ? 'Failed' : 'ব্যর্থ'}</option>
+          <option value="all">{language === 'en' ? 'All' : 'সব'}</option>
+        </select>
       </div>
       <motion.h3 initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} className="text-xl font-bold mb-4 text-gray-800 dark:text-white">
         {language === 'en' ? 'Payment History' : 'পেমেন্ট হিস্ট্রি'}
@@ -115,16 +163,16 @@ export default function UserPayments() {
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
             {loading ? (
               <tr><td colSpan="4" className="text-center py-8">{language === 'en' ? 'Loading...' : 'লোড হচ্ছে...'}</td></tr>
-            ) : payments.length === 0 ? (
+            ) : filteredPayments.length === 0 ? (
               <tr><td colSpan="4" className="text-center py-8 text-gray-500">{language === 'en' ? 'No payments found' : 'কোনো পেমেন্ট পাওয়া যায়নি'}</td></tr>
             ) : (
-              payments.map((p) => (
+              filteredPayments.map((p) => (
                 <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <td className="px-4 py-3">{new Date(p.created_at).toLocaleString(language === 'en' ? 'en-US' : 'bn-BD')}</td>
                   <td className="px-4 py-3 font-mono">{p.tran_id}</td>
                   <td className="px-4 py-3">৳ {p.amount}</td>
                   <td className="px-4 py-3 font-semibold">
-                    {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+                    <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${p.status === 'success' ? 'bg-green-100 text-green-700' : p.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{p.status.charAt(0).toUpperCase() + p.status.slice(1)}</span>
                   </td>
                 </tr>
               ))

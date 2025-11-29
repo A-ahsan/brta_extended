@@ -63,7 +63,86 @@ export default function NewApplicationModal({ open, onClose, onSuccess }) {
   }, [open]);
 
   // Step 1: Select License Type & Category
-  const handleTypeSelection = (type, category) => {
+  const handleTypeSelection = async (type, category) => {
+    // Check both existing licenses AND pending/approved applications
+    try {
+      // Check existing generated licenses
+      const { data: existingLicenses, error: licenseError } = await supabase
+        .from('licenses')
+        .select('license_type, license_category')
+        .eq('user_id', user.id);
+
+      // Check pending/approved applications
+      const { data: existingApps, error: appError } = await supabase
+        .from('license_applications')
+        .select('license_type, license_category, status')
+        .eq('user_id', user.id)
+        .in('status', ['approved', 'pending']);
+
+      if (licenseError || appError) throw licenseError || appError;
+
+      // Combine data from both sources
+      const allLicenses = [];
+      if (existingLicenses) allLicenses.push(...existingLicenses.map(l => ({ type: l.license_type, category: l.license_category })));
+      if (existingApps) allLicenses.push(...existingApps.map(a => ({ type: a.license_type, category: a.license_category })));
+
+      if (allLicenses.length > 0) {
+        const existingTypes = allLicenses.map(l => l.type);
+        
+        // If user has Light+Motor, they can't apply for anything (but can apply for different category)
+        if (existingTypes.includes('Light+Motor')) {
+          // Check if they're applying for same type but different category
+          const existingLightMotor = allLicenses.find(l => l.type === 'Light+Motor');
+          if (type === 'Light+Motor' && existingLightMotor.category !== category) {
+            // Allow different category
+          } else {
+            toast.error(isEnglish 
+              ? 'You already have Light+Motor license. No further applications allowed!' 
+              : 'আপনার ইতিমধ্যে Light+Motor লাইসেন্স আছে। আর কোনো আবেদন করা যাবে না!');
+            return;
+          }
+        }
+
+        // If user has Light, they can only apply for Motor (or different category Light)
+        if (existingTypes.includes('Light')) {
+          const existingLight = allLicenses.find(l => l.type === 'Light');
+          
+          if (type === 'Light+Motor') {
+            toast.error(isEnglish 
+              ? 'You already have Light license. You can only apply for Motor, not Light+Motor!' 
+              : 'আপনার ইতিমধ্যে Light লাইসেন্স আছে। আপনি শুধু Motor এর জন্য আবেদন করতে পারবেন, Light+Motor নয়!');
+            return;
+          }
+          if (type === 'Light' && existingLight.category === category) {
+            toast.error(isEnglish 
+              ? 'You already have this Light license category!' 
+              : 'আপনার ইতিমধ্যে এই Light লাইসেন্স ক্যাটাগরি আছে!');
+            return;
+          }
+        }
+
+        // If user has Motor, they can only apply for Light (or different category Motor)
+        if (existingTypes.includes('Motor')) {
+          const existingMotor = allLicenses.find(l => l.type === 'Motor');
+          
+          if (type === 'Light+Motor') {
+            toast.error(isEnglish 
+              ? 'You already have Motor license. You can only apply for Light, not Light+Motor!' 
+              : 'আপনার ইতিমধ্যে Motor লাইসেন্স আছে। আপনি শুধু Light এর জন্য আবেদন করতে পারবেন, Light+Motor নয়!');
+            return;
+          }
+          if (type === 'Motor' && existingMotor.category === category) {
+            toast.error(isEnglish 
+              ? 'You already have this Motor license category!' 
+              : 'আপনার ইতিমধ্যে এই Motor লাইসেন্স ক্যাটাগরি আছে!');
+            return;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking existing licenses:', error);
+    }
+
     setLicenseType(type);
     setLicenseCategory(category);
     setStep(2);
@@ -106,7 +185,15 @@ export default function NewApplicationModal({ open, onClose, onSuccess }) {
       setStep(3);
     } catch (error) {
       console.error('OCR Error:', error);
-      toast.error(isEnglish ? 'Failed to process NID image' : 'এনআইডি ছবি প্রক্রিয়া করতে ব্যর্থ');
+      toast.error(
+        isEnglish 
+          ? '❌ OCR Failed! Could not process NID image. Please try again with a clearer image.' 
+          : '❌ OCR ব্যর্থ! এনআইডি ছবি প্রক্রিয়া করা যায়নি। আরও পরিষ্কার ছবি দিয়ে আবার চেষ্টা করুন।',
+        { duration: 5000, icon: '⚠️' }
+      );
+      // Reset to allow user to try again
+      setNidImage(null);
+      setStep(2);
     } finally {
       setProcessing(false);
       setOcrProgress(0);
@@ -428,14 +515,15 @@ export default function NewApplicationModal({ open, onClose, onSuccess }) {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                {isEnglish ? 'NID Number' : 'এনআইডি নম্বর'}
+                {isEnglish ? 'NID Number (Auto-detected)' : 'এনআইডি নম্বর (স্বয়ংক্রিয়ভাবে সনাক্ত)'}
               </label>
               <input
                 type="text"
                 value={nidNumber}
-                onChange={(e) => setNidNumber(e.target.value.replace(/\D/g, ''))}
-                placeholder={isEnglish ? 'Enter 10-13 digit NID number' : '১০-১৩ সংখ্যার এনআইডি নম্বর লিখুন'}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                readOnly
+                disabled
+                placeholder={isEnglish ? 'NID number will be auto-detected from image' : 'এনআইডি নম্বর ছবি থেকে স্বয়ংক্রিয়ভাবে সনাক্ত হবে'}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white cursor-not-allowed opacity-75"
               />
             </div>
 

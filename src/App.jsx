@@ -15,6 +15,8 @@ const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
 const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const PoliceLogin = lazy(() => import('./pages/PoliceLogin'));
+const VehicleAdderLogin = lazy(() => import('./pages/VehicleAdderLogin'));
+const VehicleAdderDashboard = lazy(() => import('./pages/VehicleAdderDashboard'));
 const FeatureDetail = lazy(() => import('./pages/FeatureDetail'));
 const FeeCalculator = lazy(() => import('./pages/FeeCalculator'));
 const Notices = lazy(() => import('./pages/Notices'));
@@ -83,6 +85,7 @@ function App() {
                   <Route path="/signup" element={<Signup />} />
                   <Route path="/admin-login" element={<AdminLogin />} />
                   <Route path="/police-login" element={<PoliceLogin />} />
+                  <Route path="/vehicle-adder-login" element={<VehicleAdderLogin />} />
                   
                   {/* Protected Routes */}
                   <Route 
@@ -130,6 +133,14 @@ function App() {
                     element={
                       <ProtectedRoute allowedRoles={['police']}>
                         <PoliceNotifications />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/vehicle-adder" 
+                    element={
+                      <ProtectedRoute allowedRoles={['vehicle_adder']}>
+                        <VehicleAdderDashboard />
                       </ProtectedRoute>
                     } 
                   />

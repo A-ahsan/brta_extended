@@ -602,6 +602,78 @@ app.get('/api/licenses/:license_id/renewals', async (req, res) => {
   }
 });
 
+// Vehicle Adder Endpoints
+
+// Add a new vehicle
+app.post('/api/vehicles/add', async (req, res) => {
+  try {
+    const { vehicle_name, model, engine_number, owner_id, license_id, vehicle_type } = req.body;
+
+    if (!vehicle_name || !model || !engine_number || !owner_id || !license_id || !vehicle_type) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+
+    // Fetch license and check type
+    const { data: license, error: licenseError } = await supabase
+      .from('licenses')
+      .select('id, license_type, user_id')
+      .eq('id', license_id)
+      .eq('user_id', owner_id)
+      .single();
+
+    if (licenseError || !license) {
+      return res.status(404).json({ success: false, error: 'License not found or does not belong to owner' });
+    }
+
+    // License type logic
+    if (vehicle_type === 'Bike' && !['Light', 'Light+Motor'].includes(license.license_type)) {
+      return res.status(400).json({ success: false, error: 'Owner does not have a valid bike license' });
+    }
+    if (vehicle_type === 'Car' && !['Motor', 'Light+Motor'].includes(license.license_type)) {
+      return res.status(400).json({ success: false, error: 'Owner does not have a valid car license' });
+    }
+
+    // Insert vehicle
+    const { data: vehicle, error: vehicleError } = await supabase
+      .from('vehicles')
+      .insert([{
+        vehicle_name,
+        model,
+        engine_number,
+        owner_id,
+        license_id,
+        vehicle_type
+      }])
+      .select()
+      .single();
+
+    if (vehicleError) {
+      return res.status(500).json({ success: false, error: 'Failed to add vehicle', details: vehicleError });
+    }
+
+    res.json({ success: true, vehicle, message: 'Vehicle added successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Internal server error' });
+  }
+});
+
+// Get all license holders (for vehicle adder selection)
+app.get('/api/licenses/holders', async (req, res) => {
+  try {
+    const { data: holders, error } = await supabase
+      .from('licenses')
+      .select('id, user_id, license_number, license_type, license_category, full_name_en, full_name_bn');
+
+    if (error) {
+      return res.status(500).json({ success: false, error: 'Failed to fetch license holders', details: error });
+    }
+
+    res.json({ success: true, holders });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Internal server error' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
 });

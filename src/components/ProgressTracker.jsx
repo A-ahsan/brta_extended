@@ -84,10 +84,19 @@ export default function ProgressTracker({ application }) {
   
   const LICENSE_FEE = calculateLicenseFee();
 
+  // Get dynamic backend URL based on current hostname
+  const getBackendUrl = () => {
+    const hostname = window.location.hostname;
+    const port = 5000;
+    return `http://${hostname}:${port}`;
+  };
+
   // Payment handler (copied/adapted from UserPayments)
   async function handlePay() {
     setInitiating(true);
     const tran_id = `DL${Date.now()}${Math.floor(Math.random()*1000)}`;
+    const backendUrl = getBackendUrl();
+    
     try {
       // Insert payment record as initiated
       await supabase.from('payments').insert({
@@ -99,7 +108,7 @@ export default function ProgressTracker({ application }) {
         status: 'initiated',
       });
       // Call backend to get payment URL
-      const res = await fetch('http://localhost:5000/api/payment/initiate', {
+      const res = await fetch(`${backendUrl}/api/payment/initiate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -109,6 +118,7 @@ export default function ProgressTracker({ application }) {
           tran_id,
           application_id: application.id,
           user_id: user.id,
+          frontend_url: window.location.origin, // Pass frontend origin
         }),
       });
       const data = await res.json();

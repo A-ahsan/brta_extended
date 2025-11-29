@@ -19,18 +19,32 @@ const SSLCZ_STORE_ID = process.env.SSLCZ_STORE_ID || 'testbox';
 const SSLCZ_STORE_PASSWORD = process.env.SSLCZ_STORE_PASSWORD || 'qwerty';
 const SSLCZ_API_URL = process.env.SSLCZ_API_URL || 'https://sandbox.sslcommerz.com/gwprocess/v4/api.php';
 
+// Store frontend URLs by transaction ID
+const frontendUrls = new Map();
+
 // Payment initiation endpoint
 app.post('/api/payment/initiate', async (req, res) => {
-  const { amount, customerName, customerEmail, tran_id, application_id, user_id } = req.body;
+  const { amount, customerName, customerEmail, tran_id, application_id, user_id, frontend_url } = req.body;
+  
+  // Store frontend URL for this transaction
+  if (frontend_url) {
+    frontendUrls.set(tran_id, frontend_url);
+  }
+  
+  // Get dynamic base URL from request
+  const protocol = req.protocol || 'http';
+  const host = req.get('host') || `localhost:${PORT}`;
+  const baseUrl = `${protocol}://${host}`;
+  
   const payload = {
     store_id: SSLCZ_STORE_ID,
     store_passwd: SSLCZ_STORE_PASSWORD,
     total_amount: String(amount),
     currency: 'BDT',
     tran_id: String(tran_id),
-    success_url: `http://localhost:${PORT}/api/payment/success`,
-    fail_url: `http://localhost:${PORT}/api/payment/fail`,
-    cancel_url: `http://localhost:${PORT}/api/payment/cancel`,
+    success_url: `${baseUrl}/api/payment/success`,
+    fail_url: `${baseUrl}/api/payment/fail`,
+    cancel_url: `${baseUrl}/api/payment/cancel`,
     cus_name: customerName || 'Test User',
     cus_email: customerEmail || 'test@example.com',
     cus_add1: 'Dhaka',
@@ -92,14 +106,22 @@ app.post('/api/payment/success', async (req, res) => {
   const data = req.body || {};
   console.log('Payment Success:', data);
   await updatePaymentAndNotify({ status: 'success', sslczData: data });
-  // Respond with HTML/JS redirect to local frontend dashboard
+  
+  // Get frontend URL from stored map using transaction ID
+  const tran_id = data.tran_id || data.value_a;
+  const frontendUrl = frontendUrls.get(tran_id) || 'http://localhost:3000';
+  frontendUrls.delete(tran_id); // Clean up
+  
+  const redirectUrl = `${frontendUrl}/payment-success`;
+  
+  // Respond with HTML/JS redirect to frontend dashboard
   res.send(`
     <html>
       <head>
         <title>Payment Success</title>
-        <meta http-equiv="refresh" content="0; url=http://localhost:3000/payment-success" />
+        <meta http-equiv="refresh" content="0; url=${redirectUrl}" />
         <script>
-          window.location.href = 'http://localhost:3000/payment-success';
+          window.location.href = '${redirectUrl}';
         </script>
       </head>
       <body>
@@ -114,13 +136,21 @@ app.post('/api/payment/fail', async (req, res) => {
   const data = req.body || {};
   console.log('Payment Failed:', data);
   await updatePaymentAndNotify({ status: 'failed', sslczData: data });
+  
+  // Get frontend URL from stored map using transaction ID
+  const tran_id = data.tran_id || data.value_a;
+  const frontendUrl = frontendUrls.get(tran_id) || 'http://localhost:3000';
+  frontendUrls.delete(tran_id); // Clean up
+  
+  const redirectUrl = `${frontendUrl}/payment-fail`;
+  
   res.send(`
     <html>
       <head>
         <title>Payment Failed</title>
-        <meta http-equiv="refresh" content="0; url=http://localhost:3000/payment-fail" />
+        <meta http-equiv="refresh" content="0; url=${redirectUrl}" />
         <script>
-          window.location.href = 'http://localhost:3000/payment-fail';
+          window.location.href = '${redirectUrl}';
         </script>
       </head>
       <body>

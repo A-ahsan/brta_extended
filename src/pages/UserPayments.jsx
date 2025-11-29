@@ -35,9 +35,18 @@ export default function UserPayments() {
     setLoading(false);
   }
 
+  // Get dynamic backend URL based on current hostname
+  const getBackendUrl = () => {
+    const hostname = window.location.hostname;
+    const port = 5000;
+    return `http://${hostname}:${port}`;
+  };
+
   async function handlePay() {
     setInitiating(true);
     const tran_id = `DL${Date.now()}${Math.floor(Math.random()*1000)}`;
+    const backendUrl = getBackendUrl();
+    
     // Find the user's latest application
     const { data: apps } = await supabase
       .from('license_applications')
@@ -61,7 +70,7 @@ export default function UserPayments() {
       status: 'initiated',
     });
     // Call backend to get payment URL
-    const res = await fetch('http://localhost:5000/api/payment/initiate', {
+    const res = await fetch(`${backendUrl}/api/payment/initiate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -71,6 +80,7 @@ export default function UserPayments() {
         tran_id,
         application_id: application.id,
         user_id: user.id,
+        frontend_url: window.location.origin, // Pass frontend origin
       }),
     });
     const data = await res.json();

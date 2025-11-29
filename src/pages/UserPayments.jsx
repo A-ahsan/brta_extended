@@ -101,37 +101,22 @@ export default function UserPayments() {
     });
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <motion.h2 initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">
+    <div className="max-w-5xl mx-auto p-6">
+      <motion.h2 initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} className="text-3xl font-bold mb-6 text-gray-900 dark:text-white">
         {language === 'en' ? 'My Payments' : 'আমার পেমেন্টসমূহ'}
       </motion.h2>
-      <div className="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow p-6 flex flex-col gap-2">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <span className="font-semibold text-gray-700 dark:text-gray-200">{language === 'en' ? 'License Fee' : 'লাইসেন্স ফি'}</span>
-          <span className="text-lg font-bold text-primary">৳ {LICENSE_FEE}</span>
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={handlePay}
-            disabled={initiating}
-            className="px-6 py-3 bg-primary text-white rounded-lg font-semibold shadow hover:bg-primary-dark transition disabled:opacity-60"
-          >
-            {initiating ? (language === 'en' ? 'Processing...' : 'প্রসেস হচ্ছে...') : (language === 'en' ? 'Pay Now' : 'এখনই পরিশোধ করুন')}
-          </motion.button>
-        </div>
-      </div>
-      <div className="mb-4 flex flex-col md:flex-row gap-2 items-center justify-between">
+      <div className="mb-6 flex flex-col md:flex-row gap-3 items-center justify-between bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
         <input
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder={language === 'en' ? 'Search by ID, amount, date...' : 'আইডি, পরিমাণ, তারিখ দিয়ে খুঁজুন...'}
-          className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-white w-full md:w-1/3"
+          className="px-4 py-2.5 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 w-full md:w-1/3 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
         />
         <select
           value={sortBy}
           onChange={e => setSortBy(e.target.value)}
-          className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
+          className="px-4 py-2.5 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all"
         >
           <option value="date">{language === 'en' ? 'Sort by Date' : 'তারিখ অনুযায়ী সাজান'}</option>
           <option value="amount">{language === 'en' ? 'Sort by Amount' : 'পরিমাণ অনুযায়ী সাজান'}</option>
@@ -139,40 +124,39 @@ export default function UserPayments() {
         <select
           value={filterStatus}
           onChange={e => setFilterStatus(e.target.value)}
-          className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
+          className="px-4 py-2.5 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all"
         >
           <option value="success">{language === 'en' ? 'Successful' : 'সফল'}</option>
-          <option value="pending">{language === 'en' ? 'Pending' : 'অপেক্ষমাণ'}</option>
           <option value="failed">{language === 'en' ? 'Failed' : 'ব্যর্থ'}</option>
           <option value="all">{language === 'en' ? 'All' : 'সব'}</option>
         </select>
       </div>
-      <motion.h3 initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} className="text-xl font-bold mb-4 text-gray-800 dark:text-white">
+      <motion.h3 initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
         {language === 'en' ? 'Payment History' : 'পেমেন্ট হিস্ট্রি'}
       </motion.h3>
-      <div className="overflow-x-auto rounded-xl border-2 border-gray-200 dark:border-gray-700">
+      <div className="overflow-x-auto rounded-xl border-2 border-gray-200 dark:border-gray-700 shadow-lg bg-white dark:bg-gray-800">
         <table className="w-full">
-          <thead className="bg-gradient-to-r from-gray-100 to-gray-50 dark:from-gray-700 dark:to-gray-800">
+          <thead className="bg-gradient-to-r from-primary/10 to-green-600/10 dark:from-primary/20 dark:to-green-600/20">
             <tr>
-              <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 dark:text-gray-300">Date</th>
-              <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 dark:text-gray-300">Transaction ID</th>
-              <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 dark:text-gray-300">Amount</th>
-              <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 dark:text-gray-300">Status</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 dark:text-white">Date</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 dark:text-white">Transaction ID</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 dark:text-white">Amount</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 dark:text-white">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
             {loading ? (
-              <tr><td colSpan="4" className="text-center py-8">{language === 'en' ? 'Loading...' : 'লোড হচ্ছে...'}</td></tr>
+              <tr><td colSpan="4" className="text-center py-8 text-gray-600 dark:text-gray-400">{language === 'en' ? 'Loading...' : 'লোড হচ্ছে...'}</td></tr>
             ) : filteredPayments.length === 0 ? (
-              <tr><td colSpan="4" className="text-center py-8 text-gray-500">{language === 'en' ? 'No payments found' : 'কোনো পেমেন্ট পাওয়া যায়নি'}</td></tr>
+              <tr><td colSpan="4" className="text-center py-8 text-gray-500 dark:text-gray-400">{language === 'en' ? 'No payments found' : 'কোনো পেমেন্ট পাওয়া যায়নি'}</td></tr>
             ) : (
               filteredPayments.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  <td className="px-4 py-3">{new Date(p.created_at).toLocaleString(language === 'en' ? 'en-US' : 'bn-BD')}</td>
-                  <td className="px-4 py-3 font-mono">{p.tran_id}</td>
-                  <td className="px-4 py-3">৳ {p.amount}</td>
-                  <td className="px-4 py-3 font-semibold">
-                    <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${p.status === 'success' ? 'bg-green-100 text-green-700' : p.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{p.status.charAt(0).toUpperCase() + p.status.slice(1)}</span>
+                <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <td className="px-6 py-4 text-gray-900 dark:text-gray-200">{new Date(p.created_at).toLocaleString(language === 'en' ? 'en-US' : 'bn-BD')}</td>
+                  <td className="px-6 py-4 font-mono text-gray-800 dark:text-gray-300">{p.tran_id}</td>
+                  <td className="px-6 py-4 font-semibold text-gray-900 dark:text-white">৳ {p.amount?.toLocaleString()}</td>
+                  <td className="px-6 py-4 font-semibold">
+                    <span className={`inline-block px-3 py-1 rounded-lg text-xs font-bold ${p.status === 'success' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : p.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'}`}>{p.status.charAt(0).toUpperCase() + p.status.slice(1)}</span>
                   </td>
                 </tr>
               ))

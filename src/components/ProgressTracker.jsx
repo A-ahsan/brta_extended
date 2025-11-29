@@ -62,8 +62,27 @@ export default function ProgressTracker({ application }) {
   const [showExamModal, setShowExamModal] = useState(false);
   const [showPhysicalExamModal, setShowPhysicalExamModal] = useState(false);
   const [initiating, setInitiating] = useState(false);
-  // License fee (should match UserPayments)
-  const LICENSE_FEE = 2230;
+  
+  // Calculate license fee based on license type and category (matching calculator)
+  const calculateLicenseFee = () => {
+    const licenseType = application.license_type; // 'Light', 'Motor', 'Light+Motor'
+    const licenseCategory = application.license_category; // 'Professional', 'Non-Professional'
+    
+    // Fee structure matching the calculator
+    const fees = {
+      'Non-Professional': { new: 4557, renewal: 4212 },
+      'Professional': { new: 2832, renewal: 2387 }
+    };
+    
+    // For combined Light+Motor, add both fees
+    if (licenseType === 'Light+Motor') {
+      return fees[licenseCategory]?.new * 1.5 || 4557; // 50% more for combined
+    }
+    
+    return fees[licenseCategory]?.new || 4557; // Default to non-professional new
+  };
+  
+  const LICENSE_FEE = calculateLicenseFee();
 
   // Payment handler (copied/adapted from UserPayments)
   async function handlePay() {
@@ -249,9 +268,9 @@ export default function ProgressTracker({ application }) {
                   isActive ? 'text-primary dark:text-green-400' : 
                   'text-gray-500 dark:text-gray-400'
                 }`}>
-                  {status === 'completed' ? (isEnglish ? '✓ Completed' : '✓ সম্পন্ন') : 
-                   status === 'failed' ? (isEnglish ? '✗ Failed' : '✗ ব্যর্থ') :
-                   isActive ? (isEnglish ? '⏳ Pending' : '⏳ অপেক্ষমাণ') :
+                  {status === 'completed' ? (isEnglish ? '✔️ Completed' : '✔️ সম্পন্ন') : 
+                   status === 'failed' ? (isEnglish ? 'Failed' : 'ব্যর্থ') :
+                   isActive ? (isEnglish ? 'Pending' : 'অপেক্ষমাণ') :
                    (isEnglish ? 'Waiting' : 'অপেক্ষায়')}
                 </p>
 
@@ -326,15 +345,15 @@ export default function ProgressTracker({ application }) {
           {application.license_generated === 1 ? (
             <>
               {isEnglish 
-                ? '🎉 Congratulations! Your license has been generated successfully. You can download it now.'
-                : '🎉 অভিনন্দন! আপনার লাইসেন্স সফলভাবে তৈরি করা হয়েছে। আপনি এখন এটি ডাউনলোড করতে পারেন।'
+                ? 'Congratulations! Your license has been generated successfully. You can download it now.'
+                : 'অভিনন্দন! আপনার লাইসেন্স সফলভাবে তৈরি করা হয়েছে। আপনি এখন এটি ডাউনলোড করতে পারেন।'
               }
             </>
           ) : application.payment === 1 ? (
             <>
               {isEnglish 
-                ? '✅ Payment completed! Please generate your license card.'
-                : '✅ পেমেন্ট সম্পন্ন হয়েছে! অনুগ্রহ করে আপনার লাইসেন্স কার্ড তৈরি করুন।'
+                ? 'Payment completed! Please generate your license card.'
+                : 'পেমেন্ট সম্পন্ন হয়েছে! অনুগ্রহ করে আপনার লাইসেন্স কার্ড তৈরি করুন।'
               }
             </>
           ) : (

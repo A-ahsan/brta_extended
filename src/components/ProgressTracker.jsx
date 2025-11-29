@@ -62,6 +62,7 @@ export default function ProgressTracker({ application }) {
   const [showExamModal, setShowExamModal] = useState(false);
   const [showPhysicalExamModal, setShowPhysicalExamModal] = useState(false);
   const [initiating, setInitiating] = useState(false);
+  const [generatingLicense, setGeneratingLicense] = useState(false);
   
   // Calculate license fee based on license type and category (matching calculator)
   const calculateLicenseFee = () => {
@@ -89,6 +90,48 @@ export default function ProgressTracker({ application }) {
     const hostname = window.location.hostname;
     const port = 5000;
     return `http://${hostname}:${port}`;
+  };
+
+  // Generate License handler
+  const handleGenerateLicense = async () => {
+    if (!user?.id || !application?.id) {
+      toast.error(isEnglish ? 'Missing required information' : 'প্রয়োজনীয় তথ্য নেই');
+      return;
+    }
+    
+    try {
+      setGeneratingLicense(true);
+      const backendUrl = getBackendUrl();
+
+      const response = await fetch(`${backendUrl}/api/licenses/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          application_id: application.id,
+          user_id: user.id
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(isEnglish 
+          ? `License ${data.license.license_number} generated successfully!` 
+          : `লাইসেন্স ${data.license.license_number} সফলভাবে তৈরি হয়েছে!`
+        );
+        // Refresh the page to show updated status
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        throw new Error(data.error || 'Failed to generate license');
+      }
+    } catch (error) {
+      console.error('Error generating license:', error);
+      toast.error(error.message || (isEnglish ? 'Failed to generate license' : 'লাইসেন্স তৈরি করতে ব্যর্থ'));
+    } finally {
+      setGeneratingLicense(false);
+    }
   };
 
   // Payment handler (copied/adapted from UserPayments)
@@ -330,10 +373,13 @@ export default function ProgressTracker({ application }) {
                 {/* Action button for generate license */}
                 {step.key === 'generate_license' && isActive && (
                   <button
-                    onClick={() => window.location.href = '/license'}
-                    className="mt-3 text-xs px-4 py-2 bg-gradient-to-r from-primary to-green-600 hover:from-primary-dark hover:to-green-700 text-white rounded-md font-semibold transition-all shadow-md"
+                    onClick={handleGenerateLicense}
+                    disabled={generatingLicense}
+                    className="mt-3 text-xs px-4 py-2 bg-gradient-to-r from-primary to-green-600 hover:from-primary-dark hover:to-green-700 text-white rounded-md font-semibold transition-all shadow-md disabled:opacity-60"
                   >
-                    {isEnglish ? 'Generate License' : 'লাইসেন্স তৈরি করুন'}
+                    {generatingLicense
+                      ? (isEnglish ? 'Generating...' : 'তৈরি হচ্ছে...')
+                      : (isEnglish ? 'Generate License' : 'লাইসেন্স তৈরি করুন')}
                   </button>
                 )}
 

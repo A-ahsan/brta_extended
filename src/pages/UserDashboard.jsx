@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { 
+import {
   IdentificationCard, 
   Car, 
   CreditCard, 
@@ -20,7 +20,8 @@ import {
   X,
   CheckCircle,
   Calculator,
-  BookOpen
+  BookOpen,
+  Sparkle
 } from 'phosphor-react';
 import { useLanguage, useDownload } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -31,6 +32,7 @@ import EmbeddedCalculator from '../components/EmbeddedCalculator';
 import QuestionBank from './QuestionBank';
 import UserPayments from './UserPayments.jsx';
 import ProgressTracker from '../components/ProgressTracker';
+import LicenseCard from '../components/LicenseCard';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -60,12 +62,16 @@ const UserDashboard = () => {
   const [notifications, setNotifications] = useState([]);
   const [licenseApplications, setLicenseApplications] = useState([]);
   const [loadingApplications, setLoadingApplications] = useState(true);
+  const [licenses, setLicenses] = useState([]);
+  const [loadingLicenses, setLoadingLicenses] = useState(true);
+  const [generatingLicense, setGeneratingLicense] = useState(false);
 
   // Fetch real license applications
   useEffect(() => {
     if (user) {
       fetchLicenseApplications();
       fetchNotifications();
+      fetchLicenses();
       
       // Subscribe to realtime notifications
       const notificationSubscription = supabase
@@ -101,6 +107,25 @@ const UserDashboard = () => {
             console.log('License Application change:', payload);
             // Refetch applications on any change
             fetchLicenseApplications();
+          }
+        )
+        .subscribe();
+
+      // Subscribe to realtime license updates
+      const licenseSubscription = supabase
+        .channel('user-licenses')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'licenses',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('License change:', payload);
+            // Refetch licenses on any change
+            fetchLicenses();
           }
         )
         .subscribe();
@@ -198,6 +223,85 @@ const UserDashboard = () => {
       setNotifications(data || []);
     } catch (error) {
       console.error('Error fetching notifications:', error);
+    }
+  };
+
+  const fetchLicenses = async () => {
+    if (!user?.id) {
+      console.log('No user ID available for fetching licenses');
+      setLoadingLicenses(false); // Set to false even if no user
+      return;
+    }
+    
+    try {
+      setLoadingLicenses(true);
+      console.log('Fetching licenses for user:', user.id);
+      
+      const { data, error } = await supabase
+        .from('licenses')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        // Only log error, don't show toast for empty results
+        if (error.code !== 'PGRST116') { // Not a "no rows" error
+          console.error('License fetch error:', error);
+        }
+      }
+      
+      console.log('Fetched licenses:', data?.length || 0);
+      setLicenses(data || []);
+    } catch (error) {
+      console.error('Error fetching licenses:', error);
+      // Don't show error toast, just log it
+    } finally {
+      setLoadingLicenses(false);
+    }
+  };
+
+  const generateLicense = async (applicationId) => {
+    if (!user?.id || !applicationId) {
+      toast.error(language === 'en' ? 'Missing required information' : 'প্রয়োজনীয় তথ্য নেই');
+      return;
+    }
+    
+    try {
+      setGeneratingLicense(true);
+      
+      // Get backend URL dynamically
+      const backendUrl = window.location.hostname === 'localhost' 
+        ? 'http://localhost:5000' 
+        : `${window.location.protocol}//${window.location.hostname}:5000`;
+
+      const response = await fetch(`${backendUrl}/api/licenses/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          application_id: applicationId,
+          user_id: user.id
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(language === 'en' 
+          ? `License ${data.license.license_number} generated successfully!` 
+          : `লাইসেন্স ${data.license.license_number} সফলভাবে তৈরি হয়েছে!`
+        );
+        // Refresh licenses
+        await fetchLicenses();
+      } else {
+        throw new Error(data.error || 'Failed to generate license');
+      }
+    } catch (error) {
+      console.error('Error generating license:', error);
+      toast.error(error.message || (language === 'en' ? 'Failed to generate license' : 'লাইসেন্স তৈরি করতে ব্যর্থ'));
+    } finally {
+      setGeneratingLicense(false);
     }
   };
 
@@ -308,6 +412,13 @@ const UserDashboard = () => {
     return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data)}`;
   };
 
+  const generateLicenseQRCode = (licenseNumber) => {
+    // Get current URL (localhost or network)
+    const baseUrl = window.location.origin;
+    const licenseUrl = `${baseUrl}/license/${licenseNumber}`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(licenseUrl)}`;
+  };
+
   
 
   // Function to download card as PDF
@@ -323,6 +434,11 @@ const UserDashboard = () => {
       return;
     }
 
+    // Get photo URL from cardData
+    const photoUrl = cardData.photo_url || cardData['Photo URL'] || '';
+    const licenseNumber = cardData.license_number || cardData['License No'] || 'N/A';
+    const qrData = `${window.location.origin}/license/${licenseNumber}`;
+
     // Generate HTML content showing BOTH front and back of the card
     const htmlContent = `
       <!DOCTYPE html>
@@ -337,68 +453,81 @@ const UserDashboard = () => {
             background: #f5f5f5;
           }
           .container {
-            max-width: 900px;
+            max-width: 850px;
             margin: 0 auto;
           }
           .card {
             width: 100%;
+            height: 520px;
             margin-bottom: 30px;
-            padding: 40px;
+            padding: 30px;
             background: linear-gradient(135deg, ${gradientColors});
             color: white;
-            border-radius: 20px;
+            border-radius: 16px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             page-break-after: always;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
           }
           .card.back {
             background: linear-gradient(135deg, ${backGradient});
+            padding: 25px 30px 40px 30px;
           }
           .user-photo {
-            width: 120px;
-            height: 140px;
+            width: 110px;
+            height: 135px;
             background: linear-gradient(135deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1));
             border: 3px solid rgba(255,255,255,0.5);
-            border-radius: 10px;
+            border-radius: 8px;
+            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
+          }
+          .user-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+          }
+          .user-photo-placeholder {
             font-size: 48px;
             color: rgba(255,255,255,0.6);
           }
           .header {
             text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
+            margin-bottom: 15px;
+            padding-bottom: 12px;
             border-bottom: 2px solid rgba(255,255,255,0.3);
           }
           .header h1 {
-            font-size: 32px;
-            margin-bottom: 10px;
+            font-size: 22px;
+            margin-bottom: 4px;
           }
           .header p {
-            font-size: 14px;
+            font-size: 12px;
             opacity: 0.9;
           }
           .content {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            gap: 15px;
           }
           .field {
-            margin-bottom: 15px;
+            margin-bottom: 12px;
           }
           .field.full {
             grid-column: 1 / -1;
           }
           .label {
-            font-size: 12px;
+            font-size: 11px;
             opacity: 0.8;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 5px;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
           }
           .value {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
           }
           .qr-section {
@@ -414,14 +543,17 @@ const UserDashboard = () => {
           }
           .back-details {
             display: flex;
-            gap: 40px;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            margin-bottom: 30px;
+            justify-content: flex-start;
+            flex: 1;
+            gap: 12px;
+            overflow: hidden;
           }
           .back-info {
-            flex: 1;
-            max-width: 400px;
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
           }
           .print-btn {
             display: block;
@@ -458,15 +590,22 @@ const UserDashboard = () => {
           <!-- FRONT SIDE -->
           <div class="card">
             <div class="header">
-              <h1>${cardType.replace(/_/g, ' ')}</h1>
+              <h1>DRIVING LICENSE</h1>
               <p>Bangladesh Road Transport Authority</p>
             </div>
-            <div style="display: flex; gap: 30px; align-items: flex-start;">
-              <div class="user-photo">👤</div>
+            <div style="display: flex; gap: 25px; align-items: flex-start;">
+              <div>
+                <div class="user-photo">
+                  ${photoUrl ? `<img src="${photoUrl}" alt="License Holder" crossorigin="anonymous" />` : '<div class="user-photo-placeholder">👤</div>'}
+                </div>
+                <p style="text-align: center; margin-top: 6px; font-size: 10px; opacity: 0.9;">Photo</p>
+              </div>
               <div class="content" style="flex: 1;">
-                ${Object.entries(cardData).map(([key, value]) => `
-                  <div class="field ${key.includes('Plate') || key.includes('Model') ? 'full' : ''}">
-                    <div class="label">${key}</div>
+                ${Object.entries(cardData)
+                  .filter(([key]) => !['photo_url', 'Photo URL'].includes(key))
+                  .map(([key, value]) => `
+                  <div class="field ${key.includes('Plate') || key.includes('Model') || key.includes('Name') ? 'full' : ''}">
+                    <div class="label">${key.replace(/_/g, ' ').toUpperCase()}</div>
                     <div class="value">${value}</div>
                   </div>
                 `).join('')}
@@ -477,32 +616,35 @@ const UserDashboard = () => {
           <!-- BACK SIDE -->
           <div class="card back">
             <div class="header">
-              <h1>${cardType.replace(/_/g, ' ')} - Back Side</h1>
-              <p>Detailed Information</p>
+              <h1>LICENSE DETAILS</h1>
+              <p>Back Side Information</p>
             </div>
             <div class="back-details">
               <div class="qr-section" style="border: none; padding: 0; margin: 0;">
-                <img src="${generateQRCode(Object.values(cardData).join('|'))}" alt="QR Code" style="width: 200px; height: 200px;" />
-                <p style="margin-top: 10px; font-size: 12px;">Scan for Verification</p>
+                <img src="${generateLicenseQRCode(licenseNumber)}" alt="QR Code" style="width: 120px; height: 120px;" crossorigin="anonymous" />
+                <p style="margin-top: 6px; font-size: 10px;">Scan to Verify</p>
               </div>
               <div class="back-info">
-                <div class="field">
+                <div class="field" style="margin-bottom: 10px;">
+                  <div class="label">License Number</div>
+                  <div class="value" style="font-size: 16px; color: #fbbf24;">${licenseNumber}</div>
+                </div>
+                <div class="field" style="margin-bottom: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.3);">
+                  <div class="label">Type & Category</div>
+                  <div class="value" style="font-size: 13px;">${cardData['Type'] || 'N/A'} - ${cardData['Category'] || 'N/A'}</div>
+                </div>
+                <div class="field" style="margin-bottom: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.3);">
                   <div class="label">Address</div>
-                  <div class="value" style="font-size: 16px;">123 Main Street, Dhaka-1000</div>
+                  <div class="value" style="font-size: 12px; line-height: 1.4;">${cardData.address || cardData['Address'] || 'N/A'}</div>
                 </div>
-                <div class="field">
-                  <div class="label">Emergency Contact</div>
-                  <div class="value" style="font-size: 16px;">+880 1711-123456</div>
-                </div>
-                <div class="field">
-                  <div class="label">Restrictions</div>
-                  <div class="value" style="font-size: 16px;">None</div>
+                <div class="field" style="padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.3);">
+                  <div class="label">Issue & Expiry</div>
+                  <div class="value" style="font-size: 12px;">${cardData['Issue Date'] || 'N/A'} - ${cardData['Expiry Date'] || 'N/A'}</div>
                 </div>
               </div>
             </div>
-            <div style="text-align: center; padding-top: 20px; border-top: 2px solid rgba(255,255,255,0.3);">
-              <p style="font-size: 12px; opacity: 0.8; margin-bottom: 10px;">This is an official document of Bangladesh Road Transport Authority</p>
-              <p style="font-size: 12px; opacity: 0.8;">For verification, visit: www.brta.gov.bd</p>
+            <div style="text-align: center; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.3); margin-top: auto;">
+              <p style="font-size: 10px; opacity: 0.8;">Official document of Bangladesh Road Transport Authority</p>
             </div>
           </div>
         </div>
@@ -952,143 +1094,106 @@ const UserDashboard = () => {
               animate={{ opacity: 1, y: 0 }}
               className="mb-8"
             >
-              <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-                <IdentificationCard size={24} weight="duotone" className="text-primary" />
-                {language === 'en' ? 'My Driving License' : 'আমার ড্রাইভিং লাইসেন্স'}
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                  <IdentificationCard size={24} weight="duotone" className="text-primary" />
+                  {language === 'en' ? 'My Driving License' : 'আমার ড্রাইভিং লাইসেন্স'}
+                </h3>
+
+                {/* Generate License Button - Only show if approved application exists without license */}
+                {!loadingLicenses && !loadingApplications && licenseApplications.length > 0 && (
+                  (() => {
+                    const approvedApps = licenseApplications.filter(app => 
+                      app.status === 'approved' && app.payment === 1
+                    );
+                    const appsWithoutLicense = approvedApps.filter(app =>
+                      !licenses.some(lic => lic.application_id === app.id)
+                    );
+
+                    return appsWithoutLicense.length > 0 ? (
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => generateLicense(appsWithoutLicense[0].id)}
+                        disabled={generatingLicense}
+                        className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {generatingLicense ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            {language === 'en' ? 'Generating...' : 'তৈরি হচ্ছে...'}
+                          </>
+                        ) : (
+                          <>
+                            <Sparkle size={20} weight="duotone" />
+                            {language === 'en' ? 'Generate License' : 'লাইসেন্স তৈরি করুন'}
+                          </>
+                        )}
+                      </motion.button>
+                    ) : null;
+                  })()
+                )}
+              </div>
               
-              {/* Front Side */}
-              <div className={`${flippedLicense ? 'hidden' : 'block'} bg-gradient-to-br from-primary via-green-600 to-primary-dark p-8 rounded-2xl shadow-2xl text-white relative overflow-hidden`}>
-                    <div className="relative z-10 text-white">
-                      <div className="flex justify-between items-start mb-6">
-                        <div>
-                          <p className="text-sm opacity-90 uppercase tracking-wider mb-1">{language === 'en' ? 'Bangladesh Road Transport Authority' : 'বাংলাদেশ সড়ক পরিবহন কর্তৃপক্ষ'}</p>
-                          <h4 className="text-2xl font-bold">{language === 'en' ? 'Driving License' : 'ড্রাইভিং লাইসেন্স'}</h4>
-                        </div>
-                        <img src="/brta.png" alt="BRTA" className="h-16 w-16 bg-white/20 rounded-lg p-2 backdrop-blur-sm" />
-                      </div>
-                      <div className="grid grid-cols-[120px_1fr] gap-6">
-                        {/* User Photo */}
-                        <div className="row-span-2">
-                          <div className="w-28 h-32 bg-white/20 backdrop-blur-sm rounded-lg overflow-hidden border-2 border-white/40">
-                            <div className="w-full h-full bg-gradient-to-br from-white/30 to-white/10 flex items-center justify-center">
-                              <User size={48} weight="duotone" className="text-white/60" />
-                            </div>
-                          </div>
-                          <p className="text-xs text-center mt-2 opacity-80">{language === 'en' ? 'Photo' : 'ছবি'}</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-xs opacity-80 uppercase tracking-wider mb-1">{language === 'en' ? 'License No.' : 'লাইসেন্স নং'}</p>
-                            <p className="text-lg font-bold">DL-123456789</p>
-                          </div>
-                          <div>
-                            <p className="text-xs opacity-80 uppercase tracking-wider mb-1">{language === 'en' ? 'Name' : 'নাম'}</p>
-                            <p className="text-lg font-bold">John Doe</p>
-                          </div>
-                          <div>
-                            <p className="text-xs opacity-80 uppercase tracking-wider mb-1">{language === 'en' ? 'Date of Birth' : 'জন্ম তারিখ'}</p>
-                            <p className="text-base font-bold">01/01/1990</p>
-                          </div>
-                          <div>
-                            <p className="text-xs opacity-80 uppercase tracking-wider mb-1">{language === 'en' ? 'Blood Group' : 'রক্তের গ্রুপ'}</p>
-                            <p className="text-base font-bold">A+</p>
-                          </div>
-                          <div>
-                            <p className="text-xs opacity-80 uppercase tracking-wider mb-1">{language === 'en' ? 'License Type' : 'লাইসেন্সের ধরন'}</p>
-                            <p className="text-base font-bold">Professional</p>
-                          </div>
-                          <div>
-                            <p className="text-xs opacity-80 uppercase tracking-wider mb-1">{language === 'en' ? 'Issue Date' : 'ইস্যুর তারিখ'}</p>
-                            <p className="text-base font-bold">15/06/2023</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-auto pt-4 border-t border-white/30">
-                        <div className="flex items-center gap-2 mb-3">
-                          <CheckCircle size={20} weight="fill" />
-                          <span className="text-sm font-semibold">{language === 'en' ? 'Valid Until: 14/06/2028' : 'বৈধ পর্যন্ত: ১৪/০৬/২০২৮'}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => setFlippedLicense(prev => !prev)}
-                            className="flex-1 px-3 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-1.5"
-                          >
-                            <ArrowsClockwise size={16} />
-                            {language === 'en' ? 'Flip' : 'উল্টান'}
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => downloadCardAsPDF('Driving_License', {
-                              'License No': 'DL-123456789',
-                              'Name': 'John Doe',
-                              'Date of Birth': '01/01/1990',
-                              'Blood Group': 'A+',
-                              'License Type': 'Professional',
-                              'Issue Date': '15/06/2023',
-                              'Expiry Date': '14/06/2028'
-                            })}
-                            className="flex-1 px-3 py-2 bg-white text-primary hover:bg-white/90 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-1.5"
-                          >
-                            <DownloadSimple size={16} />
-                            {language === 'en' ? 'Download' : 'ডাউনলোড'}
-                          </motion.button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Back Side */}
-                  <div className={`${!flippedLicense ? 'hidden' : 'block'} bg-gradient-to-br from-primary-dark via-green-700 to-primary p-8 rounded-2xl shadow-2xl text-white relative overflow-hidden`}>
-                    <div className="absolute inset-0 opacity-10">
-                      <div className="absolute top-0 right-0 w-48 h-48 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
-                      <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full translate-y-1/2 -translate-x-1/2" />
-                    </div>
-                    
-                    <div className="relative z-10">
-                      <h4 className="text-xl font-bold mb-6 text-center">{language === 'en' ? 'License Details' : 'লাইসেন্সের বিবরণ'}</h4>
-                      <div className="flex justify-center items-center gap-6 mb-4">
-                        {/* QR Code */}
-                        <div className="bg-white p-3 rounded-xl">
-                          <img 
-                            src={generateQRCode('DL-123456789|John Doe|Professional|14/06/2028')} 
-                            alt="QR Code" 
-                            className="w-32 h-32"
-                          />
-                          <p className="text-xs text-center mt-1 text-gray-800 font-semibold">{language === 'en' ? 'Scan' : 'স্ক্যান'}</p>
-                        </div>
-                        {/* Additional Info */}
-                        <div className="space-y-2">
-                          <div>
-                            <p className="text-xs opacity-80 uppercase tracking-wider mb-0.5">{language === 'en' ? 'Address' : 'ঠিকানা'}</p>
-                            <p className="text-sm font-semibold">123 Main Street, Dhaka-1000</p>
-                          </div>
-                          <div>
-                            <p className="text-xs opacity-80 uppercase tracking-wider mb-0.5">{language === 'en' ? 'Emergency' : 'জরুরি'}</p>
-                            <p className="text-sm font-semibold">+880 1711-123456</p>
-                          </div>
-                          <div>
-                            <p className="text-xs opacity-80 uppercase tracking-wider mb-0.5">{language === 'en' ? 'Restrictions' : 'সীমাবদ্ধতা'}</p>
-                            <p className="text-sm font-semibold">{language === 'en' ? 'None' : 'কোনটিই নয়'}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-auto pt-3 border-t border-white/30">
-                        <p className="text-xs opacity-80 text-center mb-2">{language === 'en' ? 'Official document of BRTA' : 'বিআরটিএ অফিসিয়াল ডকুমেন্ট'}</p>
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => setFlippedLicense(prev => !prev)}
-                          className="w-full px-3 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-1.5"
-                        >
-                          <ArrowsClockwise size={16} />
-                          {language === 'en' ? 'Flip' : 'উল্টান'}
-                        </motion.button>
-                      </div>
-                    </div>
-                  </div>
+              {/* License Display */}
+              {loadingLicenses ? (
+                <div className="bg-white dark:bg-gray-800 p-8 rounded-xl text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                  <p className="mt-4 text-gray-600 dark:text-gray-400">
+                    {language === 'en' ? 'Loading licenses...' : 'লাইসেন্স লোড হচ্ছে...'}
+                  </p>
+                </div>
+              ) : licenses.length > 0 ? (
+                <div className="space-y-6 max-w-4xl mx-auto">
+                  {licenses.map((license, index) => (
+                    <motion.div
+                      key={license.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <LicenseCard
+                        license={license}
+                        language={language}
+                        generateLicenseQRCode={generateLicenseQRCode}
+                        onDownload={(lic) => downloadCardAsPDF(`Driving_License_${lic.license_number}`, {
+                          'License No': lic.license_number,
+                          'Name': lic.full_name_en,
+                          'Date of Birth': new Date(lic.date_of_birth).toLocaleDateString('en-GB'),
+                          'Blood Group': lic.blood_group,
+                          'Gender': lic.gender,
+                          'Issue Date': new Date(lic.issue_date).toLocaleDateString('en-GB'),
+                          'Expiry Date': new Date(lic.expiry_date).toLocaleDateString('en-GB'),
+                          'Status': lic.status.toUpperCase(),
+                          'photo_url': lic.photo_url,
+                          'Type': lic.license_type,
+                          'Category': lic.license_category,
+                          'address': lic.address
+                        })}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 p-8 rounded-xl text-center border-2 border-dashed border-gray-300 dark:border-gray-600">
+                  <IdentificationCard size={64} className="text-gray-400 mx-auto mb-4" weight="duotone" />
+                  <h4 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">
+                    {language === 'en' ? 'No License Available' : 'কোনো লাইসেন্স নেই'}
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    {language === 'en' 
+                      ? 'Complete your application and generate your driving license' 
+                      : 'আপনার আবেদন সম্পূর্ণ করুন এবং ড্রাইভিং লাইসেন্স তৈরি করুন'}
+                  </p>
+                  {licenseApplications.some(app => app.status === 'approved' && app.payment === 1) && (
+                    <p className="text-xs text-primary font-semibold">
+                      {language === 'en' 
+                        ? '✓ Your application is approved! Click "Generate License" button above' 
+                        : '✓ আপনার আবেদন অনুমোদিত! উপরের "লাইসেন্স তৈরি করুন" বোতামে ক্লিক করুন'}
+                    </p>
+                  )}
+                </div>
+              )}
             </motion.div>
 
             {/* Vehicle Smart Cards */}

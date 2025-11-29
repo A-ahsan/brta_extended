@@ -5,7 +5,14 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import { updatePaymentAndNotify } from './updatePayment.js';
+import { createClient } from '@supabase/supabase-js';
 dotenv.config();
+
+// Initialize Supabase client with service role key
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -166,6 +173,218 @@ app.post('/api/payment/cancel', async (req, res) => {
   console.log('Payment Cancelled:', data);
   await updatePaymentAndNotify({ status: 'cancelled', sslczData: data });
   res.send('Payment Cancelled');
+});
+
+// License generation endpoint
+app.post('/api/licenses/generate', async (req, res) => {
+  try {
+    const { application_id, user_id } = req.body;
+
+    if (!application_id || !user_id) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields: application_id and user_id' 
+      });
+    }
+
+    // Check if license already exists for this application
+    const { data: existingLicense, error: checkError } = await supabase
+      .from('licenses')
+      .select('*')
+      .eq('application_id', application_id)
+      .single();
+
+    if (existingLicense) {
+      return res.json({ 
+        success: true, 
+        license: existingLicense,
+        message: 'License already exists for this application' 
+      });
+    }
+
+    // Fetch application data
+    const { data: application, error: appError } = await supabase
+      .from('license_applications')
+      .select('*')
+      .eq('id', application_id)
+      .eq('user_id', user_id)
+      .single();
+
+    if (appError || !application) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Application not found or does not belong to user' 
+      });
+    }
+
+    // Verify application is approved and payment completed
+    if (application.status !== 'approved' && application.payment !== 1) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Application must be approved and payment completed before generating license' 
+      });
+    }
+
+    // Generate unique license number
+    const { data: licenseNumberData, error: licenseNumError } = await supabase
+      .rpc('generate_license_number');
+
+    if (licenseNumError) {
+      console.error('Error generating license number:', licenseNumError);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to generate license number' 
+      });
+    }
+
+    const licenseNumber = licenseNumberData;
+    const issueDate = new Date().toISOString().split('T')[0];
+    
+    // Calculate expiry date based on license category
+    // Professional: 5 years, Non-Professional: 10 years
+    const expiryDate = new Date();
+    if (application.license_category === 'Professional') {
+      expiryDate.setFullYear(expiryDate.getFullYear() + 5);
+    } else {
+      expiryDate.setFullYear(expiryDate.getFullYear() + 10);
+    }
+    const expiryDateStr = expiryDate.toISOString().split('T')[0];
+
+    // Create license
+    const { data: newLicense, error: licenseError } = await supabase
+      .from('licenses')
+      .insert([{
+        license_number: licenseNumber,
+        application_id: application.id,
+        user_id: user_id,
+        license_type: application.license_type,
+        license_category: application.license_category,
+        full_name_en: application.full_name_en,
+        full_name_bn: application.full_name_bn,
+        nid_number: application.nid_number,
+        date_of_birth: application.date_of_birth,
+        blood_group: application.blood_group,
+        gender: application.gender,
+        address: application.address,
+        photo_url: application.user_photo_url,
+        issue_date: issueDate,
+        expiry_date: expiryDateStr,
+        expired: 0, // Not expired initially
+        status: 'active'
+      }])
+      .select()
+      .single();
+
+    if (licenseError) {
+      console.error('Error creating license:', licenseError);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to create license' 
+      });
+    }
+
+    // Create notification for user
+    const { error: userNotifError } = await supabase
+      .from('notifications')
+      .insert([{
+        user_id: user_id,
+        recipient_type: 'user',
+        title_en: 'License Generated Successfully',
+        title_bn: 'লাইসেন্স সফলভাবে তৈরি হয়েছে',
+        message_en: `Your driving license ${licenseNumber} has been generated successfully. You can now view and download it from your profile.`,
+        message_bn: `আপনার ড্রাইভিং লাইসেন্স ${licenseNumber} সফলভাবে তৈরি হয়েছে। আপনি এখন আপনার প্রোফাইল থেকে এটি দেখতে এবং ডাউনলোড করতে পারেন।`,
+        notification_type: 'approval',
+        priority: 'high',
+        application_id: application_id,
+        is_read: false
+      }]);
+
+    if (userNotifError) {
+      console.error('Error creating user notification:', userNotifError);
+    } else {
+      console.log('✅ User notification created successfully');
+    }
+
+    // Create notifications for all admins
+    const { data: admins, error: adminError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('role', 'admin');
+
+    if (!adminError && admins && admins.length > 0) {
+      console.log(`Found ${admins.length} admin(s) to notify`);
+      
+      const adminNotifications = admins.map(admin => ({
+        user_id: admin.id,
+        recipient_type: 'admin',
+        title_en: 'New License Generated',
+        title_bn: 'নতুন লাইসেন্স তৈরি হয়েছে',
+        message_en: `A new driving license ${licenseNumber} has been generated for ${application.full_name_en} (NID: ${application.nid_number}).`,
+        message_bn: `${application.full_name_bn} (এনআইডি: ${application.nid_number}) এর জন্য একটি নতুন ড্রাইভিং লাইসেন্স ${licenseNumber} তৈরি হয়েছে।`,
+        notification_type: 'approval',
+        priority: 'normal',
+        application_id: application_id,
+        is_read: false
+      }));
+
+      const { error: adminNotifError } = await supabase
+        .from('notifications')
+        .insert(adminNotifications);
+
+      if (adminNotifError) {
+        console.error('Error creating admin notifications:', adminNotifError);
+      } else {
+        console.log('✅ Admin notifications created successfully');
+      }
+    } else {
+      console.log('⚠️ No admins found or error fetching admins:', adminError);
+    }
+
+    res.json({ 
+      success: true, 
+      license: newLicense,
+      message: 'License generated successfully' 
+    });
+
+  } catch (error) {
+    console.error('License generation error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Internal server error' 
+    });
+  }
+});
+
+// Get license by number (for QR code scanning)
+app.get('/api/licenses/:license_number', async (req, res) => {
+  try {
+    const { license_number } = req.params;
+
+    const { data: license, error } = await supabase
+      .from('licenses')
+      .select('*')
+      .eq('license_number', license_number)
+      .single();
+
+    if (error || !license) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'License not found' 
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      license 
+    });
+
+  } catch (error) {
+    console.error('Error fetching license:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Internal server error' 
+    });
+  }
 });
 
 app.listen(PORT, () => {

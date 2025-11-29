@@ -24,6 +24,7 @@ const AdminNotifications = lazy(() => import('./pages/admin/AdminNotifications')
 const PoliceNotifications = lazy(() => import('./pages/police/PoliceNotifications'));
 const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'));
 const PaymentFail = lazy(() => import('./pages/PaymentFail'));
+const PublicLicenseView = lazy(() => import('./pages/PublicLicenseView'));
 
 function App() {
   return (
@@ -75,6 +76,7 @@ function App() {
                   <Route path="/about" element={<AboutUs />} />
                   <Route path="/payment-success" element={<PaymentSuccess />} />
                   <Route path="/payment-fail" element={<PaymentFail />} />
+                  <Route path="/license/:license_number" element={<PublicLicenseView />} />
                   
                   {/* Authentication Routes */}
                   <Route path="/login" element={<Login />} />

@@ -178,22 +178,26 @@ export default function NewApplicationModal({ open, onClose, onSuccess }) {
       if (nidMatch) {
         setNidNumber(nidMatch[0]);
         toast.success(isEnglish ? `NID Number detected: ${nidMatch[0]}` : `এনআইডি নম্বর সনাক্ত: ${nidMatch[0]}`);
+        setStep(3); // Move to next step only if successful
       } else {
-        toast.error(isEnglish ? 'Could not detect NID number. Please enter manually.' : 'এনআইডি নম্বর সনাক্ত করা যায়নি। দয়া করে ম্যানুয়ালি লিখুন।');
+        // OCR failed to detect NID number
+        toast.error(
+          isEnglish 
+            ? '❌ Could not detect NID number. Please upload a clearer FRONT side image.' 
+            : '❌ এনআইডি নম্বর সনাক্ত করা যায়নি। দয়া করে সামনের পাতার আরও পরিষ্কার ছবি আপলোড করুন।',
+          { duration: 5000, icon: '⚠️' }
+        );
+        // Keep image displayed but allow retry
       }
-
-      setStep(3);
     } catch (error) {
       console.error('OCR Error:', error);
       toast.error(
         isEnglish 
-          ? '❌ OCR Failed! Could not process NID image. Please try again with a clearer image.' 
-          : '❌ OCR ব্যর্থ! এনআইডি ছবি প্রক্রিয়া করা যায়নি। আরও পরিষ্কার ছবি দিয়ে আবার চেষ্টা করুন।',
+          ? '❌ OCR Failed! Could not process NID image. Please upload a clearer FRONT side image.' 
+          : '❌ OCR ব্যর্থ! এনআইডি ছবি প্রক্রিয়া করা যায়নি। সামনের পাতার আরও পরিষ্কার ছবি আপলোড করুন।',
         { duration: 5000, icon: '⚠️' }
       );
-      // Reset to allow user to try again
-      setNidImage(null);
-      setStep(2);
+      // Keep on step 2 to allow retry
     } finally {
       setProcessing(false);
       setOcrProgress(0);
@@ -462,6 +466,23 @@ export default function NewApplicationModal({ open, onClose, onSuccess }) {
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white text-center">
               {isEnglish ? 'Upload NID Card' : 'এনআইডি কার্ড আপলোড করুন'}
             </h3>
+
+            {/* Warning Message */}
+            <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-lg">
+              <div className="flex items-start gap-3">
+                <WarningCircle size={24} weight="fill" className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-amber-800 dark:text-amber-200">
+                  <p className="font-semibold mb-1">
+                    {isEnglish ? '⚠️ Important Instructions:' : '⚠️ গুরুত্বপূর্ণ নির্দেশনা:'}
+                  </p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>{isEnglish ? 'Upload FRONT side of NID card only' : 'শুধুমাত্র এনআইডি কার্ডের সামনের পাতা আপলোড করুন'}</li>
+                    <li>{isEnglish ? 'Ensure image is clear and well-lit' : 'নিশ্চিত করুন ছবি স্পষ্ট এবং ভালো আলোতে তোলা'}</li>
+                    <li>{isEnglish ? 'All text must be readable' : 'সকল লেখা পাঠযোগ্য হতে হবে'}</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
             
             <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center">
               <input
@@ -471,16 +492,34 @@ export default function NewApplicationModal({ open, onClose, onSuccess }) {
                 onChange={handleNIDUpload}
                 className="hidden"
               />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={processing}
-                className="mx-auto flex flex-col items-center gap-3 p-6 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
-              >
-                <Upload size={48} className="text-blue-600" />
-                <span className="font-semibold text-gray-700 dark:text-gray-300">
-                  {isEnglish ? 'Click to upload NID front image' : 'এনআইডি সামনের ছবি আপলোড করতে ক্লিক করুন'}
-                </span>
-              </button>
+              
+              {nidImage && !processing ? (
+                <div className="space-y-4">
+                  <img src={nidImage} alt="NID Preview" className="max-w-full max-h-64 mx-auto rounded-lg border-2 border-gray-200 dark:border-gray-700" />
+                  <button
+                    onClick={() => {
+                      setNidImage(null);
+                      setNidNumber('');
+                      fileInputRef.current?.click();
+                    }}
+                    className="mx-auto flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg transition-all"
+                  >
+                    <Upload size={20} />
+                    {isEnglish ? 'Upload Again (Clearer Image)' : 'আবার আপলোড করুন (পরিষ্কার ছবি)'}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={processing}
+                  className="mx-auto flex flex-col items-center gap-3 p-6 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                >
+                  <Upload size={48} className="text-blue-600" />
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">
+                    {isEnglish ? 'Click to upload NID front image' : 'এনআইডি সামনের ছবি আপলোড করতে ক্লিক করুন'}
+                  </span>
+                </button>
+              )}
             </div>
 
             {processing && (

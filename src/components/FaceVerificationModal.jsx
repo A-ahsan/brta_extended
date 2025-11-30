@@ -221,6 +221,16 @@ export default function FaceVerificationModal({ open, onClose, application }) {
       return;
     }
     
+    // Check if mediaDevices API is available
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.error('getUserMedia not supported');
+      setError(isEnglish 
+        ? 'Camera not supported. Please use HTTPS or a modern browser.' 
+        : 'ক্যামেরা সমর্থিত নয়। দয়া করে HTTPS বা আধুনিক ব্রাউজার ব্যবহার করুন।');
+      setStep('failed');
+      return;
+    }
+    
     try {
       console.log('Requesting camera...');
       const stream = await navigator.mediaDevices.getUserMedia({

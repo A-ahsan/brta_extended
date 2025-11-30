@@ -30,9 +30,13 @@ mkcert localhost 127.0.0.1 $ip ::1
 cd ..
 
 # Rename cert files for Vite
-$certFile = "$certDir\$ip+3.pem"
-$keyFile = "$certDir\$ip+3-key.pem"
-if (Test-Path $certFile -and Test-Path $keyFile) {
+$certFile = "$certDir\localhost+3.pem"
+$keyFile = "$certDir\localhost+3-key.pem"
+if ((Test-Path $certFile) -and (Test-Path $keyFile)) {
+    # Remove old files if they exist
+    if (Test-Path "$certDir\cert.pem") { Remove-Item "$certDir\cert.pem" -Force }
+    if (Test-Path "$certDir\key.pem") { Remove-Item "$certDir\key.pem" -Force }
+    
     Rename-Item $certFile cert.pem -Force
     Rename-Item $keyFile key.pem -Force
     Write-Host "Renamed cert.pem and key.pem for Vite." -ForegroundColor Green

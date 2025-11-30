@@ -34,6 +34,7 @@ import UserPayments from './UserPayments.jsx';
 import ProgressTracker from '../components/ProgressTracker';
 import LicenseCard from '../components/LicenseCard';
 import RenewalPaymentModal from '../components/RenewalPaymentModal';
+import LicenseCompletionCelebration from '../components/LicenseCompletionCelebration';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -973,17 +974,42 @@ const UserDashboard = () => {
                   </p>
                 </div>
               ) : (
-                licenseApplications.map((app, index) => (
-                  <motion.div
-                    key={app.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all border border-gray-200 dark:border-gray-700"
-                  >
-                    <ProgressTracker application={app} />
-                  </motion.div>
-                ))
+                licenseApplications.map((app, index) => {
+                  // Check if this application has a generated license
+                  const generatedLicense = licenses.find(lic => lic.application_id === app.id);
+                  
+                  // Smart detection: Determine if this is the LATEST completed license
+                  // Animation only shows for the most recent license without newer applications
+                  const hasNewerApplication = licenseApplications.some(laterApp => 
+                    new Date(laterApp.created_at) > new Date(app.created_at) && !licenses.some(lic => lic.application_id === laterApp.id)
+                  );
+                  
+                  // Show celebration if license exists
+                  // Show animation ONLY if it's the latest (no newer apps)
+                  const showCelebration = !!generatedLicense;
+                  const showAnimation = generatedLicense && !hasNewerApplication;
+                  
+                  return (
+                    <motion.div
+                      key={app.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all border border-gray-200 dark:border-gray-700"
+                    >
+                      {showCelebration ? (
+                        <LicenseCompletionCelebration 
+                          application={app}
+                          license={generatedLicense}
+                          onViewLicense={() => setActiveTab('profile')}
+                          showAnimation={showAnimation}
+                        />
+                      ) : (
+                        <ProgressTracker application={app} />
+                      )}
+                    </motion.div>
+                  );
+                })
               )}
             </div>
           </div>

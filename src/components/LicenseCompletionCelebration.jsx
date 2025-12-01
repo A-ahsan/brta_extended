@@ -99,7 +99,7 @@ const LicenseCompletionCelebration = ({ application, license, onViewLicense, sho
 
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 dark:bg-green-900/30 rounded-full text-green-700 dark:text-green-300 font-semibold">
           <IdentificationCard size={20} weight="duotone" />
-          <span>{application?.application_number}</span>
+          <span>{license?.license_number || application?.application_number}</span>
         </div>
       </motion.div>
 

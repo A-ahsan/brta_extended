@@ -277,9 +277,7 @@ const UserDashboard = () => {
       setGeneratingLicense(true);
       
       // Get backend URL dynamically
-      const backendUrl = window.location.hostname === 'localhost' 
-        ? 'http://localhost:5000' 
-        : `${window.location.protocol}//${window.location.hostname}:5000`;
+      const backendUrl = `${window.location.protocol}//${window.location.hostname}:5000`;
 
       const response = await fetch(`${backendUrl}/api/licenses/generate`, {
         method: 'POST',

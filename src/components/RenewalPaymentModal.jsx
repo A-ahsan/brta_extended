@@ -80,8 +80,9 @@ const RenewalPaymentModal = ({ open, onClose, license, language, onSuccess }) =>
       setLoading(true);
       setError(null);
 
+      const backendUrl = `${window.location.protocol}//${window.location.hostname}:5000`;
       const response = await axios.get(
-        `http://localhost:5000/api/licenses/${license.id}/renewal-status`
+        `${backendUrl}/api/licenses/${license.id}/renewal-status`
       );
 
       if (response.data.success) {
@@ -104,10 +105,11 @@ const RenewalPaymentModal = ({ open, onClose, license, language, onSuccess }) =>
 
       const tran_id = `REN${Date.now()}`;
       const frontendUrl = window.location.origin;
+      const backendUrl = `${window.location.protocol}//${window.location.hostname}:5000`;
 
       // Create payment record
       const initiateResponse = await axios.post(
-        'http://localhost:5000/api/licenses/renewal/initiate',
+        `${backendUrl}/api/licenses/renewal/initiate`,
         {
           license_id: license.id,
           user_id: license.user_id,
@@ -124,7 +126,7 @@ const RenewalPaymentModal = ({ open, onClose, license, language, onSuccess }) =>
       const { data: { user } } = await supabase.auth.getUser();
       
       // Initiate payment with SSLCommerz
-      const paymentResponse = await axios.post('http://localhost:5000/api/payment/initiate', {
+      const paymentResponse = await axios.post(`${backendUrl}/api/payment/initiate`, {
         amount: renewalInfo.renewal_fee,
         customerName: license.full_name_en,
         customerEmail: user?.email || 'user@example.com',

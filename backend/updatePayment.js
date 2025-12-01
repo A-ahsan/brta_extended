@@ -2,6 +2,12 @@
 import { supabase } from './supabaseClient.js';
 import { sendPaymentNotification } from './notifications.js';
 import axios from 'axios';
+import https from 'https';
+
+// Create an https agent that accepts self-signed certificates for internal calls
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: false
+});
 
 async function updatePaymentAndNotify({ status, sslczData }) {
   const tran_id = sslczData.tran_id;
@@ -56,10 +62,12 @@ async function updatePaymentAndNotify({ status, sslczData }) {
     if (isRenewal) {
       // Process license renewal
       try {
-        const response = await axios.post('http://localhost:5000/api/licenses/renewal/process', {
+        const response = await axios.post('https://localhost:5000/api/licenses/renewal/process', {
           license_id: payment.license_id,
           user_id: payment.user_id,
           payment_id: payment.id
+        }, {
+          httpsAgent // Accept self-signed certificate for internal call
         });
         console.log('✅ License renewal processed:', response.data);
       } catch (err) {

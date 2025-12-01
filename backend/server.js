@@ -1,5 +1,9 @@
 // Minimal Node.js/Express backend for SSLCommerz demo integration
 import express from 'express';
+import https from 'https';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import axios from 'axios';
 import cors from 'cors';
 import bodyParser from 'body-parser';
@@ -7,6 +11,9 @@ import dotenv from 'dotenv';
 import { updatePaymentAndNotify } from './updatePayment.js';
 import { createClient } from '@supabase/supabase-js';
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Initialize Supabase client with service role key
 const supabase = createClient(
@@ -20,6 +27,23 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+
+// HTTPS Configuration
+let server;
+const certPath = path.join(__dirname, '../cert/cert.pem');
+const keyPath = path.join(__dirname, '../cert/key.pem');
+
+if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+  const httpsOptions = {
+    key: fs.readFileSync(keyPath),
+    cert: fs.readFileSync(certPath)
+  };
+  server = https.createServer(httpsOptions, app);
+  console.log('🔒 HTTPS enabled for backend');
+} else {
+  server = app;
+  console.log('⚠️  HTTPS certificates not found, running on HTTP');
+}
 
 // SSLCommerz credentials (use .env for real projects)
 const SSLCZ_STORE_ID = process.env.SSLCZ_STORE_ID || 'testbox';
@@ -674,6 +698,7 @@ app.get('/api/licenses/holders', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Backend server running on http://localhost:${PORT}`);
+server.listen(PORT, () => {
+  const protocol = fs.existsSync(certPath) && fs.existsSync(keyPath) ? 'https' : 'http';
+  console.log(`🚀 Backend server running on ${protocol}://localhost:${PORT}`);
 });

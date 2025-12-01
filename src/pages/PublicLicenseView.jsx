@@ -33,10 +33,7 @@ const PublicLicenseView = () => {
       
       // Get backend URL dynamically - support localhost and network IPs
       const hostname = window.location.hostname;
-      const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
-      const backendUrl = isLocal
-        ? `http://${hostname}:5000`
-        : `${window.location.protocol}//${window.location.hostname}:5000`;
+      const backendUrl = `${window.location.protocol}//${window.location.hostname}:5000`;
 
       console.log('Fetching license from:', `${backendUrl}/api/licenses/${license_number}`);
       const response = await fetch(`${backendUrl}/api/licenses/${license_number}`);

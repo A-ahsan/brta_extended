@@ -106,21 +106,21 @@ const PoliceDashboard = () => {
       id: 'verification', 
       icon: QrCode, 
       label: language === 'en' ? 'Verification' : 'যাচাইকরণ', 
-      path: '/police/verification',
+      path: '/police-dashboard/verification',
       description: language === 'en' ? 'QR & Plate Search' : 'QR ও প্লেট অনুসন্ধান'
     },
     { 
       id: 'records', 
       icon: Database, 
       label: language === 'en' ? 'Records' : 'রেকর্ড', 
-      path: '/police/records',
+      path: '/police-dashboard/records',
       description: language === 'en' ? 'Vehicle Database' : 'যানবাহন ডাটাবেস'
     },
     { 
       id: 'activity', 
       icon: ClockCounterClockwise, 
       label: language === 'en' ? 'Recent Activity' : 'সাম্প্রতিক', 
-      path: '/police/activity',
+      path: '/police-dashboard/activity',
       description: language === 'en' ? 'Live Feed' : 'লাইভ ফিড'
     },
   ];

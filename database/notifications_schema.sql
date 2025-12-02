@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS notifications (
   message_bn TEXT NOT NULL,
   
   -- Type & Priority
-  notification_type VARCHAR(20) CHECK (notification_type IN ('application', 'verification', 'exam', 'payment', 'approval', 'rejection', 'general')) NOT NULL,
+  notification_type VARCHAR(30) CHECK (notification_type IN ('application', 'verification', 'exam', 'payment', 'approval', 'rejection', 'general', 'renewal', 'vehicle_registration', 'vehicle_added', 'admin_vehicle_alert', 'vehicle_registration_complete')) NOT NULL,
   priority VARCHAR(10) DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')) NOT NULL,
   
   -- Related Data

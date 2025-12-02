@@ -54,7 +54,7 @@ $$ LANGUAGE plpgsql;
 
 -- 4. Add renewal payment type to payments table
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_type VARCHAR(30) DEFAULT 'application' 
-  CHECK (payment_type IN ('application', 'renewal', 'fine', 'other'));
+  CHECK (payment_type IN ('application', 'renewal', 'vehicle_registration', 'fine', 'other'));
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS license_id UUID REFERENCES licenses(id) ON DELETE CASCADE;
 
 CREATE INDEX IF NOT EXISTS idx_payments_license_id ON payments(license_id);
@@ -243,7 +243,7 @@ $$ LANGUAGE plpgsql;
 -- 8. Add renewal notification type to notifications table
 ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_notification_type_check;
 ALTER TABLE notifications ADD CONSTRAINT notifications_notification_type_check 
-  CHECK (notification_type IN ('application', 'verification', 'exam', 'payment', 'approval', 'rejection', 'general', 'renewal'));
+  CHECK (notification_type IN ('application', 'verification', 'exam', 'payment', 'approval', 'rejection', 'general', 'renewal', 'vehicle_registration', 'vehicle_added', 'admin_vehicle_alert', 'vehicle_registration_complete'));
 
 -- 9. Get renewal fee based on license category
 CREATE OR REPLACE FUNCTION get_renewal_fee(p_license_category VARCHAR)

@@ -44,6 +44,7 @@ const VehicleAdderDashboard = () => {
     vehicle_name: '',
     model: '',
     engine_number: '',
+    engine_cc: '',
     owner_id: '',
     license_id: '',
     vehicle_type: 'Bike',
@@ -163,6 +164,7 @@ const VehicleAdderDashboard = () => {
           vehicle_name: vehicleForm.vehicle_name,
           model: vehicleForm.model,
           engine_number: vehicleForm.engine_number,
+          engine_cc: parseInt(vehicleForm.engine_cc),
           owner_id: vehicleForm.owner_id,
           license_id: vehicleForm.license_id,
           vehicle_type: vehicleForm.vehicle_type
@@ -172,6 +174,58 @@ const VehicleAdderDashboard = () => {
 
       if (error) throw error;
 
+      // Send notification to user
+      const { error: userNotifError } = await supabase
+        .from('notifications')
+        .insert([{
+          user_id: vehicleForm.owner_id,
+          recipient_type: 'user',
+          title_en: 'Vehicle Added to Your Profile',
+          title_bn: 'আপনার প্রোফাইলে যানবাহন যুক্ত হয়েছে',
+          message_en: `Your ${vehicleForm.vehicle_type} (${vehicleForm.vehicle_name} ${vehicleForm.model}) has been added to your profile. Engine: ${vehicleForm.engine_number}, CC: ${vehicleForm.engine_cc}`,
+          message_bn: `আপনার ${vehicleForm.vehicle_type} (${vehicleForm.vehicle_name} ${vehicleForm.model}) প্রোফাইলে যুক্ত হয়েছে। ইঞ্জিন: ${vehicleForm.engine_number}, সিসি: ${vehicleForm.engine_cc}`,
+          notification_type: 'vehicle_added',
+          priority: 'normal'
+        }]);
+
+      if (userNotifError) {
+        console.error('User notification error:', userNotifError);
+      } else {
+        console.log('✅ User notification sent successfully');
+      }
+
+      // Send notification to all admins
+      const { data: admins } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin');
+
+      if (admins && admins.length > 0) {
+        console.log(`Sending notifications to ${admins.length} admin(s)`);
+        const adminNotifications = admins.map(admin => ({
+          user_id: admin.id,
+          recipient_type: 'admin',
+          title_en: 'New Vehicle Added by Vehicle Adder',
+          title_bn: 'যানবাহন সংযোজক দ্বারা নতুন যানবাহন যুক্ত',
+          message_en: `A ${vehicleForm.vehicle_type} (${vehicleForm.vehicle_name} ${vehicleForm.model}) has been added. Engine: ${vehicleForm.engine_number}, CC: ${vehicleForm.engine_cc}`,
+          message_bn: `একটি ${vehicleForm.vehicle_type} (${vehicleForm.vehicle_name} ${vehicleForm.model}) যুক্ত হয়েছে। ইঞ্জিন: ${vehicleForm.engine_number}, সিসি: ${vehicleForm.engine_cc}`,
+          notification_type: 'admin_vehicle_alert',
+          priority: 'normal'
+        }));
+        
+        const { error: adminNotifError } = await supabase
+          .from('notifications')
+          .insert(adminNotifications);
+
+        if (adminNotifError) {
+          console.error('Admin notification error:', adminNotifError);
+        } else {
+          console.log('✅ Admin notifications sent successfully');
+        }
+      } else {
+        console.log('⚠️ No admins found');
+      }
+
       toast.success(language === 'en' ? 'Vehicle added successfully!' : 'যানবাহন সফলভাবে যুক্ত হয়েছে!');
       
       // Reset form
@@ -179,6 +233,7 @@ const VehicleAdderDashboard = () => {
         vehicle_name: '',
         model: '',
         engine_number: '',
+        engine_cc: '',
         owner_id: '',
         license_id: '',
         vehicle_type: 'Bike',
@@ -508,6 +563,28 @@ const VehicleAdderDashboard = () => {
                     />
                   </div>
 
+                  {/* Engine CC */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      {language === 'en' ? 'Engine CC (Cubic Capacity)' : 'ইঞ্জিন CC (ঘন ক্ষমতা)'}
+                    </label>
+                    <input
+                      type="number"
+                      value={vehicleForm.engine_cc}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, engine_cc: e.target.value })}
+                      placeholder={language === 'en' ? 'e.g., 150, 1500, 2000' : 'যেমন, 150, 1500, 2000'}
+                      min="50"
+                      max="10000"
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:text-white"
+                      required
+                    />
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      {language === 'en' 
+                        ? '💡 Bikes: Usually 50-400 CC | Cars: Usually 800-5000 CC' 
+                        : '💡 বাইক: সাধারণত ৫০-৪০০ CC | গাড়ি: সাধারণত ৮০০-৫০০০ CC'}
+                    </p>
+                  </div>
+
                   {/* Submit Button */}
                   <button
                     type="submit"
@@ -569,6 +646,9 @@ const VehicleAdderDashboard = () => {
                               {language === 'en' ? 'Engine No.' : 'ইঞ্জিন নং'}
                             </th>
                             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">
+                              {language === 'en' ? 'CC' : 'সিসি'}
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">
                               {language === 'en' ? 'Owner' : 'মালিক'}
                             </th>
                             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase">
@@ -587,6 +667,11 @@ const VehicleAdderDashboard = () => {
                                 <code className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm font-mono text-gray-800 dark:text-white">
                                   {vehicle.engine_number}
                                 </code>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="px-2 py-1 bg-primary/10 dark:bg-primary/20 text-primary rounded font-semibold text-sm">
+                                  {vehicle.engine_cc || 'N/A'} CC
+                                </span>
                               </td>
                               <td className="px-6 py-4">
                                 <p className="text-gray-800 dark:text-white">

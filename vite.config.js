@@ -18,8 +18,6 @@ export default defineConfig({
     port: 3000,
     open: true,
     host: '0.0.0.0', // Allow network access
-    https: true, // Set to true if you have SSL certificates
-   // Uncomment below to enable HTTPS with self-signed certificate:
     https: {
       key: './cert/key.pem',
       cert: './cert/cert.pem'
@@ -50,6 +48,9 @@ export default defineConfig({
     include: ['react', 'react-dom', 'react-router-dom', 'framer-motion', 'phosphor-react']
   }
 })
+
+
+
 
 
 

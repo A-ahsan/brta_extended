@@ -55,11 +55,23 @@ const frontendUrls = new Map();
 
 // Payment initiation endpoint
 app.post('/api/payment/initiate', async (req, res) => {
-  const { amount, customerName, customerEmail, tran_id, application_id, user_id, frontend_url } = req.body;
+  const { 
+    amount, 
+    customerName, 
+    customerEmail, 
+    tran_id, 
+    transactionId, // Support both naming conventions
+    application_id, 
+    user_id, 
+    frontend_url 
+  } = req.body;
+  
+  // Use whichever transaction ID was provided
+  const finalTranId = tran_id || transactionId;
   
   // Store frontend URL for this transaction
-  if (frontend_url) {
-    frontendUrls.set(tran_id, frontend_url);
+  if (frontend_url && finalTranId) {
+    frontendUrls.set(finalTranId, frontend_url);
   }
   
   // Get dynamic base URL from request
@@ -72,7 +84,7 @@ app.post('/api/payment/initiate', async (req, res) => {
     store_passwd: SSLCZ_STORE_PASSWORD,
     total_amount: String(amount),
     currency: 'BDT',
-    tran_id: String(tran_id),
+    tran_id: String(finalTranId),
     success_url: `${baseUrl}/api/payment/success`,
     fail_url: `${baseUrl}/api/payment/fail`,
     cancel_url: `${baseUrl}/api/payment/cancel`,
@@ -140,7 +152,11 @@ app.post('/api/payment/success', async (req, res) => {
   
   // Get frontend URL from stored map using transaction ID
   const tran_id = data.tran_id || data.value_a;
+  console.log('Looking for frontend URL with tran_id:', tran_id);
+  console.log('Available URLs in map:', Array.from(frontendUrls.keys()));
+  
   const frontendUrl = frontendUrls.get(tran_id) || 'http://localhost:3000';
+  console.log('Frontend URL found:', frontendUrl);
   frontendUrls.delete(tran_id); // Clean up
   
   const redirectUrl = `${frontendUrl}/payment-success`;
@@ -170,7 +186,11 @@ app.post('/api/payment/fail', async (req, res) => {
   
   // Get frontend URL from stored map using transaction ID
   const tran_id = data.tran_id || data.value_a;
+  console.log('Looking for frontend URL with tran_id:', tran_id);
+  console.log('Available URLs in map:', Array.from(frontendUrls.keys()));
+  
   const frontendUrl = frontendUrls.get(tran_id) || 'http://localhost:3000';
+  console.log('Frontend URL found:', frontendUrl);
   frontendUrls.delete(tran_id); // Clean up
   
   const redirectUrl = `${frontendUrl}/payment-fail`;
@@ -619,6 +639,447 @@ app.get('/api/licenses/:license_id/renewals', async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching renewals:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Internal server error' 
+    });
+  }
+});
+
+// ===== VEHICLE REGISTRATION ENDPOINTS =====
+
+// Initiate vehicle registration payment
+app.post('/api/payment/vehicle-registration', async (req, res) => {
+  try {
+    const { paymentId, userId, amount, applicationNumber, userEmail, userName, frontend_url } = req.body;
+
+    if (!paymentId || !userId || !amount || !applicationNumber) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Get payment record to get tran_id
+    const { data: payment, error: paymentError } = await supabase
+      .from('payments')
+      .select('tran_id')
+      .eq('id', paymentId)
+      .single();
+
+    if (paymentError || !payment) {
+      return res.status(400).json({ error: 'Payment record not found' });
+    }
+
+    // Store frontend URL for this transaction
+    if (frontend_url) {
+      frontendUrls.set(payment.tran_id, frontend_url);
+    }
+
+    // Get dynamic base URL
+    const protocol = req.protocol || 'https';
+    const host = req.get('host') || `localhost:${PORT}`;
+    const baseUrl = `${protocol}://${host}`;
+
+    const payload = {
+      store_id: SSLCZ_STORE_ID,
+      store_passwd: SSLCZ_STORE_PASSWORD,
+      total_amount: String(amount),
+      currency: 'BDT',
+      tran_id: payment.tran_id,
+      success_url: `${baseUrl}/api/payment/success`,
+      fail_url: `${baseUrl}/api/payment/fail`,
+      cancel_url: `${baseUrl}/api/payment/cancel`,
+      cus_name: userName || 'User',
+      cus_email: userEmail || 'user@brta.gov.bd',
+      cus_add1: 'Dhaka',
+      cus_add2: '',
+      cus_city: 'Dhaka',
+      cus_state: 'Dhaka',
+      cus_postcode: '1207',
+      cus_country: 'Bangladesh',
+      cus_phone: '01711111111',
+      cus_fax: '',
+      ship_name: userName || 'User',
+      ship_add1: 'Dhaka',
+      ship_add2: '',
+      ship_city: 'Dhaka',
+      ship_state: 'Dhaka',
+      ship_postcode: '1207',
+      ship_country: 'Bangladesh',
+      shipping_method: 'NO',
+      product_name: `Vehicle Registration - ${applicationNumber}`,
+      product_category: 'Government',
+      product_profile: 'general',
+      product_amount: String(amount),
+      emi_option: 0,
+      value_a: userId,
+      value_b: paymentId,
+      value_c: 'vehicle_registration'
+    };
+
+    const response = await axios.post(SSLCZ_API_URL, new URLSearchParams(payload).toString(), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    if (response.data.status === 'SUCCESS') {
+      res.json({ url: response.data.GatewayPageURL });
+    } else {
+      res.status(400).json({ error: 'Payment gateway initialization failed' });
+    }
+  } catch (error) {
+    console.error('Vehicle registration payment error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Process vehicle registration after successful payment
+app.post('/api/vehicles/registration/process', async (req, res) => {
+  try {
+    const { payment_id, user_id } = req.body;
+
+    if (!payment_id || !user_id) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields: payment_id, user_id' 
+      });
+    }
+
+    // Get vehicle registration application
+    const { data: application, error: appError } = await supabase
+      .from('vehicle_registrations')
+      .select('*, vehicles(*)')
+      .eq('payment_id', payment_id)
+      .eq('user_id', user_id)
+      .single();
+
+    if (appError || !application) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Vehicle registration application not found' 
+      });
+    }
+
+    // Get user profile and license
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user_id)
+      .single();
+
+    if (profileError) {
+      console.error('Profile error:', profileError);
+      return res.status(400).json({ 
+        success: false, 
+        error: 'User profile not found' 
+      });
+    }
+
+    // Get user's license for NID and bilingual names
+    const { data: license, error: licenseError } = await supabase
+      .from('licenses')
+      .select('license_number, full_name_en, full_name_bn, nid_number')
+      .eq('user_id', user_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (licenseError) {
+      console.error('License error:', licenseError);
+      return res.status(400).json({ 
+        success: false, 
+        error: 'User license not found - user must have a driving license to register vehicles' 
+      });
+    }
+
+    // Generate registration number and plate
+    const { data: regNumber, error: regNumError } = await supabase
+      .rpc('generate_registration_number');
+
+    if (regNumError) throw regNumError;
+
+    const { data: plateData, error: plateError } = await supabase
+      .rpc('generate_registration_plate', {
+        p_division_code: application.division_code,
+        p_vehicle_type: application.vehicles.vehicle_type,
+        p_engine_cc: application.vehicles.engine_cc
+      });
+
+    if (plateError) throw plateError;
+
+    // Calculate valid_until date
+    const validUntil = new Date();
+    validUntil.setFullYear(validUntil.getFullYear() + application.registration_period);
+
+    // Create QR code data
+    const qrCodeData = {
+      registration_number: regNumber,
+      plate: plateData,
+      owner: license.full_name_en,
+      vehicle: `${application.vehicles.vehicle_name} ${application.vehicles.model}`,
+      engine: application.vehicles.engine_number,
+      cc: application.vehicles.engine_cc,
+      type: application.vehicles.vehicle_type,
+      valid_until: validUntil.toISOString().split('T')[0]
+    };
+
+    // Create registered vehicle record
+    const { data: registeredVehicle, error: regError } = await supabase
+      .from('registered_vehicles')
+      .insert([{
+        registration_number: regNumber,
+        user_id: user_id,
+        vehicle_id: application.vehicle_id,
+        application_id: application.id,
+        registration_plate: plateData,
+        division_code: application.division_code,
+        vehicle_photo_url: application.vehicle_photo_url,
+        owner_name_en: license.full_name_en,
+        owner_name_bn: license.full_name_bn,
+        owner_nid: license.nid_number,
+        owner_dl_number: license.license_number,
+        vehicle_name: application.vehicles.vehicle_name,
+        model: application.vehicles.model,
+        engine_number: application.vehicles.engine_number,
+        engine_cc: application.vehicles.engine_cc,
+        vehicle_type: application.vehicles.vehicle_type,
+        registration_date: new Date().toISOString().split('T')[0],
+        valid_until: validUntil.toISOString().split('T')[0],
+        qr_code_data: qrCodeData,
+        status: 'active'
+      }])
+      .select()
+      .single();
+
+    if (regError) throw regError;
+
+    // Update vehicle registration application status
+    await supabase
+      .from('vehicle_registrations')
+      .update({ 
+        payment_status: 'completed',
+        status: 'completed',
+        completed_at: new Date().toISOString()
+      })
+      .eq('id', application.id);
+
+    // Update vehicle with registration plate
+    await supabase
+      .from('vehicles')
+      .update({ registration_plate: plateData })
+      .eq('id', application.vehicle_id);
+
+    // Send notification to user
+    await supabase
+      .from('notifications')
+      .insert([{
+        user_id: user_id,
+        title_en: 'Vehicle Registration Complete!',
+        title_bn: 'যানবাহন নিবন্ধন সম্পূর্ণ!',
+        message_en: `Your vehicle (${application.vehicles.vehicle_name} ${application.vehicles.model}) has been registered. Plate: ${plateData.en}`,
+        message_bn: `আপনার যানবাহন (${application.vehicles.vehicle_name} ${application.vehicles.model}) নিবন্ধিত হয়েছে। প্লেট: ${plateData.bn}`,
+        type: 'vehicle_registration_complete'
+      }]);
+
+    res.json({
+      success: true,
+      registration: registeredVehicle,
+      message: 'Vehicle registered successfully'
+    });
+
+  } catch (error) {
+    console.error('Vehicle registration processing error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Internal server error' 
+    });
+  }
+});
+
+// ===== TAX TOKEN RENEWAL ENDPOINTS =====
+
+// Initiate tax token renewal payment
+app.post('/api/tax-tokens/renewal/initiate', async (req, res) => {
+  try {
+    const { vehicle_id, user_id, tran_id, renewal_days, renewal_fee, frontend_url } = req.body;
+
+    if (!vehicle_id || !user_id || !tran_id || !renewal_days || !renewal_fee) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields' 
+      });
+    }
+
+    // Store frontend URL for redirect after payment
+    if (frontend_url && tran_id) {
+      frontendUrls.set(tran_id, frontend_url);
+      console.log('Stored frontend URL for tax token renewal:', tran_id, '->', frontend_url);
+    }
+
+    // Verify vehicle belongs to user
+    const { data: vehicle, error: vehicleError } = await supabase
+      .from('registered_vehicles')
+      .select('*')
+      .eq('id', vehicle_id)
+      .eq('user_id', user_id)
+      .single();
+
+    if (vehicleError || !vehicle) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Vehicle not found or does not belong to user' 
+      });
+    }
+
+    // Create payment record
+    const { data: payment, error: paymentError } = await supabase
+      .from('payments')
+      .insert([{
+        user_id: user_id,
+        application_id: null,
+        vehicle_id: vehicle_id,
+        amount: renewal_fee,
+        tran_id: tran_id,
+        status: 'initiated',
+        payment_type: 'tax_token_renewal',
+        renewal_days: renewal_days // Store renewal days in payment metadata
+      }])
+      .select()
+      .single();
+
+    if (paymentError) {
+      console.error('Error creating payment record:', paymentError);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to create payment record' 
+      });
+    }
+
+    res.json({
+      success: true,
+      payment: payment,
+      renewal_fee: renewal_fee,
+      renewal_days: renewal_days,
+      message: 'Tax token renewal payment initiated'
+    });
+
+  } catch (error) {
+    console.error('Tax token renewal initiation error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Internal server error' 
+    });
+  }
+});
+
+// Process tax token renewal after successful payment
+app.post('/api/tax-tokens/renewal/process', async (req, res) => {
+  try {
+    const { vehicle_id, user_id, payment_id, renewal_days, amount_paid } = req.body;
+
+    if (!vehicle_id || !user_id || !payment_id) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields' 
+      });
+    }
+
+    // Verify payment
+    const { data: payment, error: paymentError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', payment_id)
+      .eq('user_id', user_id)
+      .eq('status', 'success')
+      .single();
+
+    if (paymentError || !payment) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid or unsuccessful payment' 
+      });
+    }
+
+    // Call the database function to process renewal
+    const { data: renewalResult, error: renewalError } = await supabase
+      .rpc('process_tax_token_renewal', {
+        p_vehicle_id: vehicle_id,
+        p_user_id: user_id,
+        p_payment_id: payment_id,
+        p_renewal_days: renewal_days || payment.renewal_days || 365,
+        p_amount_paid: amount_paid || payment.amount
+      });
+
+    if (renewalError) {
+      console.error('Error processing tax token renewal:', renewalError);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to process renewal',
+        details: renewalError 
+      });
+    }
+
+    // Get vehicle details for notification
+    const { data: vehicle } = await supabase
+      .from('registered_vehicles')
+      .select('registration_number, registration_plate, vehicle_name, model, owner_name_en, owner_name_bn')
+      .eq('id', vehicle_id)
+      .single();
+
+    // Send notification using dual notification RPC
+    await supabase.rpc('create_dual_notification', {
+      p_user_id: user_id,
+      p_title_en: 'Tax Token Renewed Successfully',
+      p_title_bn: 'ট্যাক্স টোকেন সফলভাবে নবায়ন করা হয়েছে',
+      p_message_en: `Your tax token for ${vehicle.vehicle_name} ${vehicle.model} (${vehicle.registration_plate.en}) has been renewed for ${renewal_days || payment.renewal_days} days. Amount: ৳${payment.amount.toLocaleString()}`,
+      p_message_bn: `আপনার ${vehicle.vehicle_name} ${vehicle.model} (${vehicle.registration_plate.bn}) এর ট্যাক্স টোকেন ${renewal_days || payment.renewal_days} দিনের জন্য নবায়ন করা হয়েছে। পরিমাণ: ৳${payment.amount.toLocaleString()}`,
+      p_type: 'renewal',
+      p_application_id: null,
+      p_action_url: null,
+      p_admin_title_en: 'Tax Token Renewal Payment Received',
+      p_admin_title_bn: 'ট্যাক্স টোকেন নবায়ন পেমেন্ট প্রাপ্ত',
+      p_admin_message_en: `Vehicle ${vehicle.registration_number} - Tax Token Renewal SUCCESS. Amount: ৳${payment.amount}. User: ${vehicle.owner_name_en}`,
+      p_admin_message_bn: `যানবাহন ${vehicle.registration_number} - ট্যাক্স টোকেন নবায়ন সফল। পরিমাণ: ৳${payment.amount}। ব্যবহারকারী: ${vehicle.owner_name_bn}`
+    });
+
+    res.json({
+      success: true,
+      renewal: renewalResult,
+      message: 'Tax token renewed successfully'
+    });
+
+  } catch (error) {
+    console.error('Tax token renewal processing error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Internal server error' 
+    });
+  }
+});
+
+// Get tax token renewal history
+app.get('/api/tax-tokens/:vehicle_id/renewals', async (req, res) => {
+  try {
+    const { vehicle_id } = req.params;
+
+    const { data: renewals, error } = await supabase
+      .from('tax_token_renewals')
+      .select('*')
+      .eq('vehicle_id', vehicle_id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching tax token renewals:', error);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to fetch renewal history' 
+      });
+    }
+
+    res.json({
+      success: true,
+      renewals: renewals || []
+    });
+
+  } catch (error) {
+    console.error('Error fetching tax token renewals:', error);
     res.status(500).json({ 
       success: false, 
       error: error.message || 'Internal server error' 

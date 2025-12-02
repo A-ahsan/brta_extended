@@ -35,6 +35,9 @@ import ProgressTracker from '../components/ProgressTracker';
 import LicenseCard from '../components/LicenseCard';
 import RenewalPaymentModal from '../components/RenewalPaymentModal';
 import LicenseCompletionCelebration from '../components/LicenseCompletionCelebration';
+import VehicleRegistrationModal from '../components/VehicleRegistrationModal';
+import VehicleRegistrationCard from '../components/VehicleRegistrationCard';
+import TaxTokenRenewalModal from '../components/TaxTokenRenewalModal';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -65,6 +68,16 @@ const UserDashboard = () => {
   const [showRenewalModal, setShowRenewalModal] = useState(false);
   const [renewalLicense, setRenewalLicense] = useState(null);
   
+  // Tax Token Renewal state
+  const [showTaxTokenRenewalModal, setShowTaxTokenRenewalModal] = useState(false);
+  const [renewalVehicle, setRenewalVehicle] = useState(null);
+  
+  // Vehicle Registration state
+  const [showVehicleRegistrationModal, setShowVehicleRegistrationModal] = useState(false);
+  const [registeredVehicles, setRegisteredVehicles] = useState([]);
+  const [loadingRegisteredVehicles, setLoadingRegisteredVehicles] = useState(true);
+  const [taxTokenData, setTaxTokenData] = useState(null);
+  
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [licenseApplications, setLicenseApplications] = useState([]);
@@ -79,6 +92,7 @@ const UserDashboard = () => {
       fetchLicenseApplications();
       fetchNotifications();
       fetchLicenses();
+      fetchRegisteredVehicles();
       
       // Subscribe to realtime notifications
       const notificationSubscription = supabase
@@ -310,6 +324,56 @@ const UserDashboard = () => {
     }
   };
 
+  const fetchRegisteredVehicles = async () => {
+    if (!user?.id) {
+      setLoadingRegisteredVehicles(false);
+      return;
+    }
+
+    try {
+      setLoadingRegisteredVehicles(true);
+      
+      // First, try to fetch vehicles with phone from profiles
+      let { data, error } = await supabase
+        .from('registered_vehicles')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      // Try to fetch phone from profiles separately
+      if (data && data.length > 0) {
+        try {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('phone')
+            .eq('id', user.id)
+            .single();
+          
+          // Add phone to all vehicles
+          const vehiclesWithPhone = (data || []).map(vehicle => ({
+            ...vehicle,
+            phone: profileData?.phone || null
+          }));
+          
+          setRegisteredVehicles(vehiclesWithPhone);
+        } catch (profileError) {
+          // If profiles query fails, just use vehicles without phone
+          console.log('Could not fetch phone from profiles:', profileError);
+          setRegisteredVehicles(data || []);
+        }
+      } else {
+        setRegisteredVehicles(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching registered vehicles:', error);
+      setRegisteredVehicles([]);
+    } finally {
+      setLoadingRegisteredVehicles(false);
+    }
+  };
+
   const markNotificationAsRead = async (notificationId) => {
     try {
       const { error } = await supabase
@@ -474,6 +538,26 @@ const UserDashboard = () => {
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            position: relative;
+          }
+          .card::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 300px;
+            background-image: url('/brta.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            opacity: 0.1;
+            z-index: 0;
+          }
+          .card > * {
+            position: relative;
+            z-index: 1;
           }
           .card.back {
             background: linear-gradient(135deg, ${backGradient});
@@ -699,6 +783,27 @@ const UserDashboard = () => {
             color: white;
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+          }
+          .card::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 300px;
+            background-image: url('/brta.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            opacity: 0.1;
+            z-index: 0;
+          }
+          .card > * {
+            position: relative;
+            z-index: 1;
           }
           .header {
             text-align: center;
@@ -845,7 +950,7 @@ const UserDashboard = () => {
             </div>
           </div>
           <div class="qr-section">
-            <img src="${generateQRCode(Object.values(tokenData).join('|'))}" alt="QR Code" />
+            <img src="${generateQRCode(tokenData['Registration Number'])}" alt="QR Code" />
             <p style="margin-top: 10px; font-size: 12px;">Scan to Verify</p>
           </div>
         </div>
@@ -861,6 +966,227 @@ const UserDashboard = () => {
       endDownload();
     }, 1500);
   }, [generateQRCode, startDownload, endDownload]);
+
+  // Function to download vehicle smart card as PDF
+  const downloadVehicleSmartCard = useCallback(async (vehicle) => {
+    startDownload();
+    
+    const printWindow = window.open('', '_blank');
+    
+    if (!printWindow) {
+      alert('Please allow pop-ups to download the PDF');
+      endDownload();
+      return;
+    }
+
+    // Generate QR code URL
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(vehicle.registration_number)}`;
+
+    const isExpired = new Date(vehicle.valid_until) < new Date();
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Vehicle_Smart_Card_${vehicle.registration_plate.en.replace(/\\s/g, '_')}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+          .container { max-width: 900px; margin: 0 auto; }
+          .card {
+            width: 100%;
+            height: 400px;
+            margin-bottom: 30px;
+            padding: 25px 35px;
+            background: linear-gradient(135deg, #3B82F6, #2563EB, #1D4ED8);
+            color: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            page-break-after: always;
+            position: relative;
+            overflow: hidden;
+          }
+          .card::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 300px;
+            background-image: url('/brta.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            opacity: 0.1;
+            z-index: 0;
+          }
+          .card > * { position: relative; z-index: 1; }
+          .card.back { background: linear-gradient(135deg, #1E40AF, #1E3A8A, #1E3A8A); }
+          .header { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid rgba(255,255,255,0.3); }
+          .header h1 { font-size: 20px; margin-bottom: 2px; }
+          .header p { font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.5px; }
+          .plate-box {
+            background: black;
+            color: white;
+            padding: 10px 16px;
+            border-radius: 10px;
+            text-align: center;
+            border: 4px solid #fbbf24;
+            margin: 12px 0;
+          }
+          .plate-text { font-size: 22px; font-weight: bold; letter-spacing: 2px; }
+          .content { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 15px; }
+          .field { margin-bottom: 8px; }
+          .label { font-size: 10px; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+          .value { font-size: 14px; font-weight: bold; }
+          .footer {
+            margin-top: 15px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.3);
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            opacity: 0.9;
+          }
+          .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            background: ${isExpired ? '#ef4444' : '#22c55e'};
+            color: white;
+          }
+          .qr-section { text-align: center; margin: 20px 0; }
+          .qr-code { background: white; padding: 10px; border-radius: 10px; width: 140px; margin: 0 auto; }
+          .qr-code img { width: 100%; height: auto; }
+          .back-content { display: flex; gap: 25px; align-items: flex-start; margin-top: 20px; }
+          .back-details { flex: 1; }
+          .print-btn {
+            display: block;
+            width: 200px;
+            margin: 30px auto 0;
+            padding: 12px 24px;
+            background: #fbbf24;
+            color: #166534;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+          }
+          @media print {
+            body { padding: 0; background: white; }
+            .card { box-shadow: none; margin-bottom: 50px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .print-btn { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <!-- FRONT SIDE -->
+          <div class="card">
+            <div class="header">
+              <p>Bangladesh Road Transport Authority</p>
+              <h1>VEHICLE SMART CARD</h1>
+            </div>
+            
+            <div class="plate-box">
+              <div class="plate-text">${vehicle.registration_plate.en}</div>
+            </div>
+            
+            <div class="content">
+              <div class="field" style="grid-column: 1 / -1; display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
+                ${vehicle.vehicle_photo_url ? `<img src="${vehicle.vehicle_photo_url}" alt="User Photo" crossorigin="anonymous" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid rgba(255,255,255,0.5);" />` : ''}
+                <div style="flex: 1;">
+                  <div class="label">Vehicle</div>
+                  <div class="value">${vehicle.vehicle_name} ${vehicle.model}</div>
+                  <div style="font-size: 11px; opacity: 0.8; margin-top: 3px;">${vehicle.vehicle_type} • ${vehicle.engine_cc} CC</div>
+                </div>
+              </div>
+              <div class="field">
+                <div class="label">Registration No.</div>
+                <div class="value">${vehicle.registration_number}</div>
+              </div>
+              <div class="field">
+                <div class="label">Owner Name</div>
+                <div class="value">${vehicle.owner_name_en}</div>
+              </div>
+              <div class="field">
+                <div class="label">Status</div>
+                <span class="status-badge">${isExpired ? 'EXPIRED' : 'VALID'}</span>
+              </div>
+              <div class="field">
+                <div class="label">NID</div>
+                <div class="value">${vehicle.owner_nid}</div>
+              </div>
+              <div class="field">
+                <div class="label">DL Number</div>
+                <div class="value">${vehicle.owner_dl_number || 'N/A'}</div>
+              </div>
+            </div>
+            
+            <div class="footer">
+              <div><span style="opacity: 0.7;">Registration:</span> <strong>${vehicle.registration_date}</strong></div>
+              <div><span style="opacity: 0.7;">Valid Until:</span> <strong style="color: ${isExpired ? '#fca5a5' : '#86efac'};">${vehicle.valid_until}</strong></div>
+              <div><span style="opacity: 0.7;">Engine:</span> <strong>${vehicle.engine_number}</strong></div>
+            </div>
+          </div>
+          
+          <!-- BACK SIDE -->
+          <div class="card back">
+            <div class="header">
+              <h1>VEHICLE DETAILS</h1>
+            </div>
+            
+            <div class="back-content">
+              <div class="qr-section">
+                <div class="qr-code">
+                  <img src="${qrCodeUrl}" alt="QR Code" crossorigin="anonymous" />
+                </div>
+                <p style="margin-top: 6px; font-size: 10px; opacity: 0.9;">Scan to Verify</p>
+              </div>
+              
+              <div class="back-details">
+                <div class="content">
+                  <div class="field">
+                    <div class="label">Engine Number</div>
+                    <div class="value">${vehicle.engine_number}</div>
+                  </div>
+                  <div class="field">
+                    <div class="label">Owner</div>
+                    <div class="value">${vehicle.owner_name_en}</div>
+                  </div>
+                  <div class="field">
+                    <div class="label">NID</div>
+                    <div class="value">${vehicle.owner_nid}</div>
+                  </div>
+                  <div class="field">
+                    <div class="label">Contact</div>
+                    <div class="value">${vehicle.phone || 'N/A'}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div style="margin-top: auto; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.3); text-align: center;">
+              <p style="font-size: 10px; opacity: 0.8;">For verification: www.brta.gov.bd • Official document of Bangladesh Road Transport Authority</p>
+            </div>
+          </div>
+        </div>
+        <button class="print-btn" onclick="window.print()">🖨️ Print Smart Card</button>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    
+    setTimeout(() => {
+      endDownload();
+    }, 1500);
+  }, [startDownload, endDownload]);
 
   // Handlers
   const handleToggleVehicleFlip = useCallback((e) => {
@@ -889,9 +1215,42 @@ const UserDashboard = () => {
     }, null, '#3B82F6, #2563EB, #1D4ED8', '#1E40AF, #1E3A8A, #1E3A8A');
   }, [downloadCardAsPDF]);
 
-  const handleShowTaxToken = useCallback((e) => {
-    const id = e.currentTarget.dataset.vid;
-    setShowTaxToken(id ? parseInt(id, 10) : null);
+  const handleShowTaxToken = useCallback(async (vehicle) => {
+    // Check if vehicle is expired - if yes, directly open renewal modal
+    const isExpired = vehicle?.valid_until && new Date(vehicle.valid_until) < new Date();
+    
+    if (isExpired) {
+      // Directly open renewal modal for expired vehicles
+      setRenewalVehicle(vehicle);
+      setShowTaxTokenRenewalModal(true);
+      return;
+    }
+    
+    // For active vehicles, show the tax token modal
+    setShowTaxToken(vehicle);
+    
+    // Fetch tax token data for this vehicle
+    if (vehicle?.id) {
+      try {
+        const { data: tokenData, error } = await supabase
+          .from('tax_tokens')
+          .select('*')
+          .eq('registered_vehicle_id', vehicle.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (tokenData && !error) {
+          setTaxTokenData(tokenData);
+        } else {
+          // No tax token found, set null
+          setTaxTokenData(null);
+        }
+      } catch (err) {
+        console.error('Error fetching tax token:', err);
+        setTaxTokenData(null);
+      }
+    }
   }, []);
 
   const menuItems = [
@@ -903,11 +1262,6 @@ const UserDashboard = () => {
     { id: 'payments', icon: <CreditCard size={24} weight="duotone" />, label: t.myPayments },
     { id: 'profile', icon: <User size={24} weight="duotone" />, label: t.profile },
     { id: 'settings', icon: <Gear size={24} weight="duotone" />, label: t.settings },
-  ];
-
-  const vehicles = [
-    { id: 1, model: 'Toyota Corolla', plate: 'ঢাকা মেট্রো-গ-১২৩৪৫৬', year: '2022', status: 'Active' },
-    { id: 2, model: 'Honda Civic', plate: 'ঢাকা মেট্রো-খ-৭৮৯০১২', year: '2021', status: 'Active' },
   ];
 
   const payments = [
@@ -1021,42 +1375,67 @@ const UserDashboard = () => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-primary text-white px-6 py-2 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all"
+                onClick={() => setShowVehicleRegistrationModal(true)}
+                className="bg-gradient-to-r from-primary to-green-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
               >
+                <Car size={20} weight="bold" />
                 {language === 'en' ? '+ Register Vehicle' : '+ যানবাহন নিবন্ধন'}
               </motion.button>
             </div>
-            <div className="grid gap-4">
-              {vehicles.map((vehicle, index) => (
-                <motion.div
-                  key={vehicle.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all border border-gray-200 dark:border-gray-700"
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary-dark rounded-xl flex items-center justify-center">
-                        <Car size={32} weight="duotone" className="text-white" />
+
+            {loadingRegisteredVehicles ? (
+              <div className="text-center py-12">
+                <div className="inline-block w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : registeredVehicles.length === 0 ? (
+              <div className="text-center py-12">
+                <Car size={64} weight="duotone" className="mx-auto text-gray-400 mb-4" />
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  {language === 'en' 
+                    ? 'No registered vehicles yet. Register your first vehicle!' 
+                    : 'এখনও কোনো নিবন্ধিত যানবাহন নেই। আপনার প্রথম যানবাহন নিবন্ধন করুন!'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {registeredVehicles.map((vehicle, index) => (
+                  <motion.div
+                    key={vehicle.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all border border-gray-200 dark:border-gray-700"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 bg-gradient-to-br from-primary to-green-600 rounded-xl flex items-center justify-center">
+                          <Car size={32} weight="duotone" className="text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-1">
+                            {vehicle.vehicle_name} {vehicle.model}
+                          </h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {language === 'en' ? 'Plate:' : 'প্লেট:'} {language === 'en' ? vehicle.registration_plate?.en : vehicle.registration_plate?.bn}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {language === 'en' ? 'Registration:' : 'নিবন্ধন:'} {vehicle.registration_number}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {language === 'en' ? 'Valid Until:' : 'বৈধ পর্যন্ত:'} {new Date(vehicle.valid_until).toLocaleDateString()}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-1">{vehicle.model}</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {language === 'en' ? 'Plate:' : 'প্লেট:'} {vehicle.plate}
-                        </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {language === 'en' ? 'Year:' : 'বছর:'} {vehicle.year}
-                        </p>
-                      </div>
+                      <span className={`px-4 py-1 rounded-full text-sm font-semibold border-2 ${
+                        vehicle.status === 'active' ? 'bg-success/20 text-success border-success' : 'bg-gray-500/20 text-gray-600 border-gray-500'
+                      }`}>
+                        {vehicle.status}
+                      </span>
                     </div>
-                    <span className={`px-4 py-1 rounded-full text-sm font-semibold border-2 ${getStatusColor(vehicle.status)}`}>
-                      {vehicle.status}
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </div>
         );
 
@@ -1240,180 +1619,40 @@ const UserDashboard = () => {
                 <Car size={24} weight="duotone" className="text-primary" />
                 {language === 'en' ? 'Vehicle Smart Cards & Tax Tokens' : 'যানবাহন স্মার্ট কার্ড এবং ট্যাক্স টোকেন'}
               </h3>
-              <div className="grid md:grid-cols-2 gap-6">
-                {vehicles.map((vehicle, index) => (
-                  <div key={vehicle.id} className="space-y-3">
-                    {/* Vehicle Smart Card */}
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.2 + index * 0.05, duration: 0.3, ease: 'easeOut' }}
-                      className="relative"
-                      style={{ 
-                        transformStyle: 'preserve-3d',
-                        willChange: 'transform'
-                      }}
-                    >
-                      {/* Front Side */}
-                      <div className={`${flippedVehicles[vehicle.id] ? 'hidden' : 'block'} bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 p-8 rounded-2xl shadow-xl text-white relative overflow-hidden min-h-[450px] flex flex-col`}>
-                        <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
-                        
-                        <div className="relative z-10">
-                          <div className="flex justify-between items-start mb-4">
-                            <div>
-                              <p className="text-xs opacity-90 uppercase tracking-wider mb-1">{language === 'en' ? 'Bangladesh Road Transport Authority' : 'বাংলাদেশ সড়ক পরিবহন কর্তৃপক্ষ'}</p>
-                              <h4 className="text-xl font-bold">{language === 'en' ? 'Vehicle Smart Card' : 'যানবাহন স্মার্ট কার্ড'}</h4>
-                            </div>
-                            <img src="/brta.png" alt="BRTA" className="h-12 w-12 bg-white/20 rounded-lg p-2 backdrop-blur-sm" />
-                          </div>
-                          
-                          <div className="grid grid-cols-[100px_1fr] gap-4 mb-4">
-                            {/* User Photo */}
-                            <div>
-                              <div className="w-24 h-28 bg-white/20 backdrop-blur-sm rounded-lg overflow-hidden border-2 border-white/40">
-                                <div className="w-full h-full bg-gradient-to-br from-white/30 to-white/10 flex items-center justify-center">
-                                  <User size={40} weight="duotone" className="text-white/60" />
-                                </div>
-                              </div>
-                              <p className="text-xs text-center mt-1 opacity-80">{language === 'en' ? 'Owner' : 'মালিক'}</p>
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <div>
-                                <p className="text-xs opacity-80 uppercase tracking-wider mb-1">{language === 'en' ? 'Vehicle Model' : 'মডেল'}</p>
-                                <p className="text-base font-bold">{vehicle.model}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs opacity-80 uppercase tracking-wider mb-1">{language === 'en' ? 'Registration Plate' : 'প্লেট নম্বর'}</p>
-                                <p className="text-lg font-bold tracking-wider">{vehicle.plate}</p>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-3 mb-4">
-                            <div>
-                              <p className="text-xs opacity-80 uppercase tracking-wider mb-1">{language === 'en' ? 'Year' : 'বছর'}</p>
-                              <p className="font-bold">{vehicle.year}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs opacity-80 uppercase tracking-wider mb-1">{language === 'en' ? 'Card No.' : 'কার্ড নং'}</p>
-                              <p className="font-bold">VC-{vehicle.id.toString().padStart(6, '0')}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs opacity-80 uppercase tracking-wider mb-1">{language === 'en' ? 'Owner' : 'মালিকের নাম'}</p>
-                              <p className="font-bold">John Doe</p>
-                            </div>
-                            <div>
-                              <p className="text-xs opacity-80 uppercase tracking-wider mb-1">{language === 'en' ? 'Status' : 'অবস্থা'}</p>
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${vehicle.status === 'Active' ? 'bg-green-500/30 border border-green-300' : 'bg-red-500/30 border border-red-300'}`}>
-                                {vehicle.status}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          <div className="mt-auto pt-3 border-t border-white/30">
-                            <p className="text-xs opacity-80 mb-3">{language === 'en' ? 'Issued:' : 'ইস্যু:'} 10/03/{vehicle.year}</p>
-                            <div className="flex gap-2 mb-2">
-                              <motion.button
-                                data-vid={vehicle.id}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={handleToggleVehicleFlip}
-                                className="flex-1 px-3 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5"
-                              >
-                                <ArrowsClockwise size={16} />
-                                {language === 'en' ? 'Flip' : 'উল্টান'}
-                              </motion.button>
-                              <motion.button
-                                data-vid={vehicle.id}
-                                data-plate={vehicle.plate}
-                                data-model={vehicle.model}
-                                data-year={vehicle.year}
-                                data-status={vehicle.status}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={handleDownloadCard}
-                                className="flex-1 px-3 py-2 bg-white text-blue-600 hover:bg-white/90 rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5"
-                              >
-                                <DownloadSimple size={16} />
-                                {language === 'en' ? 'Download' : 'ডাউনলোড'}
-                              </motion.button>
-                            </div>
-                            <motion.button
-                              data-vid={vehicle.id}
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={handleShowTaxToken}
-                              className="w-full px-3 py-2 bg-green-500 hover:bg-green-600 rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5"
-                            >
-                              <CreditCard size={16} />
-                              {language === 'en' ? 'Tax Token' : 'ট্যাক্স টোকেন'}
-                            </motion.button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Back Side */}
-                      <div className={`${!flippedVehicles[vehicle.id] ? 'hidden' : 'block'} bg-gradient-to-br from-blue-700 via-blue-800 to-blue-900 p-8 rounded-2xl shadow-xl text-white relative overflow-hidden min-h-[450px] flex flex-col`}>
-                        <div className="absolute inset-0 opacity-10">
-                          <div className="absolute top-0 right-0 w-48 h-48 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
-                          <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full translate-y-1/2 -translate-x-1/2" />
-                        </div>
-                        
-                        <div className="relative z-10">
-                          <h4 className="text-xl font-bold mb-6 text-center">{language === 'en' ? 'Vehicle Details' : 'যানবাহনের বিবরণ'}</h4>
-                          
-                          <div className="flex justify-center items-center gap-6 mb-6">
-                            {/* QR Code */}
-                            <div className="bg-white p-4 rounded-xl">
-                              <img 
-                                src={generateQRCode(`VC-${vehicle.id}|${vehicle.plate}|${vehicle.model}|${vehicle.year}`)} 
-                                alt="QR Code" 
-                                className="w-36 h-36"
-                              />
-                              <p className="text-xs text-center mt-2 text-gray-800 font-semibold">{language === 'en' ? 'Scan to Verify' : 'যাচাই করুন'}</p>
-                            </div>
-                            
-                            {/* Details */}
-                            <div className="space-y-2.5 text-sm">
-                              <div>
-                                <p className="text-xs opacity-80 uppercase tracking-wider mb-1">{language === 'en' ? 'Chassis No.' : 'চেসিস নং'}</p>
-                                <p className="font-semibold">CH{vehicle.year}{vehicle.id.toString().padStart(8, '0')}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs opacity-80 uppercase tracking-wider mb-1">{language === 'en' ? 'Engine No.' : 'ইঞ্জিন নং'}</p>
-                                <p className="font-semibold">EN{vehicle.year}{vehicle.id.toString().padStart(8, '0')}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs opacity-80 uppercase tracking-wider mb-1">{language === 'en' ? 'Owner' : 'মালিক'}</p>
-                                <p className="font-semibold">John Doe</p>
-                              </div>
-                              <div>
-                                <p className="text-xs opacity-80 uppercase tracking-wider mb-1">{language === 'en' ? 'Fuel Type' : 'জ্বালানি'}</p>
-                                <p className="font-semibold">{language === 'en' ? 'Petrol' : 'পেট্রল'}</p>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="mt-auto pt-4 border-t border-white/30">
-                            <p className="text-xs opacity-80 text-center mb-3">{language === 'en' ? 'For verification: www.brta.gov.bd' : 'যাচাইয়ের জন্য: www.brta.gov.bd'}</p>
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => setFlippedVehicles(prev => ({ ...prev, [vehicle.id]: !prev[vehicle.id] }))}
-                              className="w-full px-3 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg font-semibold text-sm flex items-center justify-center gap-1.5"
-                            >
-                              <ArrowsClockwise size={16} />
-                              {language === 'en' ? 'Flip' : 'উল্টান'}
-                            </motion.button>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  </div>
-                ))}
-              </div>
+              
+              {loadingRegisteredVehicles ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                </div>
+              ) : registeredVehicles.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <Car size={48} weight="duotone" className="mx-auto text-gray-400 mb-3" />
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    {language === 'en' ? 'No registered vehicles found' : 'কোনো নিবন্ধিত যানবাহন পাওয়া যায়নি'}
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowVehicleRegistrationModal(true)}
+                    className="px-6 py-2 bg-primary text-white rounded-lg font-semibold"
+                  >
+                    {language === 'en' ? 'Register Vehicle' : 'যানবাহন নিবন্ধন করুন'}
+                  </motion.button>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-6">
+                  {registeredVehicles.map((vehicle, index) => (
+                    <VehicleRegistrationCard 
+                      key={vehicle.id} 
+                      vehicle={vehicle} 
+                      language={language}
+                      index={index}
+                      onShowTaxToken={handleShowTaxToken}
+                      onDownload={downloadVehicleSmartCard}
+                    />
+                  ))}
+                </div>
+              )}
             </motion.div>
 
             {/* Tax Token Modal */}
@@ -1424,106 +1663,177 @@ const UserDashboard = () => {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-                  onClick={() => setShowTaxToken(null)}
+                  onClick={() => {
+                    setShowTaxToken(null);
+                    setTaxTokenData(null);
+                  }}
                 >
                   <motion.div
                     initial={{ scale: 0.9, y: 20 }}
                     animate={{ scale: 1, y: 0 }}
                     exit={{ scale: 0.9, y: 20 }}
                     onClick={(e) => e.stopPropagation()}
-                    className="bg-gradient-to-br from-green-500 via-green-600 to-green-700 p-6 rounded-2xl shadow-2xl text-white max-w-lg w-full relative overflow-hidden"
+                    className="bg-gradient-to-br from-green-500 via-green-600 to-green-700 p-4 rounded-2xl shadow-2xl text-white max-w-md w-full relative overflow-hidden"
                   >
                     <button
-                      onClick={() => setShowTaxToken(null)}
-                      className="absolute top-3 right-3 p-2 bg-white/20 hover:bg-white/30 rounded-full transition-all z-20"
+                      onClick={() => {
+                        setShowTaxToken(null);
+                        setTaxTokenData(null);
+                      }}
+                      className="absolute top-2 right-2 p-1.5 bg-white/20 hover:bg-white/30 rounded-full transition-all z-20"
                     >
-                      <X size={20} />
+                      <X size={18} />
                     </button>
 
                     <div className="absolute inset-0 opacity-10">
-                      <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
-                      <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full translate-y-1/2 -translate-x-1/2" />
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
+                      <div className="absolute bottom-0 left-0 w-24 h-24 bg-white rounded-full translate-y-1/2 -translate-x-1/2" />
                     </div>
 
                     <div className="relative z-10">
-                      <div className="text-center mb-4">
-                        <div className="inline-flex items-center justify-center w-14 h-14 bg-white/20 rounded-full mb-2">
-                          <CreditCard size={28} weight="duotone" />
+                      <div className="text-center mb-3">
+                        <div className="inline-flex items-center justify-center w-12 h-12 bg-white/20 rounded-full mb-1.5">
+                          <CreditCard size={24} weight="duotone" />
                         </div>
-                        <h3 className="text-xl font-bold">{language === 'en' ? 'Tax Token' : 'ট্যাক্স টোকেন'}</h3>
-                        <p className="text-xs opacity-90 mt-1">{language === 'en' ? 'Vehicle Tax Payment Receipt' : 'যানবাহন কর পেমেন্ট রসিদ'}</p>
+                        <h3 className="text-lg font-bold">{language === 'en' ? 'Tax Token' : 'ট্যাক্স টোকেন'}</h3>
+                        <p className="text-xs opacity-90">{language === 'en' ? 'Vehicle Tax Payment Receipt' : 'যানবাহন কর পেমেন্ট রসিদ'}</p>
                       </div>
 
-                      {vehicles.find(v => v.id === showTaxToken) && (
+                      {showTaxToken && (
                         <>
-                          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 mb-4">
-                            <div className="space-y-2.5">
+                          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3 mb-3">
+                            <div className="space-y-2">
                               <div>
                                 <p className="text-xs opacity-80 uppercase tracking-wider mb-0.5">{language === 'en' ? 'Vehicle' : 'যানবাহন'}</p>
-                                <p className="text-base font-bold">{vehicles.find(v => v.id === showTaxToken).model}</p>
+                                <p className="text-base font-bold">{showTaxToken.vehicle_name} {showTaxToken.model}</p>
                               </div>
                               <div>
                                 <p className="text-xs opacity-80 uppercase tracking-wider mb-0.5">{language === 'en' ? 'Registration Plate' : 'প্লেট'}</p>
-                                <p className="text-base font-bold tracking-wider">{vehicles.find(v => v.id === showTaxToken).plate}</p>
+                                <p className="text-base font-bold tracking-wider">
+                                  {language === 'en' ? showTaxToken.registration_plate.en : showTaxToken.registration_plate.bn}
+                                </p>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/30">
+                                <div>
+                                  <p className="text-xs opacity-80 uppercase tracking-wider mb-0.5">{language === 'en' ? 'Owner Name' : 'মালিকের নাম'}</p>
+                                  <p className="text-sm font-bold">
+                                    {language === 'en' ? showTaxToken.owner_name_en : showTaxToken.owner_name_bn}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs opacity-80 uppercase tracking-wider mb-0.5">{language === 'en' ? 'DL Number' : 'ডিএল নম্বর'}</p>
+                                  <p className="text-sm font-bold">
+                                    {showTaxToken.owner_dl_number || 'N/A'}
+                                  </p>
+                                </div>
                               </div>
                               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/30">
                                 <div>
                                   <p className="text-xs opacity-80 uppercase tracking-wider mb-0.5">{language === 'en' ? 'Token No.' : 'টোকেন নং'}</p>
-                                  <p className="text-sm font-bold">TT-2025-{showTaxToken.toString().padStart(6, '0')}</p>
+                                  <p className="text-sm font-bold">
+                                    {taxTokenData ? taxTokenData.token_number : (language === 'en' ? 'No tax token' : 'কোন ট্যাক্স টোকেন নেই')}
+                                  </p>
                                 </div>
                                 <div>
                                   <p className="text-xs opacity-80 uppercase tracking-wider mb-0.5">{language === 'en' ? 'Amount' : 'পরিমাণ'}</p>
-                                  <p className="text-lg font-bold">৳ 5,000</p>
+                                  <p className="text-lg font-bold">
+                                    {taxTokenData ? `৳ ${taxTokenData.amount_paid.toLocaleString()}` : '৳ 0'}
+                                  </p>
                                 </div>
                               </div>
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
                                   <p className="text-xs opacity-80 uppercase tracking-wider mb-0.5">{language === 'en' ? 'Issue Date' : 'ইস্যুর তারিখ'}</p>
-                                  <p className="text-sm font-bold">01/01/2025</p>
+                                  <p className="text-sm font-bold">
+                                    {taxTokenData ? new Date(taxTokenData.issue_date).toLocaleDateString() : showTaxToken.registration_date}
+                                  </p>
                                 </div>
                                 <div>
                                   <p className="text-xs opacity-80 uppercase tracking-wider mb-0.5">{language === 'en' ? 'Valid Until' : 'বৈধ পর্যন্ত'}</p>
-                                  <p className="text-sm font-bold">31/12/2025</p>
+                                  <p className="text-sm font-bold">
+                                    {taxTokenData ? new Date(taxTokenData.valid_until).toLocaleDateString() : showTaxToken.valid_until}
+                                  </p>
                                 </div>
                               </div>
+                              {taxTokenData && (
+                                <div className="pt-2 border-t border-white/30">
+                                  <p className="text-xs opacity-80 uppercase tracking-wider mb-0.5">{language === 'en' ? 'Status' : 'স্ট্যাটাস'}</p>
+                                  <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
+                                    taxTokenData.status === 'active' 
+                                      ? 'bg-green-200 text-green-800' 
+                                      : 'bg-red-200 text-red-800'
+                                  }`}>
+                                    {taxTokenData.status === 'active' ? 
+                                      (language === 'en' ? 'Active' : 'সক্রিয়') : 
+                                      (language === 'en' ? 'Expired' : 'মেয়াদ শেষ')
+                                    }
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
 
                           {/* QR Code */}
-                          <div className="flex justify-center mb-4">
-                            <div className="bg-white p-3 rounded-xl">
+                          <div className="flex justify-center mb-3">
+                            <div className="bg-white p-2 rounded-xl">
                               <img 
-                                src={generateQRCode(`TT-2025-${showTaxToken}|${vehicles.find(v => v.id === showTaxToken).plate}|৳5000|31/12/2025`)} 
+                                src={generateQRCode(showTaxToken.registration_number)} 
                                 alt="Tax Token QR" 
-                                className="w-32 h-32"
+                                className="w-28 h-28"
                               />
-                              <p className="text-xs text-center mt-1 text-gray-800 font-semibold">{language === 'en' ? 'Scan to Verify' : 'যাচাই করুন'}</p>
+                              <p className="text-xs text-center mt-0.5 text-gray-800 font-semibold">{language === 'en' ? 'Scan to Verify' : 'যাচাই করুন'}</p>
                             </div>
                           </div>
 
                           <div className="flex gap-2">
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => downloadTaxTokenAsPDF({
-                                'Token No': `TT-2025-${showTaxToken.toString().padStart(6, '0')}`,
-                                'Vehicle': vehicles.find(v => v.id === showTaxToken).model,
-                                'Registration Plate': vehicles.find(v => v.id === showTaxToken).plate,
-                                'Owner Name': 'John Doe',
-                                'Driving License No': 'DL-123456789',
-                                'Amount': '৳ 5,000',
-                                'Issue Date': '01/01/2025',
-                                'Valid Until': '31/12/2025',
-                                'Status': 'Paid'
-                              })}
-                              className="flex-1 px-4 py-2.5 bg-white text-green-600 hover:bg-white/90 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
-                            >
-                              <DownloadSimple size={18} />
-                              {language === 'en' ? 'Download PDF' : 'পিডিএফ ডাউনলোড'}
-                            </motion.button>
+                            {(() => {
+                              const isExpired = taxTokenData ? new Date(taxTokenData.valid_until) < new Date() : new Date(showTaxToken.valid_until) < new Date();
+                              
+                              if (isExpired) {
+                                return (
+                                  <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => {
+                                      setRenewalVehicle(showTaxToken);
+                                      setShowTaxTokenRenewalModal(true);
+                                      setShowTaxToken(null);
+                                      setTaxTokenData(null);
+                                    }}
+                                    className="flex-1 px-4 py-2.5 bg-yellow-400 text-green-800 hover:bg-yellow-300 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <ArrowsClockwise size={18} />
+                                    {language === 'en' ? 'Renew Token' : 'টোকেন নবায়ন'}
+                                  </motion.button>
+                                );
+                              } else {
+                                return (
+                                  <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => downloadTaxTokenAsPDF({
+                                      'Token No': taxTokenData ? taxTokenData.token_number : `TT-2025-${showTaxToken.id?.toString().padStart(6, '0')}`,
+                                      'Vehicle': `${showTaxToken.vehicle_name} ${showTaxToken.model}`,
+                                      'Registration Plate': showTaxToken.registration_plate.en,
+                                      'Registration Number': showTaxToken.registration_number,
+                                      'Owner Name': showTaxToken.owner_name_en,
+                                      'Driving License No': showTaxToken.owner_dl_number || 'N/A',
+                                      'Amount': taxTokenData ? `৳ ${taxTokenData.amount_paid.toLocaleString()}` : '৳ 5,000',
+                                      'Issue Date': taxTokenData ? new Date(taxTokenData.issue_date).toLocaleDateString() : showTaxToken.registration_date,
+                                      'Valid Until': taxTokenData ? new Date(taxTokenData.valid_until).toLocaleDateString() : showTaxToken.valid_until,
+                                      'Status': taxTokenData?.status === 'active' ? 'Paid' : 'Expired'
+                                    })}
+                                    className="flex-1 px-4 py-2.5 bg-white text-green-600 hover:bg-white/90 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <DownloadSimple size={18} />
+                                    {language === 'en' ? 'Download PDF' : 'পিডিএফ ডাউনলোড'}
+                                  </motion.button>
+                                );
+                              }
+                            })()}
                           </div>
 
-                          <p className="text-xs text-center mt-4 opacity-80">
+                          <p className="text-xs text-center mt-2 opacity-80">
                             {language === 'en' ? 'Keep this token with your vehicle at all times' : 'এই টোকেন সবসময় আপনার যানবাহনের সাথে রাখুন'}
                           </p>
                         </>
@@ -1533,6 +1843,27 @@ const UserDashboard = () => {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Tax Token Renewal Modal */}
+            <TaxTokenRenewalModal
+              open={showTaxTokenRenewalModal}
+              onClose={() => {
+                setShowTaxTokenRenewalModal(false);
+                setRenewalVehicle(null);
+              }}
+              vehicle={renewalVehicle}
+              language={language}
+              onSuccess={() => {
+                setShowTaxTokenRenewalModal(false);
+                setRenewalVehicle(null);
+                fetchRegisteredVehicles();
+                toast.success(
+                  language === 'en' 
+                    ? 'Tax token renewal initiated. Complete the payment.' 
+                    : 'ট্যাক্স টোকেন নবায়ন শুরু হয়েছে। পেমেন্ট সম্পূর্ণ করুন।'
+                );
+              }}
+            />
           </div>
         );
 
@@ -2014,6 +2345,21 @@ const UserDashboard = () => {
           />
         )}
       </AnimatePresence>
+
+      {/* Vehicle Registration Modal */}
+      <VehicleRegistrationModal
+        isOpen={showVehicleRegistrationModal}
+        onClose={() => setShowVehicleRegistrationModal(false)}
+        user={user}
+        onSuccess={() => {
+          fetchRegisteredVehicles();
+          toast.success(
+            language === 'en'
+              ? 'Vehicle registration initiated!'
+              : 'যানবাহন নিবন্ধন শুরু হয়েছে!'
+          );
+        }}
+      />
 
       {/* Notification Panel removed. Now only the notification bell in the header is used. */}
     </div>

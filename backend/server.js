@@ -262,12 +262,25 @@ app.post('/api/licenses/generate', async (req, res) => {
     }
 
     // Verify application is approved and payment completed
-    if (application.status !== 'approved' && application.payment !== 1) {
+    // Accept if EITHER approved OR payment completed
+    const isApproved = application.status === 'approved';
+    const isPaymentCompleted = application.payment === 1;
+    
+    if (!isApproved && !isPaymentCompleted) {
+      console.log(`❌ License generation blocked - Status: ${application.status}, Payment: ${application.payment}`);
       return res.status(400).json({ 
         success: false, 
-        error: 'Application must be approved and payment completed before generating license' 
+        error: 'Application must be approved and payment completed before generating license',
+        details: {
+          status: application.status,
+          payment: application.payment,
+          isApproved,
+          isPaymentCompleted
+        }
       });
     }
+    
+    console.log(`✅ License generation approved - Status: ${application.status}, Payment: ${application.payment}`);
 
     // Generate unique license number
     const { data: licenseNumberData, error: licenseNumError } = await supabase
@@ -850,6 +863,45 @@ app.post('/api/vehicles/registration/process', async (req, res) => {
 
     if (regError) throw regError;
 
+    // Generate tax token number
+    const { data: tokenNumber, error: tokenNumError } = await supabase
+      .rpc('generate_tax_token_number');
+
+    if (tokenNumError) throw tokenNumError;
+
+    // Calculate tax token validity (1 year from registration)
+    const tokenValidUntil = new Date(validUntil);
+    
+    // Get payment record to link with tax token
+    const { data: paymentRecord } = await supabase
+      .from('payments')
+      .select('id, amount')
+      .eq('id', payment_id)
+      .single();
+
+    // Create initial tax token for the vehicle
+    const currentYear = new Date().getFullYear();
+    const { data: taxToken, error: taxTokenError } = await supabase
+      .from('tax_tokens')
+      .insert([{
+        token_number: tokenNumber,
+        registered_vehicle_id: registeredVehicle.id,
+        user_id: user_id,
+        issue_date: new Date().toISOString().split('T')[0],
+        valid_until: tokenValidUntil.toISOString().split('T')[0],
+        tax_year: `${currentYear}-${currentYear + 1}`,
+        amount_paid: paymentRecord?.amount || application.amount,
+        payment_id: payment_id,
+        status: 'active'
+      }])
+      .select()
+      .single();
+
+    if (taxTokenError) {
+      console.error('Tax token creation error:', taxTokenError);
+      // Don't throw - registration is complete, just log the error
+    }
+
     // Update vehicle registration application status
     await supabase
       .from('vehicle_registrations')
@@ -873,15 +925,16 @@ app.post('/api/vehicles/registration/process', async (req, res) => {
         user_id: user_id,
         title_en: 'Vehicle Registration Complete!',
         title_bn: 'যানবাহন নিবন্ধন সম্পূর্ণ!',
-        message_en: `Your vehicle (${application.vehicles.vehicle_name} ${application.vehicles.model}) has been registered. Plate: ${plateData.en}`,
-        message_bn: `আপনার যানবাহন (${application.vehicles.vehicle_name} ${application.vehicles.model}) নিবন্ধিত হয়েছে। প্লেট: ${plateData.bn}`,
+        message_en: `Your vehicle (${application.vehicles.vehicle_name} ${application.vehicles.model}) has been registered. Plate: ${plateData.en}. Tax Token: ${tokenNumber}`,
+        message_bn: `আপনার যানবাহন (${application.vehicles.vehicle_name} ${application.vehicles.model}) নিবন্ধিত হয়েছে। প্লেট: ${plateData.bn}। ট্যাক্স টোকেন: ${tokenNumber}`,
         type: 'vehicle_registration_complete'
       }]);
 
     res.json({
       success: true,
       registration: registeredVehicle,
-      message: 'Vehicle registered successfully'
+      tax_token: taxToken,
+      message: 'Vehicle registered successfully with tax token'
     });
 
   } catch (error) {

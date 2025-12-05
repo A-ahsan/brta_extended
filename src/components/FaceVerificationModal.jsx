@@ -251,6 +251,29 @@ export default function FaceVerificationModal({ open, onClose, application }) {
             .then(() => {
               console.log('Video is playing!');
               setCameraReady(true);
+              
+              // Draw initial face guide oval
+              if (canvasRef.current && videoRef.current) {
+                const canvas = canvasRef.current;
+                canvas.width = videoRef.current.videoWidth;
+                canvas.height = videoRef.current.videoHeight;
+                
+                const ctx = canvas.getContext('2d');
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const radiusX = 110;
+                const radiusY = 150;
+                
+                ctx.save();
+                ctx.beginPath();
+                ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+                ctx.strokeStyle = '#10b981';
+                ctx.lineWidth = 4;
+                ctx.setLineDash([12, 6]);
+                ctx.stroke();
+                ctx.restore();
+              }
+              
               setStep('instructions');
               startVerificationProcess();
             })
@@ -370,6 +393,20 @@ export default function FaceVerificationModal({ open, onClose, application }) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+    // Draw face guide oval FIRST (before landmarks)
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radiusX = 110;
+    const radiusY = 150;
+    
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 4;
+    ctx.setLineDash([12, 6]);
+    ctx.stroke();
+    ctx.restore();
 
   };
 
@@ -514,7 +551,9 @@ export default function FaceVerificationModal({ open, onClose, application }) {
                   height: '100%', 
                   objectFit: 'cover',
                   backgroundColor: '#000',
-                  transform: 'scaleX(-1)'
+                  transform: 'scaleX(-1)',
+                  position: 'relative',
+                  zIndex: 1
                 }}
               />
               <canvas
@@ -525,7 +564,8 @@ export default function FaceVerificationModal({ open, onClose, application }) {
                   left: 0,
                   width: '100%',
                   height: '100%',
-                  pointerEvents: 'none'
+                  pointerEvents: 'none',
+                  zIndex: 2
                 }}
               />
               <div className="absolute inset-0 flex items-center justify-center">

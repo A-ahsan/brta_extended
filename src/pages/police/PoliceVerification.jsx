@@ -13,6 +13,8 @@ import {
   MapPin,
   X,
   CreditCard,
+  CurrencyCircleDollar,
+  Clock,
 } from 'phosphor-react';
 import { useLanguage } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -20,6 +22,7 @@ import { translations } from '../../utils/translations';
 import { supabase } from '../../lib/supabaseClient';
 import toast from 'react-hot-toast';
 import { Html5QrcodeScanner } from 'html5-qrcode';
+import AddViolationModal from '../../components/AddViolationModal';
 
 const PoliceVerification = () => {
   const { language } = useLanguage();
@@ -40,6 +43,9 @@ const PoliceVerification = () => {
   const [taxTokenData, setTaxTokenData] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [cameraStream, setCameraStream] = useState(null);
+  const [violations, setViolations] = useState([]);
+  const [loadingViolations, setLoadingViolations] = useState(false);
+  const [showAddViolationModal, setShowAddViolationModal] = useState(false);
 
   const scannerRef = useRef(null);
   const scanningLockRef = useRef(false);
@@ -334,6 +340,11 @@ const PoliceVerification = () => {
         }
       }
       
+      // Fetch violations for this vehicle
+      if (data.id) {
+        fetchVehicleViolations(data.id);
+      }
+      
       toast.success(language === 'en' ? 'Vehicle found!' : 'যানবাহন পাওয়া গেছে!');
     } catch (error) {
       console.error('Error fetching vehicle:', error);
@@ -342,6 +353,25 @@ const PoliceVerification = () => {
       setOwnerPhoto(null);
     } finally {
       setLoadingVehicle(false);
+    }
+  };
+
+  const fetchVehicleViolations = async (vehicleId) => {
+    try {
+      setLoadingViolations(true);
+      const { data, error } = await supabase
+        .from('traffic_violations')
+        .select('*')
+        .eq('registered_vehicle_id', vehicleId)
+        .order('violation_date', { ascending: false });
+
+      if (error) throw error;
+      setViolations(data || []);
+    } catch (error) {
+      console.error('Error fetching violations:', error);
+      setViolations([]);
+    } finally {
+      setLoadingViolations(false);
     }
   };
 
@@ -381,7 +411,7 @@ const PoliceVerification = () => {
           message_en: `Your vehicle (${selectedVehicle.registration_plate.en}) was inspected. Type: ${inspectionType.replace('_', ' ')}`,
           message_bn: `আপনার যানবাহন (${selectedVehicle.registration_plate.bn}) পরিদর্শন করা হয়েছে। ধরন: ${inspectionType}`,
           notification_type: 'general',
-          priority: inspectionType === 'fine_issued' ? 'high' : 'normal'
+          priority: 'normal'
         }]);
 
       toast.success(language === 'en' ? 'Inspection recorded!' : 'পরিদর্শন রেকর্ড করা হয়েছে!');
@@ -402,9 +432,17 @@ const PoliceVerification = () => {
     setSearchQuery('');
     setOwnerPhoto(null);
     setTaxTokenData(null);
+    setViolations([]);
     scanningLockRef.current = false;
     scannerActiveRef.current = false;
     setIsScanning(false);
+  };
+
+  const handleViolationAdded = () => {
+    // Refresh violations list
+    if (selectedVehicle?.id) {
+      fetchVehicleViolations(selectedVehicle.id);
+    }
   };
 
   const getStatusIcon = (vehicle) => {
@@ -724,6 +762,86 @@ const PoliceVerification = () => {
                 </motion.div>
               )}
 
+              {/* Violations Section */}
+              <div className="mt-6 bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-4">
+                  <h5 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                    <Warning size={24} weight="fill" className="text-red-600" />
+                    {language === 'en' ? 'Violations & Fines' : 'লঙ্ঘন ও জরিমানা'}
+                  </h5>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowAddViolationModal(true)}
+                    className="px-4 py-2 bg-gradient-to-r from-red-500 to-orange-600 text-white rounded-lg font-semibold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                  >
+                    <Warning size={18} weight="bold" />
+                    {language === 'en' ? 'Add Fine' : 'জরিমানা যোগ করুন'}
+                  </motion.button>
+                </div>
+
+                {loadingViolations ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  </div>
+                ) : violations.length === 0 ? (
+                  <div className="text-center py-6">
+                    <CheckCircle size={48} className="text-green-500 mx-auto mb-2" weight="duotone" />
+                    <p className="text-gray-600 dark:text-gray-400">
+                      {language === 'en' ? 'No violations recorded' : 'কোনো লঙ্ঘন রেকর্ড করা হয়নি'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {violations.map((violation) => (
+                      <div key={violation.id} className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <h6 className="font-bold text-gray-800 dark:text-white text-sm">
+                              {language === 'en' ? violation.violation_name_en : violation.violation_name_bn}
+                            </h6>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                              {language === 'en' ? violation.location : (violation.location_bn || violation.location)}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-red-600 dark:text-red-400">
+                              BDT {violation.total_amount}
+                            </p>
+                            <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                              violation.payment_status === 'paid' 
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+                            }`}>
+                              {violation.payment_status === 'paid' 
+                                ? (language === 'en' ? 'Paid' : 'পরিশোধিত')
+                                : (language === 'en' ? 'Unpaid' : 'বাকি')}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                          <span className="flex items-center gap-1">
+                            <Calendar size={12} />
+                            {new Date(violation.violation_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD')}
+                          </span>
+                          <span>#{violation.violation_number}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-gray-700 dark:text-gray-300">
+                          {language === 'en' ? 'Total Pending:' : 'মোট বাকি:'}
+                        </span>
+                        <span className="text-lg font-bold text-red-600 dark:text-red-400">
+                          BDT {violations.filter(v => v.payment_status === 'unpaid').reduce((sum, v) => sum + parseFloat(v.total_amount), 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Record Inspection Button */}
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -778,7 +896,6 @@ const PoliceVerification = () => {
                   >
                     <option value="routine_check">Routine Check</option>
                     <option value="warning_issued">Warning Issued</option>
-                    <option value="fine_issued">Fine Issued</option>
                     <option value="document_requested">Document Requested</option>
                   </select>
                 </div>
@@ -829,6 +946,14 @@ const PoliceVerification = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Add Violation Modal */}
+      <AddViolationModal
+        isOpen={showAddViolationModal}
+        onClose={() => setShowAddViolationModal(false)}
+        vehicleData={selectedVehicle}
+        onSuccess={handleViolationAdded}
+      />
     </div>
   );
 };

@@ -21,7 +21,8 @@ import {
   CheckCircle,
   Calculator,
   BookOpen,
-  Sparkle
+  Sparkle,
+  Warning
 } from 'phosphor-react';
 import { useLanguage, useDownload } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -38,6 +39,7 @@ import LicenseCompletionCelebration from '../components/LicenseCompletionCelebra
 import VehicleRegistrationModal from '../components/VehicleRegistrationModal';
 import VehicleRegistrationCard from '../components/VehicleRegistrationCard';
 import TaxTokenRenewalModal from '../components/TaxTokenRenewalModal';
+import UserViolations from './UserViolations';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -1256,6 +1258,7 @@ const UserDashboard = () => {
   const menuItems = [
     { id: 'license', icon: <IdentificationCard size={24} weight="duotone" />, label: t.licenseApplication },
     { id: 'vehicle', icon: <Car size={24} weight="duotone" />, label: t.vehicleRegistration },
+    { id: 'violations', icon: <Warning size={24} weight="duotone" />, label: language === 'en' ? 'My Violations' : 'আমার লঙ্ঘন' },
     { id: 'questionbank', icon: <BookOpen size={24} weight="duotone" />, label: language === 'en' ? 'Question Bank' : 'প্রশ্ন ব্যাংক' },
     { id: 'calculator', icon: <Calculator size={24} weight="duotone" />, label: t.costCalculator },
     // Removed 'dlpayment' tab. Payment is now only in Progress Tracker.
@@ -1880,6 +1883,9 @@ const UserDashboard = () => {
 
       case 'questionbank':
         return <QuestionBank />;
+
+      case 'violations':
+        return <UserViolations />;
 
       case 'settings':
         return (

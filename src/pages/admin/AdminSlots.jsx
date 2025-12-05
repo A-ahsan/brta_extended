@@ -87,18 +87,21 @@ const AdminSlots = () => {
   };
 
   const getCenterStats = (centerId) => {
+    const center = testCenters.find(c => c.id === centerId);
+    const centerCapacity = center?.daily_capacity || 50;
     const bookings = bookingsData.filter(b => b.test_center_id === centerId);
-    const total = 50; // Default capacity per center
     const booked = bookings.length;
-    const available = total - booked;
-    const rushLevel = booked / total;
+    const available = centerCapacity - booked;
+    const rushLevel = booked / centerCapacity;
 
     return {
-      total,
+      total: centerCapacity,
       booked,
       available,
       rushLevel,
       bookings,
+      percentageFilled: ((booked / centerCapacity) * 100).toFixed(1),
+      isFull: available === 0
     };
   };
 
@@ -282,7 +285,14 @@ const AdminSlots = () => {
                         <span className="text-sm text-gray-600 dark:text-gray-300">
                           {language === 'en' ? 'Capacity' : 'ধারণক্ষমতা'}
                         </span>
-                        <span className="font-bold text-lg text-gray-800 dark:text-white">{stats.total}</span>
+                        <span className="font-bold text-lg text-gray-800 dark:text-white">
+                          {stats.booked}/{stats.total}
+                          {stats.isFull && (
+                            <span className="ml-2 text-xs px-2 py-1 bg-red-500 text-white rounded-full">
+                              {language === 'en' ? 'FULL' : 'পূর্ণ'}
+                            </span>
+                          )}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                         <span className="text-sm text-gray-600 dark:text-gray-300">
@@ -294,7 +304,9 @@ const AdminSlots = () => {
                         <span className="text-sm text-gray-600 dark:text-gray-300">
                           {language === 'en' ? 'Available' : 'উপলব্ধ'}
                         </span>
-                        <span className="font-bold text-lg text-success dark:text-green-400">{stats.available}</span>
+                        <span className={`font-bold text-lg ${stats.isFull ? 'text-red-600' : 'text-success dark:text-green-400'}`}>
+                          {stats.available}
+                        </span>
                       </div>
                     </div>
 
@@ -302,7 +314,7 @@ const AdminSlots = () => {
                     <div className="mb-4">
                       <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-2">
                         <span>{getRushLabel(rushLevel)}</span>
-                        <span>{Math.round(rushLevel * 100)}%</span>
+                        <span>{stats.percentageFilled}%</span>
                       </div>
                       <div className="relative bg-gray-200 dark:bg-gray-600 rounded-full h-3 overflow-hidden">
                         <motion.div
@@ -326,14 +338,24 @@ const AdminSlots = () => {
                       {language === 'en' ? `View Details (${stats.booked})` : `বিস্তারিত দেখুন (${stats.booked})`}
                     </motion.button>
 
-                    {/* Alert for high rush */}
-                    {rushLevel >= 0.8 && (
+                    {/* Alert for high rush or full */}
+                    {stats.isFull ? (
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         className="mt-3 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
                       >
                         <p className="text-xs text-red-700 dark:text-red-400 font-semibold text-center">
+                          {language === 'en' ? '🚫 FULLY BOOKED - No slots available' : '🚫 সম্পূর্ণ বুক - কোন স্লট নেই'}
+                        </p>
+                      </motion.div>
+                    ) : rushLevel >= 0.8 && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="mt-3 p-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg"
+                      >
+                        <p className="text-xs text-orange-700 dark:text-orange-400 font-semibold text-center">
                           {language === 'en' ? '⚠️ High Rush - Nearly Full' : '⚠️ উচ্চ চাপ - প্রায় পূর্ণ'}
                         </p>
                       </motion.div>

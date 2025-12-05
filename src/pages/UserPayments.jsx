@@ -61,14 +61,25 @@ export default function UserPayments() {
       return;
     }
     // Insert payment record as initiated
-    await supabase.from('payments').insert({
+    const { data: paymentData, error: paymentError } = await supabase.from('payments').insert({
       user_id: user.id,
       application_id: application.id,
       amount: LICENSE_FEE,
       currency: 'BDT',
       tran_id,
       status: 'initiated',
-    });
+      payment_type: 'application', // Explicitly set payment type
+    }).select().single();
+    
+    if (paymentError) {
+      console.error('Error creating payment record:', paymentError);
+      toast.error('Failed to create payment record');
+      setInitiating(false);
+      return;
+    }
+    
+    console.log('Payment record created:', paymentData);
+    
     // Call backend to get payment URL
     const res = await fetch(`${backendUrl}/api/payment/initiate`, {
       method: 'POST',

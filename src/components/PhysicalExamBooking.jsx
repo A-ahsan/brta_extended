@@ -21,6 +21,7 @@ const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking })
   const [step, setStep] = useState(currentBooking ? 'schedule' : 'centers'); // centers, schedule, confirm, success
   const [centers, setCenters] = useState([]);
   const [selectedCenter, setSelectedCenter] = useState(currentBooking?.test_centers || null);
+  const [selectedCenterId, setSelectedCenterId] = useState(currentBooking?.test_center_id || null);
   const [selectedDate, setSelectedDate] = useState(currentBooking?.exam_date || '');
   const [selectedTime] = useState('09:00'); // Fixed time at 9 AM
   const [userLocation, setUserLocation] = useState(null);
@@ -29,6 +30,7 @@ const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking })
   const [error, setError] = useState('');
   const [sortByDistance, setSortByDistance] = useState(false);
   const [availableDates, setAvailableDates] = useState([]);
+  const [dateAvailability, setDateAvailability] = useState({});
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [timeSlots] = useState([
     '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
@@ -41,6 +43,14 @@ const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking })
       generateAvailableDates();
     }
   }, [isOpen]);
+
+  // Load availability when availableDates are ready and we have a selected center
+  useEffect(() => {
+    if (availableDates.length > 0 && selectedCenterId) {
+      console.log('Loading availability for center ID:', selectedCenterId);
+      loadDateAvailability(selectedCenterId);
+    }
+  }, [availableDates, selectedCenterId]);
 
   const loadCenters = async () => {
     try {
@@ -134,13 +144,113 @@ const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking })
 
   const handleSelectCenter = (center) => {
     setSelectedCenter(center);
+    setSelectedCenterId(center.id);
     setMapCenter([center.latitude, center.longitude]);
     setStep('schedule');
+    // Load availability for this center
+    loadDateAvailability(center.id);
+  };
+
+  const loadDateAvailability = async (centerId) => {
+    try {
+      const availability = {};
+      
+      console.log('Loading availability for center:', centerId, 'Dates:', availableDates.length);
+      
+      // Get center info first
+      const { data: centerData } = await supabase
+        .from('test_centers')
+        .select('daily_capacity')
+        .eq('id', centerId)
+        .single();
+      
+      if (!centerData) {
+        console.error('Center not found');
+        return;
+      }
+      
+      const dailyCapacity = centerData.daily_capacity || 50;
+      console.log('Center capacity:', dailyCapacity);
+      
+      // Check availability for all available dates
+      for (const date of availableDates) {
+        // Get booking count for this date
+        const { count, error } = await supabase
+          .from('physical_exam_bookings')
+          .select('*', { count: 'exact', head: true })
+          .eq('test_center_id', centerId)
+          .eq('exam_date', date)
+          .eq('status', 'scheduled');
+        
+        if (error) {
+          console.error(`Error loading bookings for ${date}:`, error);
+          continue;
+        }
+        
+        const booked = count || 0;
+        const available = dailyCapacity - booked;
+        const percentageFilled = (booked / dailyCapacity) * 100;
+        
+        let rushLevel = 'low';
+        if (percentageFilled >= 80) rushLevel = 'high';
+        else if (percentageFilled >= 50) rushLevel = 'medium';
+        
+        const slotInfo = {
+          total_capacity: dailyCapacity,
+          booked: booked,
+          available: Math.max(0, available),
+          rush_level: rushLevel,
+          is_full: available <= 0,
+          percentage_filled: Math.round(percentageFilled * 100) / 100
+        };
+        
+        console.log(`Availability for ${date}:`, slotInfo);
+        availability[date] = slotInfo;
+      }
+      
+      console.log('Final availability object:', availability);
+      setDateAvailability(availability);
+    } catch (err) {
+      console.error('Error loading availability:', err);
+    }
+  };
+
+  const getAvailabilityColor = (date) => {
+    const info = dateAvailability[date];
+    if (!info) return 'text-gray-600';
+    
+    if (info.is_full) return 'text-red-600';
+    if (info.rush_level === 'high') return 'text-orange-600';
+    if (info.rush_level === 'medium') return 'text-yellow-600';
+    return 'text-green-600';
+  };
+
+  const getAvailabilityText = (date) => {
+    const info = dateAvailability[date];
+    if (!info) return '';
+    
+    if (info.is_full) {
+      return language === 'en' ? '(FULL - Unavailable)' : '(পূর্ণ - অনুপলব্ধ)';
+    }
+    
+    return language === 'en' 
+      ? `(${info.available}/${info.total_capacity} slots available)`
+      : `(${info.available}/${info.total_capacity} স্লট উপলব্ধ)`;
   };
 
   const handleBooking = async () => {
     if (!selectedCenter || !selectedDate || !selectedTime) {
       setError('Please fill all required fields');
+      return;
+    }
+
+    // Check availability before booking
+    const dateInfo = dateAvailability[selectedDate];
+    if (dateInfo && dateInfo.is_full) {
+      setError(language === 'en' 
+        ? 'This center is fully booked for the selected date. Please choose another date or center.'
+        : 'এই তারিখের জন্য এই কেন্দ্র সম্পূর্ণ বুক হয়ে গেছে। অনুগ্রহ করে অন্য তারিখ বা কেন্দ্র নির্বাচন করুন।'
+      );
       return;
     }
 
@@ -162,12 +272,21 @@ const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking })
         .insert([{
           application_id: applicationId,
           user_id: userData.user.id,
-          test_center_id: selectedCenter.id,
+          test_center_id: selectedCenterId,
           exam_date: selectedDate,
           status: 'scheduled'
         }]);
 
-      if (error) throw error;
+      if (error) {
+        // Check if it's a capacity error
+        if (error.message.includes('fully booked')) {
+          throw new Error(language === 'en'
+            ? 'This center is fully booked for the selected date. Please choose another date or center.'
+            : 'এই তারিখের জন্য এই কেন্দ্র সম্পূর্ণ বুক হয়ে গেছে। অনুগ্রহ করে অন্য তারিখ বা কেন্দ্র নির্বাচন করুন।'
+          );
+        }
+        throw error;
+      }
 
       // Update license_applications
       await supabase
@@ -223,6 +342,18 @@ const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking })
       return;
     }
 
+    // Check availability before updating (if changing to a new center/date combo)
+    if (selectedCenter && selectedDate !== currentBooking?.exam_date) {
+      const dateInfo = dateAvailability[selectedDate];
+      if (dateInfo && dateInfo.is_full) {
+        setError(language === 'en' 
+          ? 'This center is fully booked for the selected date. Please choose another date.'
+          : 'এই তারিখের জন্য এই কেন্দ্র সম্পূর্ণ বুক হয়ে গেছে। অনুগ্রহ করে অন্য তারিখ নির্বাচন করুন।'
+        );
+        return;
+      }
+    }
+
     setLoading(true);
     setError('');
 
@@ -230,7 +361,7 @@ const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking })
       const { error } = await supabase
         .from('physical_exam_bookings')
         .update({
-          test_center_id: selectedCenter.id,
+          test_center_id: selectedCenterId,
           exam_date: selectedDate,
           status: 'scheduled'
         })
@@ -466,17 +597,92 @@ const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking })
           required
         >
           <option value="">Choose a date...</option>
-          {availableDates.map(date => (
-            <option key={date} value={date}>
-              {new Date(date).toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
-            </option>
-          ))}
+          {availableDates.map(date => {
+            const info = dateAvailability[date];
+            const isFull = info && info.is_full;
+            
+            return (
+              <option 
+                key={date} 
+                value={date}
+                disabled={isFull}
+                className={isFull ? 'text-red-500' : ''}
+              >
+                {new Date(date).toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+                {info ? ` - ${info.available}/${info.total_capacity} slots` : ''}
+                {isFull ? ' (FULL)' : ''}
+              </option>
+            );
+          })}
         </select>
+        
+        {/* Show availability info for selected date */}
+        {selectedDate && dateAvailability[selectedDate] && (
+          <div className={`mt-3 p-3 rounded-lg border-2 ${
+            dateAvailability[selectedDate].is_full 
+              ? 'bg-red-50 border-red-300' 
+              : dateAvailability[selectedDate].rush_level === 'high'
+              ? 'bg-orange-50 border-orange-300'
+              : dateAvailability[selectedDate].rush_level === 'medium'
+              ? 'bg-yellow-50 border-yellow-300'
+              : 'bg-green-50 border-green-300'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-gray-800">
+                  {language === 'en' ? 'Slot Availability' : 'স্লট উপলব্ধতা'}
+                </p>
+                <p className="text-xs text-gray-600 mt-1">
+                  {dateAvailability[selectedDate].booked} {language === 'en' ? 'booked' : 'বুক হয়েছে'} • {' '}
+                  {dateAvailability[selectedDate].available} {language === 'en' ? 'available' : 'উপলব্ধ'} • {' '}
+                  {dateAvailability[selectedDate].total_capacity} {language === 'en' ? 'total' : 'মোট'}
+                </p>
+              </div>
+              <div className="text-right">
+                <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+                  dateAvailability[selectedDate].is_full 
+                    ? 'bg-red-200 text-red-800'
+                    : dateAvailability[selectedDate].rush_level === 'high'
+                    ? 'bg-orange-200 text-orange-800'
+                    : dateAvailability[selectedDate].rush_level === 'medium'
+                    ? 'bg-yellow-200 text-yellow-800'
+                    : 'bg-green-200 text-green-800'
+                }`}>
+                  {dateAvailability[selectedDate].is_full 
+                    ? (language === 'en' ? 'FULL' : 'পূর্ণ')
+                    : dateAvailability[selectedDate].rush_level === 'high'
+                    ? (language === 'en' ? 'HIGH RUSH' : 'উচ্চ চাপ')
+                    : dateAvailability[selectedDate].rush_level === 'medium'
+                    ? (language === 'en' ? 'MEDIUM' : 'মধ্যম')
+                    : (language === 'en' ? 'AVAILABLE' : 'উপলব্ধ')
+                  }
+                </div>
+                <p className="text-xs text-gray-600 mt-1">
+                  {dateAvailability[selectedDate].percentage_filled}% {language === 'en' ? 'filled' : 'পূর্ণ'}
+                </p>
+              </div>
+            </div>
+            
+            {/* Progress bar */}
+            <div className="mt-2 bg-gray-200 rounded-full h-2 overflow-hidden">
+              <div 
+                className={`h-full transition-all ${
+                  dateAvailability[selectedDate].percentage_filled >= 80 
+                    ? 'bg-red-500'
+                    : dateAvailability[selectedDate].percentage_filled >= 50
+                    ? 'bg-yellow-500'
+                    : 'bg-green-500'
+                }`}
+                style={{ width: `${dateAvailability[selectedDate].percentage_filled}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">

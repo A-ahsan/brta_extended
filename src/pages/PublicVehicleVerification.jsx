@@ -11,6 +11,10 @@ import {
   Calendar,
   X,
   ArrowLeft,
+  Warning,
+  MapPin,
+  Clock,
+  CurrencyCircleDollar,
 } from 'phosphor-react';
 import { useLanguage } from '../contexts/AppContext';
 import { supabase } from '../lib/supabaseClient';
@@ -31,6 +35,8 @@ const PublicVehicleVerification = () => {
   const [taxTokenData, setTaxTokenData] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [cameraStream, setCameraStream] = useState(null);
+  const [violations, setViolations] = useState([]);
+  const [loadingViolations, setLoadingViolations] = useState(false);
   const scanningLockRef = useRef(false);
   const lastScanTimeRef = useRef(0);
   const scannerActiveRef = useRef(false);
@@ -323,6 +329,11 @@ const PublicVehicleVerification = () => {
         }
       }
       
+      // Fetch violations for this vehicle
+      if (data.id) {
+        fetchVehicleViolations(data.id);
+      }
+      
       toast.success(language === 'en' ? 'Vehicle found!' : 'যানবাহন পাওয়া গেছে!');
     } catch (error) {
       console.error('Error fetching vehicle:', error);
@@ -331,6 +342,25 @@ const PublicVehicleVerification = () => {
       setOwnerPhoto(null);
     } finally {
       setLoadingVehicle(false);
+    }
+  };
+
+  const fetchVehicleViolations = async (vehicleId) => {
+    try {
+      setLoadingViolations(true);
+      const { data, error } = await supabase
+        .from('traffic_violations')
+        .select('*')
+        .eq('registered_vehicle_id', vehicleId)
+        .order('violation_date', { ascending: false });
+
+      if (error) throw error;
+      setViolations(data || []);
+    } catch (error) {
+      console.error('Error fetching violations:', error);
+      setViolations([]);
+    } finally {
+      setLoadingViolations(false);
     }
   };
 
@@ -347,6 +377,7 @@ const PublicVehicleVerification = () => {
     setSearchQuery('');
     setOwnerPhoto(null);
     setTaxTokenData(null);
+    setViolations([]);
     scanningLockRef.current = false;
     scannerActiveRef.current = false;
     setIsScanning(false);
@@ -678,6 +709,77 @@ const PublicVehicleVerification = () => {
                   </div>
                 </motion.div>
               )}
+
+              {/* Violations Section */}
+              <div className="mt-6 bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700">
+                <h5 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2 mb-4">
+                  <Warning size={24} weight="fill" className="text-red-600" />
+                  {language === 'en' ? 'Violations & Fines' : 'লঙ্ঘন ও জরিমানা'}
+                </h5>
+
+                {loadingViolations ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  </div>
+                ) : violations.length === 0 ? (
+                  <div className="text-center py-6">
+                    <CheckCircle size={48} className="text-green-500 mx-auto mb-2" weight="duotone" />
+                    <p className="text-gray-600 dark:text-gray-400">
+                      {language === 'en' ? 'No violations recorded' : 'কোনো লঙ্ঘন রেকর্ড করা হয়নি'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {violations.map((violation) => (
+                      <div key={violation.id} className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <h6 className="font-bold text-gray-800 dark:text-white text-sm">
+                              {language === 'en' ? violation.violation_name_en : violation.violation_name_bn}
+                            </h6>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 flex items-center gap-1">
+                              <MapPin size={12} />
+                              {language === 'en' ? violation.location : (violation.location_bn || violation.location)}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-red-600 dark:text-red-400 flex items-center gap-1">
+                              <CurrencyCircleDollar size={16} weight="bold" />
+                              {violation.total_amount}
+                            </p>
+                            <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                              violation.payment_status === 'paid' 
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+                            }`}>
+                              {violation.payment_status === 'paid' 
+                                ? (language === 'en' ? 'Paid' : 'পরিশোধিত')
+                                : (language === 'en' ? 'Unpaid' : 'বাকি')}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                          <span className="flex items-center gap-1">
+                            <Calendar size={12} />
+                            {new Date(violation.violation_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD')}
+                          </span>
+                          <span>#{violation.violation_number}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-gray-700 dark:text-gray-300">
+                          {language === 'en' ? 'Total Pending:' : 'মোট বাকি:'}
+                        </span>
+                        <span className="text-lg font-bold text-red-600 dark:text-red-400">
+                          BDT {violations.filter(v => v.payment_status === 'unpaid').reduce((sum, v) => sum + parseFloat(v.total_amount), 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <button
                 onClick={clearVehicleData}

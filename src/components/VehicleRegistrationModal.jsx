@@ -133,13 +133,13 @@ const VehicleRegistrationModal = ({ isOpen, onClose, user, onSuccess }) => {
       const filePath = `vehicle_photos/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('license-documents')
+        .from('vehicle-documents')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('license-documents')
+        .from('vehicle-documents')
         .getPublicUrl(filePath);
 
       setFormData({ ...formData, vehicle_photo_url: publicUrl, use_dl_photo: false });
@@ -154,18 +154,25 @@ const VehicleRegistrationModal = ({ isOpen, onClose, user, onSuccess }) => {
 
   const handleUseDLPhoto = async () => {
     try {
-      // Fetch user's DL photo
-      const { data: license, error } = await supabase
+      // Fetch user's most recent active DL photo (in case user has multiple licenses)
+      const { data: licenses, error } = await supabase
         .from('licenses')
-        .select('photo_url')
+        .select('photo_url, license_number, license_type, created_at')
         .eq('user_id', user?.id)
-        .single();
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      if (license?.photo_url) {
-        setFormData({ ...formData, vehicle_photo_url: license.photo_url, use_dl_photo: true });
-        toast.success(language === 'en' ? 'DL photo selected' : 'DL ফটো নির্বাচিত');
+      if (licenses && licenses.length > 0) {
+        // Use the most recent license photo
+        const latestLicense = licenses[0];
+        setFormData({ ...formData, vehicle_photo_url: latestLicense.photo_url, use_dl_photo: true });
+        toast.success(
+          language === 'en' 
+            ? `DL photo selected from ${latestLicense.license_number}` 
+            : `${latestLicense.license_number} থেকে DL ফটো নির্বাচিত`
+        );
       } else {
         toast.error(language === 'en' ? 'No DL photo found' : 'কোনো DL ফটো পাওয়া যায়নি');
       }

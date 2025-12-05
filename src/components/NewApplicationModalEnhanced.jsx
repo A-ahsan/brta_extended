@@ -41,13 +41,22 @@ export default function NewApplicationModal({ open, onClose, onSuccess }) {
   const [cropArea, setCropArea] = useState({ x: 10, y: 50, width: 100, height: 130 }); // Initial face position
   const [isDragging, setIsDragging] = useState(false);
   
+  // Camera states
+  const [scanMode, setScanMode] = useState('file'); // 'file' or 'camera'
+  const [cameraActive, setCameraActive] = useState(false);
+  const [detectionScore, setDetectionScore] = useState(0);
+  
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
   const photoInputRef = useRef(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const detectionIntervalRef = useRef(null);
 
   // Reset on close
   useEffect(() => {
     if (!open) {
+      stopCamera();
       setTimeout(() => {
         setStep(1);
         setLicenseType('');
@@ -58,9 +67,220 @@ export default function NewApplicationModal({ open, onClose, onSuccess }) {
         setFaceCrop(null);
         setUserPhoto(null);
         setProcessing(false);
+        setScanMode('file');
+        setCameraActive(false);
+        setDetectionScore(0);
       }, 300);
     }
   }, [open]);
+
+  // Start camera
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: 'environment', // Use back camera on mobile
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      });
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+        setCameraActive(true);
+        
+        // Start quality scoring
+        videoRef.current.onloadedmetadata = () => {
+          startQualityCheck();
+        };
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      toast.error(isEnglish 
+        ? 'Cannot access camera. Please grant permission or use file upload.' 
+        : 'ক্যামেরা অ্যাক্সেস করা যাচ্ছে না। অনুমতি দিন বা ফাইল আপলোড ব্যবহার করুন।');
+      setScanMode('file');
+    }
+  };
+
+  // Stop camera
+  const stopCamera = () => {
+    if (detectionIntervalRef.current) {
+      clearInterval(detectionIntervalRef.current);
+      detectionIntervalRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setCameraActive(false);
+    setDetectionScore(0);
+  };
+
+  // Start quality check (no auto-capture)
+  const startQualityCheck = () => {
+    if (detectionIntervalRef.current) return;
+    
+    console.log('Starting quality check...');
+    detectionIntervalRef.current = setInterval(() => {
+      checkImageQuality();
+    }, 300); // Check every 300ms
+  };
+
+  // Check image quality (for visual feedback only)
+  const checkImageQuality = () => {
+    if (!videoRef.current || !videoRef.current.videoWidth) return;
+
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    const scale = 0.3;
+    canvas.width = video.videoWidth * scale;
+    canvas.height = video.videoHeight * scale;
+    
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // Get card area
+    const cardX = Math.floor(canvas.width * 0.1);
+    const cardY = Math.floor(canvas.height * 0.15);
+    const cardWidth = Math.floor(canvas.width * 0.8);
+    const cardHeight = Math.floor(canvas.height * 0.7);
+    
+    const imageData = ctx.getImageData(cardX, cardY, cardWidth, cardHeight);
+    const data = imageData.data;
+    
+    // Calculate quality metrics
+    let totalBrightness = 0;
+    let whitePixels = 0;
+    let edges = 0;
+    let highContrastPixels = 0;
+    let pixelCount = 0;
+    
+    const stride = 8;
+    
+    for (let y = 0; y < cardHeight; y += stride) {
+      for (let x = 0; x < cardWidth; x += stride) {
+        const idx = (y * cardWidth + x) * 4;
+        if (idx >= data.length - 3) continue;
+        
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const brightness = (r + g + b) / 3;
+        
+        totalBrightness += brightness;
+        pixelCount++;
+        
+        if (brightness > 180 && Math.abs(r - g) < 30 && Math.abs(g - b) < 30) {
+          whitePixels++;
+        }
+        
+        const rightIdx = idx + (stride * 4);
+        if (rightIdx < data.length && x + stride < cardWidth) {
+          const rightR = data[rightIdx];
+          const rightG = data[rightIdx + 1];
+          const rightB = data[rightIdx + 2];
+          const rightBrightness = (rightR + rightG + rightB) / 3;
+          const diff = Math.abs(brightness - rightBrightness);
+          
+          if (diff > 25) edges++;
+          if (diff > 80) highContrastPixels++;
+        }
+      }
+    }
+    
+    const avgBrightness = totalBrightness / pixelCount;
+    const whiteRatio = whitePixels / pixelCount;
+    const edgeRatio = edges / pixelCount;
+    const contrastRatio = highContrastPixels / pixelCount;
+    
+    // Quality score (0-100)
+    let score = 0;
+    
+    // Brightness (0-30)
+    if (avgBrightness >= 120 && avgBrightness <= 200) score += 30;
+    else if (avgBrightness >= 100 && avgBrightness <= 220) score += 20;
+    else if (avgBrightness >= 80) score += 10;
+    
+    // White background (0-30)
+    if (whiteRatio >= 0.25) score += 30;
+    else if (whiteRatio >= 0.15) score += 20;
+    else if (whiteRatio >= 0.10) score += 10;
+    
+    // Edges/sharpness (0-25)
+    if (edgeRatio >= 0.10 && edgeRatio <= 0.30) score += 25;
+    else if (edgeRatio >= 0.08 && edgeRatio <= 0.35) score += 15;
+    
+    // Contrast (0-15)
+    if (contrastRatio >= 0.05 && contrastRatio <= 0.15) score += 15;
+    else if (contrastRatio >= 0.03) score += 8;
+    
+    score = Math.max(0, Math.min(100, score));
+    setDetectionScore(score);
+  };
+
+  // Capture photo from camera (manual)
+  const captureFromCamera = async () => {
+    if (!videoRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // Convert to blob
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      
+      // Create a File object from blob
+      const file = new File([blob], 'nid-capture.jpg', { type: 'image/jpeg' });
+      
+      // Stop camera
+      stopCamera();
+      
+      // Process with OCR (same as file upload)
+      await processNIDImage(file);
+    }, 'image/jpeg', 0.95);
+  };
+
+  // Switch to camera mode
+  useEffect(() => {
+    if (scanMode === 'camera' && step === 2) {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+    
+    return () => {
+      stopCamera();
+    };
+  }, [scanMode, step]);
+
+  // Keyboard shortcuts for camera capture
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      // Only trigger if camera is active and on step 2
+      if (scanMode === 'camera' && step === 2 && cameraActive && !processing) {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          captureFromCamera();
+        }
+      }
+    };
+
+    if (open && scanMode === 'camera' && step === 2) {
+      window.addEventListener('keydown', handleKeyPress);
+      return () => window.removeEventListener('keydown', handleKeyPress);
+    }
+  }, [open, scanMode, step, cameraActive, processing]);
 
   // Step 1: Select License Type & Category
   const handleTypeSelection = async (type, category) => {
@@ -152,7 +372,11 @@ export default function NewApplicationModal({ open, onClose, onSuccess }) {
   const handleNIDUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    await processNIDImage(file);
+  };
 
+  // Process NID image (used by both file upload and camera capture)
+  const processNIDImage = async (file) => {
     setProcessing(true);
     setOcrProgress(0);
 
@@ -483,45 +707,202 @@ export default function NewApplicationModal({ open, onClose, onSuccess }) {
                 </div>
               </div>
             </div>
-            
-            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleNIDUpload}
-                className="hidden"
-              />
-              
-              {nidImage && !processing ? (
-                <div className="space-y-4">
-                  <img src={nidImage} alt="NID Preview" className="max-w-full max-h-64 mx-auto rounded-lg border-2 border-gray-200 dark:border-gray-700" />
-                  <button
-                    onClick={() => {
-                      setNidImage(null);
-                      setNidNumber('');
-                      fileInputRef.current?.click();
-                    }}
-                    className="mx-auto flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg transition-all"
-                  >
-                    <Upload size={20} />
-                    {isEnglish ? 'Upload Again (Clearer Image)' : 'আবার আপলোড করুন (পরিষ্কার ছবি)'}
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={processing}
-                  className="mx-auto flex flex-col items-center gap-3 p-6 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
-                >
-                  <Upload size={48} className="text-blue-600" />
-                  <span className="font-semibold text-gray-700 dark:text-gray-300">
-                    {isEnglish ? 'Click to upload NID front image' : 'এনআইডি সামনের ছবি আপলোড করতে ক্লিক করুন'}
-                  </span>
-                </button>
-              )}
-            </div>
 
+            {/* Mode Selector: Camera or File Upload */}
+            {!nidImage && !processing && (
+              <div className="flex gap-3 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+                <button
+                  onClick={() => setScanMode('file')}
+                  className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+                    scanMode === 'file'
+                      ? 'bg-white dark:bg-gray-700 text-primary shadow-md'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+                >
+                  <Upload size={20} />
+                  {isEnglish ? 'Upload File' : 'ফাইল আপলোড'}
+                </button>
+                <button
+                  onClick={() => setScanMode('camera')}
+                  className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+                    scanMode === 'camera'
+                      ? 'bg-white dark:bg-gray-700 text-primary shadow-md'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+                >
+                  <Camera size={20} />
+                  {isEnglish ? 'Use Camera' : 'ক্যামেরা ব্যবহার করুন'}
+                </button>
+              </div>
+            )}
+            
+            {/* File Upload Mode */}
+            {scanMode === 'file' && (
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleNIDUpload}
+                  className="hidden"
+                />
+                
+                {nidImage && !processing ? (
+                  <div className="space-y-4">
+                    <img src={nidImage} alt="NID Preview" className="max-w-full max-h-64 mx-auto rounded-lg border-2 border-gray-200 dark:border-gray-700" />
+                    <button
+                      onClick={() => {
+                        setNidImage(null);
+                        setNidNumber('');
+                        fileInputRef.current?.click();
+                      }}
+                      className="mx-auto flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg transition-all"
+                    >
+                      <Upload size={20} />
+                      {isEnglish ? 'Upload Again (Clearer Image)' : 'আবার আপলোড করুন (পরিষ্কার ছবি)'}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={processing}
+                    className="mx-auto flex flex-col items-center gap-3 p-6 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                  >
+                    <Upload size={48} className="text-blue-600" />
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">
+                      {isEnglish ? 'Click to upload NID front image' : 'এনআইডি সামনের ছবি আপলোড করতে ক্লিক করুন'}
+                    </span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Camera Mode */}
+            {scanMode === 'camera' && !nidImage && !processing && (
+              <div className="space-y-3">
+                {/* Helpful tip */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-3 rounded-lg">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    💡 {isEnglish 
+                      ? 'Place NID card on a dark surface for best detection. Ensure good lighting and avoid shadows.'
+                      : 'সেরা সনাক্তকরণের জন্য এনআইডি কার্ডটি একটি গাঢ় পৃষ্ঠে রাখুন। ভাল আলো নিশ্চিত করুন এবং ছায়া এড়িয়ে চলুন।'}
+                  </p>
+                </div>
+
+                <div className="relative bg-black rounded-xl overflow-hidden" style={{ height: '400px' }}>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+                  
+                  {/* NID Card Overlay Guide */}
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                    <defs>
+                      <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5"/>
+                      </pattern>
+                    </defs>
+                    {/* Card outline */}
+                    <rect
+                      x="10%"
+                      y="15%"
+                      width="80%"
+                      height="70%"
+                      fill="none"
+                      stroke={detectionScore > 70 ? '#22c55e' : detectionScore > 40 ? '#eab308' : '#3b82f6'}
+                      strokeWidth="4"
+                      strokeDasharray="10,5"
+                      rx="10"
+                    />
+                    {/* Corner markers */}
+                    <line x1="10%" y1="15%" x2="15%" y2="15%" stroke={detectionScore > 70 ? '#22c55e' : detectionScore > 40 ? '#eab308' : '#3b82f6'} strokeWidth="6" strokeLinecap="round"/>
+                    <line x1="10%" y1="15%" x2="10%" y2="20%" stroke={detectionScore > 70 ? '#22c55e' : detectionScore > 40 ? '#eab308' : '#3b82f6'} strokeWidth="6" strokeLinecap="round"/>
+                    <line x1="90%" y1="15%" x2="85%" y2="15%" stroke={detectionScore > 70 ? '#22c55e' : detectionScore > 40 ? '#eab308' : '#3b82f6'} strokeWidth="6" strokeLinecap="round"/>
+                    <line x1="90%" y1="15%" x2="90%" y2="20%" stroke={detectionScore > 70 ? '#22c55e' : detectionScore > 40 ? '#eab308' : '#3b82f6'} strokeWidth="6" strokeLinecap="round"/>
+                    <line x1="10%" y1="85%" x2="15%" y2="85%" stroke={detectionScore > 70 ? '#22c55e' : detectionScore > 40 ? '#eab308' : '#3b82f6'} strokeWidth="6" strokeLinecap="round"/>
+                    <line x1="10%" y1="85%" x2="10%" y2="80%" stroke={detectionScore > 70 ? '#22c55e' : detectionScore > 40 ? '#eab308' : '#3b82f6'} strokeWidth="6" strokeLinecap="round"/>
+                    <line x1="90%" y1="85%" x2="85%" y2="85%" stroke={detectionScore > 70 ? '#22c55e' : detectionScore > 40 ? '#eab308' : '#3b82f6'} strokeWidth="6" strokeLinecap="round"/>
+                    <line x1="90%" y1="85%" x2="90%" y2="80%" stroke={detectionScore > 70 ? '#22c55e' : detectionScore > 40 ? '#eab308' : '#3b82f6'} strokeWidth="6" strokeLinecap="round"/>
+                  </svg>
+
+                {/* Status Text */}
+                <div className="absolute top-4 left-0 right-0 text-center">
+                  <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-lg shadow-lg bg-blue-500 text-white">
+                    <Camera size={24} weight="fill" />
+                    {isEnglish ? 'Align NID card in frame' : 'ফ্রেমে এনআইডি কার্ড সারিবদ্ধ করুন'}
+                  </div>
+                  
+                  {/* Quality score bar */}
+                  {cameraActive && (
+                    <div className="mt-2 mx-auto max-w-xs">
+                      <div className="bg-gray-800/70 rounded-full h-3 overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-300 ${
+                            detectionScore > 70 ? 'bg-green-500' :
+                            detectionScore > 40 ? 'bg-yellow-500' :
+                            'bg-blue-500'
+                          }`}
+                          style={{ width: `${detectionScore}%` }}
+                        />
+                      </div>
+                      <p className="text-white text-xs mt-1 font-semibold">
+                        {isEnglish ? 'Image Quality: ' : 'ছবির মান: '}{detectionScore}%
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                  {/* Capture Button with Keyboard Hint */}
+                  {cameraActive && (
+                    <div className="absolute bottom-4 left-0 right-0 text-center space-y-2">
+                      <button
+                        onClick={captureFromCamera}
+                        className="inline-flex items-center gap-2 px-8 py-4 bg-white text-gray-900 font-bold rounded-full shadow-lg hover:bg-gray-100 transition-all"
+                      >
+                        <Camera size={24} weight="fill" />
+                        {isEnglish ? 'Capture Photo' : 'ছবি তুলুন'}
+                      </button>
+                      <p className="text-white text-xs font-semibold bg-black/50 inline-block px-3 py-1 rounded-full">
+                        {isEnglish ? 'Press Space or Enter to capture' : 'ক্যাপচার করতে Space বা Enter চাপুন'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Loading indicator if camera not ready */}
+                  {!cameraActive && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/70">
+                      <div className="text-white text-center">
+                        <CircleNotch className="animate-spin mx-auto mb-2" size={48} />
+                        <p className="font-semibold">{isEnglish ? 'Starting camera...' : 'ক্যামেরা চালু হচ্ছে...'}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Show captured image from camera */}
+            {scanMode === 'camera' && nidImage && !processing && (
+              <div className="space-y-4">
+                <img src={nidImage} alt="NID Preview" className="max-w-full max-h-64 mx-auto rounded-lg border-2 border-gray-200 dark:border-gray-700" />
+                <button
+                  onClick={() => {
+                    setNidImage(null);
+                    setNidNumber('');
+                    setScanMode('camera');
+                  }}
+                  className="mx-auto flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg transition-all"
+                >
+                  <Camera size={20} />
+                  {isEnglish ? 'Capture Again' : 'আবার ক্যাপচার করুন'}
+                </button>
+              </div>
+            )}
+
+            {/* Processing Progress */}
             {processing && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">

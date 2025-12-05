@@ -23,9 +23,10 @@ async function updatePaymentAndNotify({ status, sslczData }) {
   const isRenewal = payment.payment_type === 'renewal' && payment.license_id;
   const isVehicleRegistration = payment.payment_type === 'vehicle_registration';
   const isTaxTokenRenewal = payment.payment_type === 'tax_token_renewal' && payment.vehicle_id;
+  const isViolationPayment = payment.payment_type === 'violation_fine';
 
   // Get application details or license details based on payment type
-  let application, license, vehicleRegistration, vehicle, appNumber, userName, userNameBn;
+  let application, license, vehicleRegistration, vehicle, violation, appNumber, userName, userNameBn;
   
   if (isRenewal) {
     const { data: licData } = await supabase
@@ -64,6 +65,23 @@ async function updatePaymentAndNotify({ status, sslczData }) {
     appNumber = vehicleData?.registration_number || tran_id;
     userName = vehicleData?.owner_name_en || 'User';
     userNameBn = vehicleData?.owner_name_bn || 'ব্যবহারকারী';
+  } else if (isViolationPayment) {
+    const { data: violationData } = await supabase
+      .from('traffic_violations')
+      .select('violation_number, violation_name_en, violation_name_bn, total_amount')
+      .eq('payment_id', payment.id)
+      .single();
+    violation = violationData;
+    appNumber = violationData?.violation_number || tran_id;
+    
+    // Get user name from profiles
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', payment.user_id)
+      .single();
+    userName = profile?.full_name || 'User';
+    userNameBn = profile?.full_name || 'ব্যবহারকারী';
   } else {
     const { data: appData } = await supabase
       .from('license_applications')
@@ -131,16 +149,57 @@ async function updatePaymentAndNotify({ status, sslczData }) {
       } catch (err) {
         console.error('❌ Error processing tax token renewal:', err.response?.data || err.message);
       }
+    } else if (isViolationPayment) {
+      // Update traffic violation payment status
+      try {
+        const { data: updatedViolation } = await supabase
+          .from('traffic_violations')
+          .update({
+            payment_status: 'paid',
+            paid_at: new Date().toISOString()
+          })
+          .eq('payment_id', payment.id)
+          .select('police_user_id, violation_number, violation_name_en, violation_name_bn')
+          .single();
+        
+        // Notify the police officer who issued the violation
+        if (updatedViolation && updatedViolation.police_user_id) {
+          await supabase.from('notifications').insert({
+            user_id: updatedViolation.police_user_id,
+            title_en: 'Violation Fine Paid',
+            title_bn: 'লঙ্ঘন জরিমানা পরিশোধিত',
+            message_en: `Fine for violation ${updatedViolation.violation_number} (${updatedViolation.violation_name_en}) has been paid. Amount: BDT ${payment.amount}`,
+            message_bn: `লঙ্ঘন ${updatedViolation.violation_number} (${updatedViolation.violation_name_bn}) এর জরিমানা পরিশোধ করা হয়েছে। পরিমাণ: BDT ${payment.amount}`,
+            notification_type: 'payment',
+            priority: 'normal',
+            recipient_type: 'police'
+          });
+        }
+        
+        console.log('✅ Violation payment processed successfully');
+      } catch (err) {
+        console.error('❌ Error processing violation payment:', err);
+      }
     } else {
       // Update license application
-      await supabase
+      console.log(`🔄 Updating license application ${payment.application_id} payment status...`);
+      const { data: updateData, error: updateError } = await supabase
         .from('license_applications')
         .update({
           status: 'payment_completed',
           payment: 1,
           payment_completed_at: new Date().toISOString()
         })
-        .eq('id', payment.application_id);
+        .eq('id', payment.application_id)
+        .select();
+      
+      if (updateError) {
+        console.error('❌ Error updating license application payment:', updateError);
+        console.error('Application ID:', payment.application_id);
+        console.error('Update data:', { status: 'payment_completed', payment: 1 });
+      } else {
+        console.log('✅ License application payment updated successfully:', updateData);
+      }
     }
   }
 
@@ -176,6 +235,15 @@ async function updatePaymentAndNotify({ status, sslczData }) {
       adminTitleBn = 'ট্যাক্স টোকেন নবায়ন পেমেন্ট প্রাপ্ত';
       adminMsgEn = `Vehicle ${appNumber} - Tax Token Renewal SUCCESS. Amount: BDT ${payment.amount}. User: ${userName}`;
       adminMsgBn = `যানবাহন ${appNumber} - ট্যাক্স টোকেন নবায়ন সফল। পরিমাণ: BDT ${payment.amount}। ব্যবহারকারী: ${userNameBn}`;
+    } else if (isViolationPayment) {
+      userTitleEn = 'Traffic Fine Payment Successful';
+      userTitleBn = 'ট্রাফিক জরিমানা পেমেন্ট সফল';
+      userMsgEn = `Your fine payment of BDT ${payment.amount} for violation ${appNumber} was successful.`;
+      userMsgBn = `আপনার লঙ্ঘন ${appNumber} এর জন্য BDT ${payment.amount} জরিমানা পেমেন্ট সফল হয়েছে।`;
+      adminTitleEn = 'Traffic Fine Payment Received';
+      adminTitleBn = 'ট্রাফিক জরিমানা পেমেন্ট প্রাপ্ত';
+      adminMsgEn = `Violation ${appNumber} - Fine Payment SUCCESS. Amount: BDT ${payment.amount}. User: ${userName}`;
+      adminMsgBn = `লঙ্ঘন ${appNumber} - জরিমানা পেমেন্ট সফল। পরিমাণ: BDT ${payment.amount}। ব্যবহারকারী: ${userNameBn}`;
     } else {
       userTitleEn = 'Payment Successful';
       userTitleBn = 'পেমেন্ট সফল হয়েছে';
@@ -187,62 +255,83 @@ async function updatePaymentAndNotify({ status, sslczData }) {
       adminMsgBn = `আবেদন ${appNumber} - পেমেন্ট সফল। পরিমাণ: BDT ${payment.amount}`;
     }
   } else if (status === 'failed') {
-    const itemType = isRenewal ? 'license renewal' : isVehicleRegistration ? 'vehicle registration' : isTaxTokenRenewal ? 'tax token renewal' : 'application';
-    const itemTypeBn = isRenewal ? 'লাইসেন্স নবায়ন' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : 'আবেদন';
+    const itemType = isRenewal ? 'license renewal' : isVehicleRegistration ? 'vehicle registration' : isTaxTokenRenewal ? 'tax token renewal' : isViolationPayment ? 'traffic fine' : 'application';
+    const itemTypeBn = isRenewal ? 'লাইসেন্স নবায়ন' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : isViolationPayment ? 'ট্রাফিক জরিমানা' : 'আবেদন';
     userTitleEn = 'Payment Failed';
     userTitleBn = 'পেমেন্ট ব্যর্থ হয়েছে';
     userMsgEn = `Your payment for ${itemType} ${appNumber} failed. Please try again.`;
     userMsgBn = `আপনার ${itemTypeBn} ${appNumber} এর জন্য পেমেন্ট ব্যর্থ হয়েছে। আবার চেষ্টা করুন।`;
     adminTitleEn = 'Payment Failed';
     adminTitleBn = 'পেমেন্ট ব্যর্থ';
-    adminMsgEn = `${isRenewal ? 'License' : isVehicleRegistration ? 'Vehicle Registration' : isTaxTokenRenewal ? 'Tax Token Renewal' : 'Application'} ${appNumber} - Payment FAILED. Amount: BDT ${payment.amount}`;
-    adminMsgBn = `${isRenewal ? 'লাইসেন্স' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : 'আবেদন'} ${appNumber} - পেমেন্ট ব্যর্থ। পরিমাণ: BDT ${payment.amount}`;
+    adminMsgEn = `${isRenewal ? 'License' : isVehicleRegistration ? 'Vehicle Registration' : isTaxTokenRenewal ? 'Tax Token Renewal' : isViolationPayment ? 'Traffic Fine' : 'Application'} ${appNumber} - Payment FAILED. Amount: BDT ${payment.amount}`;
+    adminMsgBn = `${isRenewal ? 'লাইসেন্স' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : isViolationPayment ? 'ট্রাফিক জরিমানা' : 'আবেদন'} ${appNumber} - পেমেন্ট ব্যর্থ। পরিমাণ: BDT ${payment.amount}`;
   } else if (status === 'cancelled') {
-    const itemType = isRenewal ? 'license renewal' : isVehicleRegistration ? 'vehicle registration' : isTaxTokenRenewal ? 'tax token renewal' : 'application';
-    const itemTypeBn = isRenewal ? 'লাইসেন্স নবায়ন' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : 'আবেদন';
+    const itemType = isRenewal ? 'license renewal' : isVehicleRegistration ? 'vehicle registration' : isTaxTokenRenewal ? 'tax token renewal' : isViolationPayment ? 'traffic fine' : 'application';
+    const itemTypeBn = isRenewal ? 'লাইসেন্স নবায়ন' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : isViolationPayment ? 'ট্রাফিক জরিমানা' : 'আবেদন';
     userTitleEn = 'Payment Cancelled';
     userTitleBn = 'পেমেন্ট বাতিল হয়েছে';
     userMsgEn = `Your payment for ${itemType} ${appNumber} was cancelled.`;
     userMsgBn = `আপনার ${itemTypeBn} ${appNumber} এর জন্য পেমেন্ট বাতিল হয়েছে।`;
     adminTitleEn = 'Payment Cancelled';
     adminTitleBn = 'পেমেন্ট বাতিল';
-    adminMsgEn = `${isRenewal ? 'License' : isVehicleRegistration ? 'Vehicle Registration' : isTaxTokenRenewal ? 'Tax Token Renewal' : 'Application'} ${appNumber} - Payment CANCELLED. Amount: BDT ${payment.amount}`;
-    adminMsgBn = `${isRenewal ? 'লাইসেন্স' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : 'আবেদন'} ${appNumber} - পেমেন্ট বাতিল। পরিমাণ: BDT ${payment.amount}`;
+    adminMsgEn = `${isRenewal ? 'License' : isVehicleRegistration ? 'Vehicle Registration' : isTaxTokenRenewal ? 'Tax Token Renewal' : isViolationPayment ? 'Traffic Fine' : 'Application'} ${appNumber} - Payment CANCELLED. Amount: BDT ${payment.amount}`;
+    adminMsgBn = `${isRenewal ? 'লাইসেন্স' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : isViolationPayment ? 'ট্রাফিক জরিমানা' : 'আবেদন'} ${appNumber} - পেমেন্ট বাতিল। পরিমাণ: BDT ${payment.amount}`;
   }
 
   // Use the dual notification RPC for both user and admin
-  console.log('Calling create_dual_notification RPC with:', {
-    p_user_id: payment.user_id,
-    p_title_en: userTitleEn,
-    p_title_bn: userTitleBn,
-    p_message_en: userMsgEn,
-    p_message_bn: userMsgBn,
-    p_type: 'payment',
-    p_application_id: payment.application_id,
-    p_action_url: null,
-    p_admin_title_en: adminTitleEn,
-    p_admin_title_bn: adminTitleBn,
-    p_admin_message_en: adminMsgEn,
-    p_admin_message_bn: adminMsgBn
-  });
-  const { data: notifData, error: notifError } = await supabase.rpc('create_dual_notification', {
-    p_user_id: payment.user_id,
-    p_title_en: userTitleEn,
-    p_title_bn: userTitleBn,
-    p_message_en: userMsgEn,
-    p_message_bn: userMsgBn,
-    p_type: 'payment',
-    p_application_id: payment.application_id,
-    p_action_url: null,
-    p_admin_title_en: adminTitleEn,
-    p_admin_title_bn: adminTitleBn,
-    p_admin_message_en: adminMsgEn,
-    p_admin_message_bn: adminMsgBn
-  });
-  if (notifError) {
-    console.error('Notification RPC error:', notifError);
+  // For violation payments, skip admin notification (already sent to police officer)
+  if (isViolationPayment) {
+    // Only send user notification for violations (police already notified above)
+    const { error: userNotifError } = await supabase.from('notifications').insert({
+      user_id: payment.user_id,
+      title_en: userTitleEn,
+      title_bn: userTitleBn,
+      message_en: userMsgEn,
+      message_bn: userMsgBn,
+      notification_type: 'payment',
+      priority: 'normal',
+      recipient_type: 'user'
+    });
+    if (userNotifError) {
+      console.error('User notification error:', userNotifError);
+    } else {
+      console.log('✅ Violation payment notifications sent (user + police)');
+    }
   } else {
-    console.log('Notification RPC success:', notifData);
+    // For other payment types, use dual notification (user + admin)
+    console.log('Calling create_dual_notification RPC with:', {
+      p_user_id: payment.user_id,
+      p_title_en: userTitleEn,
+      p_title_bn: userTitleBn,
+      p_message_en: userMsgEn,
+      p_message_bn: userMsgBn,
+      p_type: 'payment',
+      p_application_id: payment.application_id,
+      p_action_url: null,
+      p_admin_title_en: adminTitleEn,
+      p_admin_title_bn: adminTitleBn,
+      p_admin_message_en: adminMsgEn,
+      p_admin_message_bn: adminMsgBn
+    });
+    const { data: notifData, error: notifError } = await supabase.rpc('create_dual_notification', {
+      p_user_id: payment.user_id,
+      p_title_en: userTitleEn,
+      p_title_bn: userTitleBn,
+      p_message_en: userMsgEn,
+      p_message_bn: userMsgBn,
+      p_type: 'payment',
+      p_application_id: payment.application_id,
+      p_action_url: null,
+      p_admin_title_en: adminTitleEn,
+      p_admin_title_bn: adminTitleBn,
+      p_admin_message_en: adminMsgEn,
+      p_admin_message_bn: adminMsgBn
+    });
+    if (notifError) {
+      console.error('Notification RPC error:', notifError);
+    } else {
+      console.log('Notification RPC success:', notifData);
+    }
   }
 }
 

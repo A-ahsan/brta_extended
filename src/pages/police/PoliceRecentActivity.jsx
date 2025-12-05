@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   CheckCircle,
@@ -9,21 +9,110 @@ import {
 } from 'phosphor-react';
 import { useLanguage } from '../../contexts/AppContext';
 import { translations } from '../../utils/translations';
+import { supabase } from '../../lib/supabaseClient';
+import toast from 'react-hot-toast';
 
 const PoliceRecentActivity = () => {
   const { language } = useLanguage();
   const t = translations[language];
+  const [recentChecks, setRecentChecks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [displayCount, setDisplayCount] = useState(10);
 
-  const recentChecks = [
-    { id: 1, plate: 'ঢাকা মেট্রো-গ-১২৩৪৫৬', model: 'Toyota Corolla', status: 'Valid', time: '10:30 AM', officer: 'Officer Rahman', location: 'Uttara Checkpoint' },
-    { id: 2, plate: 'ঢাকা মেট্রো-খ-৭৮৯০১২', model: 'Honda Civic', status: 'Expired', time: '10:25 AM', officer: 'Officer Karim', location: 'Mohakhali Flyover' },
-    { id: 3, plate: 'চট্টগ্রাম-ক-৫৬৭৮৯০', model: 'Suzuki Alto', status: 'Fined', time: '10:20 AM', officer: 'Officer Sultana', location: 'Gulshan-2 Circle' },
-    { id: 4, plate: 'সিলেট-গ-২৩৪৫৬৭', model: 'Nissan X-Trail', status: 'Valid', time: '10:15 AM', officer: 'Officer Haque', location: 'Banani Checkpoint' },
-    { id: 5, plate: 'রাজশাহী-খ-৩৪৫৬৭৮', model: 'Mitsubishi Pajero', status: 'Valid', time: '10:10 AM', officer: 'Officer Ahmed', location: 'Mirpur-10' },
-    { id: 6, plate: 'খুলনা-গ-৪৫৬৭৮৯', model: 'Toyota Axio', status: 'Fined', time: '10:05 AM', officer: 'Officer Begum', location: 'Dhanmondi 27' },
-    { id: 7, plate: 'বরিশাল-ক-৫৬৭৮৯০', model: 'Honda CR-V', status: 'Valid', time: '10:00 AM', officer: 'Officer Khan', location: 'Karwan Bazar' },
-    { id: 8, plate: 'রংপুর-খ-৬৭৮৯০১', model: 'Suzuki Vitara', status: 'Expired', time: '9:55 AM', officer: 'Officer Nasrin', location: 'Tejgaon Link Road' },
-  ];
+  useEffect(() => {
+    fetchRecentActivity();
+  }, []);
+
+  const fetchRecentActivity = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch recent police inspections
+      const { data: inspections, error: inspectionsError } = await supabase
+        .from('police_inspections')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (inspectionsError) throw inspectionsError;
+
+      // Fetch all registered vehicles
+      const { data: allVehicles } = await supabase
+        .from('registered_vehicles')
+        .select('*');
+
+      // Fetch all licenses
+      const { data: allLicenses } = await supabase
+        .from('licenses')
+        .select('*');
+
+      // Fetch all profiles
+      const { data: allProfiles } = await supabase
+        .from('profiles')
+        .select('*');
+
+      let error = null;
+
+      // Process inspections with vehicle data
+      const formattedChecks = await Promise.all((inspections || []).map(async (inspection) => {
+        const vehicle = allVehicles?.find(v => v.id === inspection.registered_vehicle_id);
+        if (!vehicle) return null;
+
+        const officer = allProfiles?.find(p => p.id === inspection.police_user_id);
+        const userLicense = allLicenses?.find(l => l.user_id === vehicle.user_id);
+
+        // Fetch unpaid violations for this vehicle
+        const { data: violations } = await supabase
+          .from('traffic_violations')
+          .select('*')
+          .eq('vehicle_id', vehicle.id)
+          .eq('payment_status', 'Unpaid');
+
+        const unpaidFines = violations?.length || 0;
+
+        // Determine status
+        let status = 'Valid';
+        if (unpaidFines > 0) {
+          status = 'Fined';
+        } else if (userLicense) {
+          const expiryDate = new Date(userLicense.expiry_date);
+          const today = new Date();
+          if (expiryDate < today || userLicense.expired === 1) {
+            status = 'Expired';
+          }
+        } else {
+          status = 'Expired'; // No license found
+        }
+
+        // Format time
+        const inspectionTime = new Date(inspection.created_at);
+        const timeString = inspectionTime.toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit',
+          hour12: true 
+        });
+
+        return {
+          id: inspection.id,
+          plate: language === 'bn' ? vehicle.registration_plate?.bn : vehicle.registration_plate?.en,
+          model: `${vehicle.vehicle_name} ${vehicle.model}`,
+          status: status,
+          time: timeString,
+          officer: officer ? (language === 'bn' ? (officer.full_name_bn || officer.full_name) : officer.full_name) : 'Unknown Officer',
+          location: language === 'bn' 
+            ? (inspection.location_bn || inspection.location)
+            : inspection.location
+        };
+      }));
+
+      // Filter out null entries and set state
+      setRecentChecks(formattedChecks.filter(check => check !== null));
+    } catch (error) {
+      console.error('Error fetching recent activity:', error);
+      toast.error(language === 'en' ? 'Failed to load recent activity' : 'সাম্প্রতিক কার্যকলাপ লোড করতে ব্যর্থ');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -69,106 +158,126 @@ const PoliceRecentActivity = () => {
           </div>
 
           {/* Timeline */}
-          <div className="relative">
-            {/* Vertical Line */}
-            <div className="absolute left-[21px] top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary via-green-500 to-primary-dark"></div>
-
-            <div className="space-y-6">
-              {recentChecks.map((check, index) => (
-                <motion.div
-                  key={check.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="relative flex gap-6 group"
-                >
-                  {/* Timeline Dot */}
-                  <div className="relative flex-shrink-0">
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: index * 0.05 + 0.2 }}
-                      className="w-11 h-11 rounded-full bg-white dark:bg-gray-800 border-4 border-primary shadow-lg flex items-center justify-center z-10 group-hover:scale-110 transition-transform"
-                    >
-                      {getStatusIcon(check.status)}
-                    </motion.div>
-                    <motion.div
-                      animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0, 0.5] }}
-                      transition={{ duration: 2, repeat: Infinity, delay: index * 0.1 }}
-                      className="absolute inset-0 w-11 h-11 rounded-full bg-primary"
-                    />
-                  </div>
-
-                  {/* Content Card */}
-                  <motion.div
-                    whileHover={{ scale: 1.02, x: 5 }}
-                    className="flex-1 bg-gradient-to-br from-gray-50 to-white dark:from-gray-700 dark:to-gray-800 p-6 rounded-xl border-2 border-gray-200 dark:border-gray-600 shadow-md hover:shadow-xl transition-all"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h4 className="text-xl font-bold text-gray-800 dark:text-white">
-                            {check.plate}
-                          </h4>
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${getStatusColor(check.status)}`}>
-                            {t[check.status.toLowerCase()] || check.status}
-                          </span>
-                        </div>
-                        <p className="text-gray-600 dark:text-gray-400 font-medium">{check.model}</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm">
-                          <Clock size={16} />
-                          <span>{check.time}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-3 pt-3 border-t border-gray-200 dark:border-gray-600">
-                      <div className="flex items-center gap-2 text-sm">
-                        <User size={18} className="text-primary" />
-                        <div>
-                          <p className="text-gray-500 dark:text-gray-400 text-xs">{language === 'en' ? 'Officer' : 'অফিসার'}</p>
-                          <p className="font-semibold text-gray-700 dark:text-gray-300">{check.officer}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <div className="w-2 h-2 bg-primary rounded-full"></div>
-                        <div>
-                          <p className="text-gray-500 dark:text-gray-400 text-xs">{language === 'en' ? 'Location' : 'অবস্থান'}</p>
-                          <p className="font-semibold text-gray-700 dark:text-gray-300">{check.location}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action Indicator */}
-                    {check.status !== 'Valid' && (
-                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
-                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                          check.status === 'Expired' ? 'bg-danger/10 text-danger' : 'bg-yellow-500/10 text-yellow-600'
-                        }`}>
-                          {check.status === 'Expired' && (language === 'en' ? '⚠️ Action Required: Documents Expired' : '⚠️ পদক্ষেপ প্রয়োজন: নথি মেয়াদ শেষ')}
-                          {check.status === 'Fined' && (language === 'en' ? '⚠️ Outstanding Fines Detected' : '⚠️ বকেয়া জরিমানা সনাক্ত')}
-                        </div>
-                      </div>
-                    )}
-                  </motion.div>
-                </motion.div>
-              ))}
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
-          </div>
+          ) : recentChecks.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500 dark:text-gray-400 text-lg">
+                {language === 'en' ? 'No recent activity found' : 'কোনো সাম্প্রতিক কার্যকলাপ পাওয়া যায়নি'}
+              </p>
+            </div>
+          ) : (
+            <div className="relative">
+              {/* Vertical Line */}
+              <div className="absolute left-[21px] top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary via-green-500 to-primary-dark"></div>
+
+              <div className="space-y-6">
+                {recentChecks.slice(0, displayCount).map((check, index) => (
+                  <motion.div
+                    key={check.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="relative flex gap-6 group"
+                  >
+                    {/* Timeline Dot */}
+                    <div className="relative flex-shrink-0">
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: index * 0.05 + 0.2 }}
+                        className="w-11 h-11 rounded-full bg-white dark:bg-gray-800 border-4 border-primary shadow-lg flex items-center justify-center z-10 group-hover:scale-110 transition-transform"
+                      >
+                        {getStatusIcon(check.status)}
+                      </motion.div>
+                      <motion.div
+                        animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0, 0.5] }}
+                        transition={{ duration: 2, repeat: Infinity, delay: index * 0.1 }}
+                        className="absolute inset-0 w-11 h-11 rounded-full bg-primary"
+                      />
+                    </div>
+
+                    {/* Content Card */}
+                    <motion.div
+                      whileHover={{ scale: 1.02, x: 5 }}
+                      className="flex-1 bg-gradient-to-br from-gray-50 to-white dark:from-gray-700 dark:to-gray-800 p-6 rounded-xl border-2 border-gray-200 dark:border-gray-600 shadow-md hover:shadow-xl transition-all"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h4 className="text-xl font-bold text-gray-800 dark:text-white">
+                              {check.plate}
+                            </h4>
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${getStatusColor(check.status)}`}>
+                              {t[check.status.toLowerCase()] || check.status}
+                            </span>
+                          </div>
+                          <p className="text-gray-600 dark:text-gray-400 font-medium">{check.model}</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm">
+                            <Clock size={16} />
+                            <span>{check.time}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                        <div className="flex items-center gap-2 text-sm">
+                          <User size={18} className="text-primary" />
+                          <div>
+                            <p className="text-gray-500 dark:text-gray-400 text-xs">{language === 'en' ? 'Officer' : 'অফিসার'}</p>
+                            <p className="font-semibold text-gray-700 dark:text-gray-300">{check.officer}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="w-2 h-2 bg-primary rounded-full"></div>
+                          <div>
+                            <p className="text-gray-500 dark:text-gray-400 text-xs">{language === 'en' ? 'Location' : 'অবস্থান'}</p>
+                            <p className="font-semibold text-gray-700 dark:text-gray-300">{check.location}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Indicator */}
+                      {check.status !== 'Valid' && (
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                            check.status === 'Expired' ? 'bg-danger/10 text-danger' : 'bg-yellow-500/10 text-yellow-600'
+                          }`}>
+                            {check.status === 'Expired' && (language === 'en' ? 'Action Required: Documents Expired' : 'পদক্ষেপ প্রয়োজন: নথি মেয়াদ শেষ')}
+                            {check.status === 'Fined' && (language === 'en' ? 'Outstanding Fines Detected' : 'বকেয়া জরিমানা সনাক্ত')}
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Load More */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="mt-8 text-center"
-          >
-            <button className="px-8 py-3 bg-gradient-to-r from-primary to-green-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all hover:scale-105">
-              {language === 'en' ? 'Load More Activity' : 'আরো কার্যকলাপ লোড করুন'}
-            </button>
-          </motion.div>
+          {!loading && recentChecks.length > displayCount && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="mt-8 text-center"
+            >
+              <button 
+                onClick={() => setDisplayCount(prev => prev + 10)}
+                className="px-8 py-3 bg-gradient-to-r from-primary to-green-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all hover:scale-105"
+              >
+                {language === 'en' ? 'Load More Activity' : 'আরো কার্যকলাপ লোড করুন'}
+              </button>
+              <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                {language === 'en' ? `Showing ${displayCount} of ${recentChecks.length}` : `${recentChecks.length} এর মধ্যে ${displayCount} দেখানো হচ্ছে`}
+              </p>
+            </motion.div>
+          )}
         </div>
       </motion.div>
     </div>

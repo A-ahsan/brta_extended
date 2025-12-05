@@ -68,8 +68,7 @@ const VehicleAdderDashboard = () => {
         .from('notifications')
         .select('*')
         .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setNotifications(data || []);
@@ -369,7 +368,9 @@ const VehicleAdderDashboard = () => {
               >
                 <Bell size={24} className="text-gray-600 dark:text-gray-300" />
                 {notifications.filter(n => !n.is_read).length > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center">
+                    {notifications.filter(n => !n.is_read).length > 99 ? '99+' : notifications.filter(n => !n.is_read).length}
+                  </span>
                 )}
               </button>
             </div>
@@ -797,7 +798,7 @@ const VehicleAdderDashboard = () => {
                     {language === 'en' ? 'No notifications' : 'কোনো বিজ্ঞপ্তি নেই'}
                   </p>
                 ) : (
-                  notifications.map((notification) => (
+                  notifications.slice(0, 10).map((notification) => (
                     <div
                       key={notification.id}
                       className={`p-4 rounded-xl border-2 ${

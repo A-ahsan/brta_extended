@@ -234,8 +234,7 @@ const UserDashboard = () => {
         .select('*')
         .eq('recipient_type', 'user')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Notification fetch error:', error);
@@ -1989,7 +1988,9 @@ const UserDashboard = () => {
             >
               <Bell size={24} className="text-primary" />
               {notifications && notifications.filter(n => !n.is_read).length > 0 && (
-                <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">{notifications.filter(n => !n.is_read).length}</span>
+                <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">
+                  {notifications.filter(n => !n.is_read).length > 99 ? '99+' : notifications.filter(n => !n.is_read).length}
+                </span>
               )}
             </button>
             <ThemeLanguageToggler />
@@ -2021,7 +2022,7 @@ const UserDashboard = () => {
                       </span>
                       {notifications.filter(n => !n.is_read).length > 0 && (
                         <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full font-bold">
-                          {notifications.filter(n => !n.is_read).length}
+                          {notifications.filter(n => !n.is_read).length > 99 ? '99+' : notifications.filter(n => !n.is_read).length}
                         </span>
                       )}
                     </div>
@@ -2061,7 +2062,7 @@ const UserDashboard = () => {
                       </p>
                     </li>
                   ) : (
-                    notifications.map((note) => (
+                    notifications.slice(0, 10).map((note) => (
                       <motion.li 
                         key={note.id}
                         initial={{ opacity: 0, x: -20 }}

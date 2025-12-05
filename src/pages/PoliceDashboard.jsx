@@ -29,15 +29,22 @@ import PoliceRecentActivity from './police/PoliceRecentActivity';
 const PoliceDashboard = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const t = translations[language];
   const [showNotifications, setShowNotifications] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
   const [notifications, setNotifications] = useState([]);
+  const [stats, setStats] = useState({
+    inspectionsToday: 0,
+    violationsToday: 0,
+    unpaidViolations: 0,
+    totalInspections: 0
+  });
 
   useEffect(() => {
     fetchNotifications();
-  }, [language]);
+    fetchStats();
+  }, [language, user]);
 
   const fetchNotifications = async () => {
     try {
@@ -45,14 +52,55 @@ const PoliceDashboard = () => {
         .from('notifications')
         .select('*')
         .eq('recipient_type', 'police')
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       
       setNotifications(data || []);
     } catch (error) {
       console.error('Error fetching police notifications:', error);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayISO = today.toISOString();
+
+      // Get today's inspections count
+      const { count: inspectionsToday } = await supabase
+        .from('police_inspections')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', todayISO);
+
+      // Get today's violations count
+      const { count: violationsToday } = await supabase
+        .from('traffic_violations')
+        .select('*', { count: 'exact', head: true })
+        .gte('violation_date', todayISO);
+
+      // Get unpaid violations count
+      const { count: unpaidViolations } = await supabase
+        .from('traffic_violations')
+        .select('*', { count: 'exact', head: true })
+        .eq('payment_status', 'unpaid')
+        .eq('status', 'active');
+
+      // Get total inspections by current officer
+      const { count: totalInspections } = await supabase
+        .from('police_inspections')
+        .select('*', { count: 'exact', head: true })
+        .eq('police_user_id', user?.id);
+
+      setStats({
+        inspectionsToday: inspectionsToday || 0,
+        violationsToday: violationsToday || 0,
+        unpaidViolations: unpaidViolations || 0,
+        totalInspections: totalInspections || 0
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
     }
   };
 
@@ -174,7 +222,9 @@ const PoliceDashboard = () => {
             >
               <Bell size={20} className="sm:w-6 sm:h-6 text-primary" />
               {notifications && notifications.filter(n => !n.is_read).length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold min-w-[20px] text-center">{notifications.filter(n => !n.is_read).length}</span>
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold min-w-[20px] text-center">
+                  {notifications.filter(n => !n.is_read).length > 99 ? '99+' : notifications.filter(n => !n.is_read).length}
+                </span>
               )}
             </button>
             <ThemeLanguageToggler />
@@ -206,7 +256,7 @@ const PoliceDashboard = () => {
                       </span>
                       {notifications.filter(n => !n.is_read).length > 0 && (
                         <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full font-bold">
-                          {notifications.filter(n => !n.is_read).length}
+                          {notifications.filter(n => !n.is_read).length > 99 ? '99+' : notifications.filter(n => !n.is_read).length}
                         </span>
                       )}
                     </div>
@@ -245,7 +295,7 @@ const PoliceDashboard = () => {
                       </p>
                     </li>
                   ) : (
-                    notifications.map((note) => (
+                    notifications.slice(0, 10).map((note) => (
                       <motion.li 
                         key={note.id}
                         initial={{ opacity: 0, x: -20 }}
@@ -376,32 +426,28 @@ const PoliceDashboard = () => {
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8"
           >
             <StatCard
-              icon={<CheckCircle size={48} weight="duotone" />}
-              title={language === 'en' ? 'Vehicles Checked Today' : 'আজ পরীক্ষিত যানবাহন'}
-              value="247"
-              color="success"
-              trend={12}
+              icon={<Eye size={48} weight="duotone" />}
+              title={language === 'en' ? 'Inspections Today' : 'আজকের পরিদর্শন'}
+              value={stats.inspectionsToday.toString()}
+              color="info"
             />
             <StatCard
               icon={<Warning size={48} weight="duotone" />}
-              title={language === 'en' ? 'Violations Found' : 'লঙ্ঘন পাওয়া গেছে'}
-              value="18"
+              title={language === 'en' ? 'Violations Today' : 'আজকের লঙ্ঘন'}
+              value={stats.violationsToday.toString()}
               color="warning"
-              trend={-5}
             />
             <StatCard
               icon={<XCircle size={48} weight="duotone" />}
-              title={language === 'en' ? 'Expired Documents' : 'মেয়াদ শেষ নথি'}
-              value="12"
+              title={language === 'en' ? 'Unpaid Fines' : 'বকেয়া জরিমানা'}
+              value={stats.unpaidViolations.toString()}
               color="danger"
-              trend={-8}
             />
             <StatCard
-              icon={<Car size={48} weight="duotone" />}
-              title={language === 'en' ? 'Active Patrols' : 'সক্রিয় টহল'}
-              value="35"
-              color="info"
-              trend={5}
+              icon={<CheckCircle size={48} weight="duotone" />}
+              title={language === 'en' ? 'Total Inspections' : 'মোট পরিদর্শন'}
+              value={stats.totalInspections.toString()}
+              color="success"
             />
           </motion.div>
 

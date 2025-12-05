@@ -37,8 +37,10 @@ const PoliceVerification = () => {
   const [showInspectionModal, setShowInspectionModal] = useState(false);
   const [inspectionType, setInspectionType] = useState('routine_check');
   const [inspectionLocation, setInspectionLocation] = useState('');
+  const [inspectionLocationBn, setInspectionLocationBn] = useState('');
   const [inspectionRemarks, setInspectionRemarks] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [gettingInspectionLocation, setGettingInspectionLocation] = useState(false);
   const [ownerPhoto, setOwnerPhoto] = useState(null);
   const [taxTokenData, setTaxTokenData] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -383,8 +385,64 @@ const PoliceVerification = () => {
     fetchVehicleDetails(searchQuery.trim());
   }, [searchQuery, language]);
 
+  const getCurrentInspectionLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error(language === 'en' ? 'Location not available' : 'অবস্থান পাওয়া যায়নি');
+      return;
+    }
+
+    setGettingInspectionLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await response.json();
+          
+          const locationName = data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+          
+          let locationBn = '';
+          try {
+            const translateResponse = await fetch(
+              `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=bn&dt=t&q=${encodeURIComponent(locationName)}`
+            );
+            const translateData = await translateResponse.json();
+            locationBn = translateData[0]?.[0]?.[0] || '';
+          } catch (translateError) {
+            console.log('Translation failed:', translateError);
+          }
+          
+          setInspectionLocation(locationName);
+          setInspectionLocationBn(locationBn);
+          
+          toast.success(language === 'en' ? 'Location captured!' : 'অবস্থান সংরক্ষিত!');
+        } catch (error) {
+          console.error('Geocoding error:', error);
+          setInspectionLocation(`Lat: ${latitude.toFixed(4)}, Lon: ${longitude.toFixed(4)}`);
+          setInspectionLocationBn(`অক্ষাংশ: ${latitude.toFixed(4)}, দ্রাঘিমাংশ: ${longitude.toFixed(4)}`);
+        } finally {
+          setGettingInspectionLocation(false);
+        }
+      },
+      (error) => {
+        console.error('Location error:', error);
+        toast.error(language === 'en' ? 'Location failed' : 'অবস্থান ব্যর্থ');
+        setGettingInspectionLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
   const handleRecordInspection = async () => {
     if (!selectedVehicle) return;
+
+    if (!inspectionLocation.trim()) {
+      toast.error(language === 'en' ? 'Please enter location' : 'দয়া করে অবস্থান লিখুন');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -394,7 +452,8 @@ const PoliceVerification = () => {
           registered_vehicle_id: selectedVehicle.id,
           police_user_id: user.id,
           inspection_type: inspectionType,
-          location: inspectionLocation || null,
+          location: inspectionLocation,
+          location_bn: inspectionLocationBn || null,
           remarks: inspectionRemarks || null
         }]);
 
@@ -418,6 +477,7 @@ const PoliceVerification = () => {
       setShowInspectionModal(false);
       setInspectionType('routine_check');
       setInspectionLocation('');
+      setInspectionLocationBn('');
       setInspectionRemarks('');
     } catch (error) {
       console.error('Error recording inspection:', error);
@@ -902,15 +962,34 @@ const PoliceVerification = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {language === 'en' ? 'Location (Optional)' : 'অবস্থান (ঐচ্ছিক)'}
+                    {language === 'en' ? 'Location' : 'অবস্থান'} <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    value={inspectionLocation}
-                    onChange={(e) => setInspectionLocation(e.target.value)}
-                    placeholder={language === 'en' ? 'Enter location...' : 'অবস্থান লিখুন...'}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
-                  />
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={inspectionLocation}
+                      onChange={(e) => setInspectionLocation(e.target.value)}
+                      placeholder={language === 'en' ? 'Enter location...' : 'অবস্থান লিখুন...'}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                    />
+                    <input
+                      type="text"
+                      value={inspectionLocationBn}
+                      onChange={(e) => setInspectionLocationBn(e.target.value)}
+                      placeholder={language === 'en' ? 'Location in Bengali...' : 'বাংলায় অবস্থান...'}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={getCurrentInspectionLocation}
+                      disabled={gettingInspectionLocation}
+                      className="w-full px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary dark:text-green-400 rounded-xl transition-colors font-medium disabled:opacity-50"
+                    >
+                      {gettingInspectionLocation 
+                        ? (language === 'en' ? 'Getting location...' : 'অবস্থান নেওয়া হচ্ছে...') 
+                        : (language === 'en' ? 'Use Current Location' : 'বর্তমান অবস্থান ব্যবহার করুন')}
+                    </button>
+                  </div>
                 </div>
 
                 <div>

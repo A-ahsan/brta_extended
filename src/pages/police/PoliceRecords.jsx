@@ -6,6 +6,9 @@ import {
   XCircle,
   Warning,
   FunnelSimple,
+  DownloadSimple,
+  Printer,
+  ArrowsClockwise,
 } from 'phosphor-react';
 import { useLanguage } from '../../contexts/AppContext';
 import { translations } from '../../utils/translations';
@@ -41,10 +44,13 @@ const PoliceRecords = () => {
         .from('licenses')
         .select('user_id, expiry_date, expired');
 
-      // Fetch all violations
+      // Fetch all violations (linked by vehicle_id from vehicles table, not registered_vehicles)
       const { data: allViolations } = await supabase
         .from('traffic_violations')
-        .select('vehicle_id, payment_status');
+        .select('id, registered_vehicle_id, payment_status, fine_amount');
+
+      console.log('All Violations:', allViolations);
+      console.log('All Vehicles:', vehicles);
 
       // Fetch all user profiles
       const { data: allProfiles } = await supabase
@@ -59,9 +65,21 @@ const PoliceRecords = () => {
       const processedRecords = (data || []).map(vehicle => {
         // Find user's license
         const userLicense = allLicenses?.find(l => l.user_id === vehicle.user_id);
-        // Find vehicle violations
-        const vehicleViolations = allViolations?.filter(v => v.vehicle_id === vehicle.id && v.payment_status === 'Unpaid') || [];
+        // Find vehicle violations - match using registered_vehicles.id
+        const vehicleViolations = allViolations?.filter(v => 
+          v.registered_vehicle_id === vehicle.id && 
+          v.payment_status?.toLowerCase() === 'unpaid'
+        ) || [];
         const unpaidFines = vehicleViolations.length;
+        
+        // Debug logging
+        console.log(`Vehicle ${vehicle.registration_plate?.en || vehicle.id}:`, {
+          vehicleId: vehicle.id,
+          matchingViolations: allViolations?.filter(v => v.registered_vehicle_id === vehicle.id),
+          unpaidViolations: vehicleViolations,
+          unpaidCount: unpaidFines
+        });
+        
         // Find owner profile
         const ownerProfile = allProfiles?.find(p => p.id === vehicle.user_id);
         
@@ -89,6 +107,129 @@ const PoliceRecords = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const downloadCSV = () => {
+    try {
+      const dataToExport = filteredRecords.length > 0 ? filteredRecords : vehicleRecords;
+      
+      // CSV Headers
+      const headers = language === 'en' 
+        ? ['Plate Number', 'Model', 'Owner', 'License Expiry', 'Status', 'Unpaid Fines']
+        : ['প্লেট নম্বর', 'মডেল', 'মালিক', 'লাইসেন্স মেয়াদ', 'অবস্থা', 'বকেয়া জরিমানা'];
+      
+      // CSV Rows
+      const rows = dataToExport.map(vehicle => [
+        vehicle.plate,
+        vehicle.model,
+        vehicle.owner,
+        vehicle.licenseExpiry,
+        vehicle.status,
+        vehicle.fines
+      ]);
+      
+      // Combine headers and rows
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+      
+      // Create blob and download
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `vehicle_records_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(language === 'en' ? 'CSV downloaded successfully' : 'CSV সফলভাবে ডাউনলোড হয়েছে');
+    } catch (error) {
+      console.error('CSV download error:', error);
+      toast.error(language === 'en' ? 'Failed to download CSV' : 'CSV ডাউনলোড করতে ব্যর্থ');
+    }
+  };
+
+  const printRecords = () => {
+    const dataToExport = filteredRecords.length > 0 ? filteredRecords : vehicleRecords;
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Vehicle Records - BRTA</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { color: #16a34a; text-align: center; margin-bottom: 10px; }
+            .meta { text-align: center; color: #666; margin-bottom: 20px; }
+            .actions { text-align: center; margin: 20px 0; }
+            .print-btn {
+              background: #16a34a;
+              color: white;
+              border: none;
+              padding: 12px 32px;
+              font-size: 16px;
+              font-weight: bold;
+              border-radius: 8px;
+              cursor: pointer;
+              box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+            .print-btn:hover { background: #15803d; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+            th { background-color: #16a34a; color: white; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            .status-valid { color: #16a34a; font-weight: bold; }
+            .status-expired { color: #dc2626; font-weight: bold; }
+            .status-fined { color: #ea580c; font-weight: bold; }
+            @media print {
+              .actions { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>🚗 BRTA Vehicle Records Database</h1>
+          <div class="meta">
+            <p>Generated on: ${new Date().toLocaleString()}</p>
+            <p>Total Records: ${dataToExport.length}</p>
+          </div>
+          <div class="actions">
+            <button class="print-btn" onclick="window.print()">
+              🖨️ ${language === 'en' ? 'Print Records' : 'রেকর্ড প্রিন্ট করুন'}
+            </button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>${language === 'en' ? 'Plate Number' : 'প্লেট নম্বর'}</th>
+                <th>${language === 'en' ? 'Model' : 'মডেল'}</th>
+                <th>${language === 'en' ? 'Owner' : 'মালিক'}</th>
+                <th>${language === 'en' ? 'License Expiry' : 'লাইসেন্স মেয়াদ'}</th>
+                <th>${language === 'en' ? 'Status' : 'অবস্থা'}</th>
+                <th>${language === 'en' ? 'Fines' : 'জরিমানা'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${dataToExport.map(vehicle => `
+                <tr>
+                  <td>${vehicle.plate}</td>
+                  <td>${vehicle.model}</td>
+                  <td>${vehicle.owner}</td>
+                  <td>${vehicle.licenseExpiry}</td>
+                  <td class="status-${vehicle.status.toLowerCase()}">${vehicle.status}</td>
+                  <td>${vehicle.fines}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
   };
 
   const getStatusIcon = (status) => {
@@ -142,9 +283,40 @@ const PoliceRecords = () => {
                 {language === 'en' ? 'Search and filter vehicle records across Bangladesh' : 'বাংলাদেশ জুড়ে যানবাহনের রেকর্ড অনুসন্ধান এবং ফিল্টার করুন'}
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-500 dark:text-gray-400">{language === 'en' ? 'Total Records' : 'মোট রেকর্ড'}</p>
-              <p className="text-3xl font-bold text-primary">{vehicleRecords.length}</p>
+            <div className="flex items-center gap-3">
+              <div className="text-right mr-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">{language === 'en' ? 'Total Records' : 'মোট রেকর্ড'}</p>
+                <p className="text-3xl font-bold text-primary">{vehicleRecords.length}</p>
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={downloadCSV}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold shadow-lg hover:bg-green-700 transition-colors"
+                title={language === 'en' ? 'Download as CSV' : 'CSV হিসাবে ডাউনলোড করুন'}
+              >
+                <DownloadSimple size={20} weight="bold" />
+                <span className="hidden md:inline">CSV</span>
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={printRecords}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold shadow-lg hover:bg-blue-700 transition-colors"
+                title={language === 'en' ? 'Print Records' : 'রেকর্ড প্রিন্ট করুন'}
+              >
+                <Printer size={20} weight="bold" />
+                <span className="hidden md:inline">{language === 'en' ? 'Print' : 'প্রিন্ট'}</span>
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05, rotate: 180 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={fetchVehicleRecords}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-semibold shadow-lg hover:bg-primary-dark transition-all"
+                title={language === 'en' ? 'Refresh Data' : 'ডেটা রিফ্রেশ করুন'}
+              >
+                <ArrowsClockwise size={20} weight="bold" />
+              </motion.button>
             </div>
           </div>
 

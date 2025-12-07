@@ -12,6 +12,7 @@ import {
   BookOpen,
   Eye,
   MegaphoneSimple,
+  ArrowsDownUp,
 } from 'phosphor-react';
 import { useLanguage, useTheme } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -26,6 +27,7 @@ import AdminQuestions from './admin/AdminQuestions';
 import AdminTestCenters from './admin/AdminTestCenters';
 import AdminNoticesManagement from './admin/AdminNoticesManagement';
 import AdminRoutePermits from './admin/AdminRoutePermits';
+import AdminOwnershipTransfers from './admin/AdminOwnershipTransfers';
 
 const AdminPanel = () => {
   const navigate = useNavigate();
@@ -203,6 +205,11 @@ const AdminPanel = () => {
       path: '/admin/route-permits', 
       label: language === 'en' ? 'Route Permits' : 'রুট পারমিট',
       icon: CalendarBlank 
+    },
+    { 
+      path: '/admin/ownership-transfers', 
+      label: language === 'en' ? 'Ownership Transfers' : 'মালিকানা হস্তান্তর',
+      icon: ArrowsDownUp 
     },
   ];
 
@@ -488,6 +495,7 @@ const AdminPanel = () => {
               <Route path="/questions" element={<AdminQuestions />} />
               <Route path="/notices" element={<AdminNoticesManagement />} />
               <Route path="/route-permits" element={<AdminRoutePermits />} />
+              <Route path="/ownership-transfers" element={<AdminOwnershipTransfers />} />
               <Route path="/" element={<AdminOverview />} />
             </Routes>
           </div>

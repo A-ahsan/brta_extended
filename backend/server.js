@@ -820,6 +820,83 @@ app.post('/api/payment/route-permit', async (req, res) => {
   }
 });
 
+// =====================================================
+// Ownership Transfer Payment Endpoint
+// =====================================================
+app.post('/api/payment/ownership-transfer', async (req, res) => {
+  try {
+    const { payment_id, amount, application_number, vehicle_registration, user_email, frontend_url } = req.body;
+
+    const { data: payment, error: paymentError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', payment_id)
+      .single();
+
+    if (paymentError || !payment) {
+      return res.status(400).json({ error: 'Payment record not found' });
+    }
+
+    if (frontend_url) {
+      frontendUrls.set(payment.tran_id, frontend_url);
+    }
+
+    const protocol = req.protocol || 'https';
+    const host = req.get('host') || `localhost:${PORT}`;
+    const baseUrl = `${protocol}://${host}`;
+
+    const payload = {
+      store_id: SSLCZ_STORE_ID,
+      store_passwd: SSLCZ_STORE_PASSWORD,
+      total_amount: String(amount),
+      currency: 'BDT',
+      tran_id: payment.tran_id,
+      success_url: `${baseUrl}/api/payment/success`,
+      fail_url: `${baseUrl}/api/payment/fail`,
+      cancel_url: `${baseUrl}/api/payment/cancel`,
+      cus_name: 'Vehicle Owner',
+      cus_email: user_email || 'user@brta.gov.bd',
+      cus_add1: 'Dhaka',
+      cus_add2: '',
+      cus_city: 'Dhaka',
+      cus_state: 'Dhaka',
+      cus_postcode: '1207',
+      cus_country: 'Bangladesh',
+      cus_phone: '01711111111',
+      cus_fax: '',
+      ship_name: 'Vehicle Owner',
+      ship_add1: 'Dhaka',
+      ship_add2: '',
+      ship_city: 'Dhaka',
+      ship_state: 'Dhaka',
+      ship_postcode: '1207',
+      ship_country: 'Bangladesh',
+      shipping_method: 'NO',
+      product_name: `Ownership Transfer - ${application_number} (${vehicle_registration})`,
+      product_category: 'Government',
+      product_profile: 'general',
+      product_amount: String(amount),
+      emi_option: 0,
+      value_a: payment.user_id,
+      value_b: payment_id,
+      value_c: 'ownership_transfer'
+    };
+
+    const response = await axios.post(SSLCZ_API_URL, new URLSearchParams(payload).toString(), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    if (response.data.status === 'SUCCESS') {
+      res.json({ url: response.data.GatewayPageURL });
+    } else {
+      res.status(400).json({ error: 'Failed to initiate payment', details: response.data });
+    }
+  } catch (error) {
+    console.error('Ownership transfer payment error:', error);
+    res.status(500).json({ error: 'Payment initiation failed', details: error.message });
+  }
+});
+
 // Process vehicle registration after successful payment
 app.post('/api/vehicles/registration/process', async (req, res) => {
   try {
@@ -1213,6 +1290,117 @@ app.get('/api/tax-tokens/:vehicle_id/renewals', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       error: error.message || 'Internal server error' 
+    });
+  }
+});
+
+// =====================================================
+// Ownership Transfer Processing Endpoint
+// =====================================================
+app.post('/api/ownership-transfer/process', async (req, res) => {
+  try {
+    const { payment_id, application_id } = req.body;
+
+    if (!payment_id || !application_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: payment_id, application_id'
+      });
+    }
+
+    // Get application details
+    const { data: application, error: appError } = await supabase
+      .from('ownership_transfer_applications')
+      .select('*')
+      .eq('id', application_id)
+      .eq('payment_id', payment_id)
+      .single();
+
+    if (appError || !application) {
+      return res.status(400).json({
+        success: false,
+        error: 'Application not found or payment mismatch'
+      });
+    }
+
+    // Update application status to payment_completed
+    const { error: updateError } = await supabase
+      .from('ownership_transfer_applications')
+      .update({
+        status: 'payment_completed',
+        payment_status: 'completed',
+        payment_completed_at: new Date().toISOString()
+      })
+      .eq('id', application_id);
+
+    if (updateError) {
+      console.error('Error updating application status:', updateError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to update application status'
+      });
+    }
+
+    // Execute ownership transfer
+    const { data: transferResult, error: transferError } = await supabase
+      .rpc('execute_ownership_transfer', { p_application_id: application_id });
+
+    if (transferError) {
+      console.error('Error executing ownership transfer:', transferError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to execute ownership transfer'
+      });
+    }
+
+    // Send completion notifications to all 3 parties
+    await supabase.from('notifications').insert([
+      // 1. Previous/Current Owner
+      {
+        user_id: application.current_owner_user_id,
+        title_en: 'Ownership Transfer Completed',
+        title_bn: 'মালিকানা হস্তান্তর সম্পন্ন',
+        message_en: `Vehicle ownership transfer for ${application.vehicle_name} (${application.vehicle_registration_number}) has been completed successfully. The vehicle is now owned by ${application.new_owner_name_en}.`,
+        message_bn: `${application.vehicle_name} (${application.vehicle_registration_number}) গাড়ির মালিকানা হস্তান্তর সফলভাবে সম্পন্ন হয়েছে। গাড়িটি এখন ${application.new_owner_name_bn} এর মালিকানাধীন।`,
+        notification_type: 'success',
+        priority: 'high',
+        recipient_type: 'user'
+      },
+      // 2. New Owner
+      {
+        user_id: application.new_owner_user_id,
+        title_en: 'Vehicle Ownership Received',
+        title_bn: 'গাড়ির মালিকানা প্রাপ্ত',
+        message_en: `Congratulations! You are now the registered owner of ${application.vehicle_name} (${application.vehicle_registration_number}). Transfer fee paid: BDT ${application.transfer_fee}. You can now view your vehicle in the dashboard.`,
+        message_bn: `অভিনন্দন! আপনি এখন ${application.vehicle_name} (${application.vehicle_registration_number}) গাড়ির নিবন্ধিত মালিক। হস্তান্তর ফি প্রদান: BDT ${application.transfer_fee}। আপনি এখন ড্যাশবোর্ডে আপনার গাড়ি দেখতে পারবেন।`,
+        notification_type: 'success',
+        priority: 'high',
+        recipient_type: 'user'
+      },
+      // 3. Admin
+      {
+        user_id: null,
+        title_en: 'Ownership Transfer Completed',
+        title_bn: 'মালিকানা হস্তান্তর সম্পন্ন',
+        message_en: `Ownership transfer ${application.application_number} completed. Vehicle: ${application.vehicle_registration_number}. New owner: ${application.new_owner_name_en}. Transfer fee: BDT ${application.transfer_fee}`,
+        message_bn: `মালিকানা হস্তান্তর ${application.application_number} সম্পন্ন। গাড়ি: ${application.vehicle_registration_number}। নতুন মালিক: ${application.new_owner_name_bn}। হস্তান্তর ফি: BDT ${application.transfer_fee}`,
+        notification_type: 'info',
+        priority: 'normal',
+        recipient_type: 'admin'
+      }
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Ownership transfer completed successfully',
+      application_number: application.application_number
+    });
+
+  } catch (error) {
+    console.error('Error processing ownership transfer:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error'
     });
   }
 });

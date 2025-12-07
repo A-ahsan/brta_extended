@@ -22,7 +22,8 @@ import {
   Calculator,
   BookOpen,
   Sparkle,
-  Warning
+  Warning,
+  ArrowsDownUp
 } from 'phosphor-react';
 import { useLanguage, useDownload } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -41,6 +42,8 @@ import VehicleRegistrationCard from '../components/VehicleRegistrationCard';
 import TaxTokenRenewalModal from '../components/TaxTokenRenewalModal';
 import UserViolations from './UserViolations';
 import RoutePermitsInDashboard from '../components/RoutePermitsInDashboard';
+import OwnershipTransferModal from '../components/OwnershipTransferModal';
+import UserOwnershipTransfers from '../components/UserOwnershipTransfers';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -80,6 +83,9 @@ const UserDashboard = () => {
   const [registeredVehicles, setRegisteredVehicles] = useState([]);
   const [loadingRegisteredVehicles, setLoadingRegisteredVehicles] = useState(true);
   const [taxTokenData, setTaxTokenData] = useState(null);
+  
+  // Ownership Transfer state
+  const [showOwnershipTransferModal, setShowOwnershipTransferModal] = useState(false);
   
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -1335,6 +1341,7 @@ const UserDashboard = () => {
     { id: 'license', icon: <IdentificationCard size={24} weight="duotone" />, label: t.licenseApplication },
     { id: 'vehicle', icon: <Car size={24} weight="duotone" />, label: t.vehicleRegistration },
     { id: 'routepermits', icon: <MapPin size={24} weight="duotone" />, label: language === 'en' ? 'Route Permits' : 'রুট পারমিট' },
+    { id: 'ownership', icon: <ArrowsDownUp size={24} weight="duotone" />, label: language === 'en' ? 'Ownership Transfer' : 'মালিকানা হস্তান্তর' },
     { id: 'violations', icon: <Warning size={24} weight="duotone" />, label: language === 'en' ? 'My Violations' : 'আমার লঙ্ঘন' },
     { id: 'questionbank', icon: <BookOpen size={24} weight="duotone" />, label: language === 'en' ? 'Question Bank' : 'প্রশ্ন ব্যাংক' },
     { id: 'calculator', icon: <Calculator size={24} weight="duotone" />, label: t.costCalculator },
@@ -1967,6 +1974,9 @@ const UserDashboard = () => {
       case 'routepermits':
         return <RoutePermitsInDashboard />;
 
+      case 'ownership':
+        return <UserOwnershipTransfers user={user} onOpenModal={() => setShowOwnershipTransferModal(true)} />;
+
       case 'settings':
         return (
           <div>
@@ -2445,6 +2455,21 @@ const UserDashboard = () => {
             language === 'en'
               ? 'Vehicle registration initiated!'
               : 'যানবাহন নিবন্ধন শুরু হয়েছে!'
+          );
+        }}
+      />
+
+      {/* Ownership Transfer Modal */}
+      <OwnershipTransferModal
+        isOpen={showOwnershipTransferModal}
+        onClose={() => setShowOwnershipTransferModal(false)}
+        user={user}
+        registeredVehicles={registeredVehicles}
+        onSuccess={() => {
+          toast.success(
+            language === 'en'
+              ? 'Ownership transfer application submitted!'
+              : 'মালিকানা হস্তান্তর আবেদন জমা হয়েছে!'
           );
         }}
       />

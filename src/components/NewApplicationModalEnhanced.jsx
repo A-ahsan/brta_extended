@@ -474,15 +474,29 @@ export default function NewApplicationModal({ open, onClose, onSuccess }) {
     const img = new Image();
 
     img.onload = () => {
-      // Set canvas size to crop area
-      canvas.width = cropArea.width;
-      canvas.height = cropArea.height;
+      // Get the displayed image element to calculate scale
+      const displayedImg = document.querySelector('img[alt="NID"]');
+      if (!displayedImg) return;
 
-      // Draw cropped area
+      // Calculate scale ratio between actual image and displayed image
+      const scaleX = img.naturalWidth / displayedImg.offsetWidth;
+      const scaleY = img.naturalHeight / displayedImg.offsetHeight;
+
+      // Scale crop coordinates to match actual image dimensions
+      const actualX = cropArea.x * scaleX;
+      const actualY = cropArea.y * scaleY;
+      const actualWidth = cropArea.width * scaleX;
+      const actualHeight = cropArea.height * scaleY;
+
+      // Set canvas size to actual crop area
+      canvas.width = actualWidth;
+      canvas.height = actualHeight;
+
+      // Draw cropped area using actual coordinates
       ctx.drawImage(
         img,
-        cropArea.x, cropArea.y, cropArea.width, cropArea.height,
-        0, 0, cropArea.width, cropArea.height
+        actualX, actualY, actualWidth, actualHeight,
+        0, 0, actualWidth, actualHeight
       );
 
       // Convert to blob

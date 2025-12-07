@@ -485,16 +485,16 @@ export default function FaceVerificationModal({ open, onClose, application }) {
       
       setMatchScore(similarityScore);
 
-      // Threshold: 50%
-      if (similarityScore >= 50) {
+      // Threshold: 40%
+      if (similarityScore >= 40) {
         console.log('Match successful! Updating application...');
         await updateApplicationStatus(frames[0].image, similarityScore);
       } else {
         console.log('Match failed - score too low');
         setStep('failed');
         setError(isEnglish 
-          ? `Face verification failed. Match score: ${similarityScore.toFixed(1)}%. Required: 50%. Please try again with better lighting and face the camera directly.`
-          : `ফেস যাচাইকরণ ব্যর্থ। মিল স্কোর: ${similarityScore.toFixed(1)}%। প্রয়োজন: 50%। ভাল আলোয় এবং সরাসরি ক্যামেরার দিকে তাকিয়ে আবার চেষ্টা করুন।`
+          ? `Face verification failed. Match score: ${similarityScore.toFixed(1)}%. Required: 40%. Please try again with better lighting and face the camera directly.`
+          : `ফেস যাচাইকরণ ব্যর্থ। মিল স্কোর: ${similarityScore.toFixed(1)}%। প্রয়োজন: 40%। ভাল আলোয় এবং সরাসরি ক্যামেরার দিকে তাকিয়ে আবার চেষ্টা করুন।`
         );
       }
     } catch (error) {

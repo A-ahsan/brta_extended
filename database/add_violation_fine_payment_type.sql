@@ -28,7 +28,8 @@ SET payment_type = CASE
     'tax_token_renewal', 
     'vehicle_registration',
     'violation_fine',
-    'route_permit'
+    'route_permit',
+    'ownership_transfer'
   ) THEN 'license_application'
   ELSE payment_type
 END;
@@ -41,7 +42,8 @@ ALTER TABLE payments ADD CONSTRAINT payments_payment_type_check
     'tax_token_renewal', 
     'vehicle_registration',
     'violation_fine',
-    'route_permit'
+    'route_permit',
+    'ownership_transfer'
   ));
 
 -- Commit the transaction
@@ -51,5 +53,5 @@ COMMIT;
 DO $$
 BEGIN
   RAISE NOTICE '✅ Payment types updated!';
-  RAISE NOTICE 'Added: vehicle_registration, violation_fine';
+  RAISE NOTICE 'Added: vehicle_registration, violation_fine, route_permit, ownership_transfer';
 END $$;

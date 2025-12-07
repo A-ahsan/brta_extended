@@ -27,7 +27,8 @@ SET payment_type = CASE
     'license_renewal', 
     'tax_token_renewal', 
     'vehicle_registration',
-    'violation_fine'
+    'violation_fine',
+    'route_permit'
   ) THEN 'license_application'
   ELSE payment_type
 END;
@@ -39,7 +40,8 @@ ALTER TABLE payments ADD CONSTRAINT payments_payment_type_check
     'license_renewal', 
     'tax_token_renewal', 
     'vehicle_registration',
-    'violation_fine'
+    'violation_fine',
+    'route_permit'
   ));
 
 -- Commit the transaction

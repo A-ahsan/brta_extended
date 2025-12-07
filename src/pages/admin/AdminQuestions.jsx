@@ -218,7 +218,7 @@ export default function AdminQuestions() {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={handleAddQuestion}
-          className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg shadow-md transition-all"
+          className="px-6 py-3 bg-gradient-to-r from-primary to-green-600 hover:from-green-700 hover:to-green-700 text-white font-semibold rounded-lg shadow-md transition-all"
         >
           {isEnglish ? '+ Add Question' : '+ প্রশ্ন যোগ করুন'}
         </motion.button>
@@ -227,23 +227,23 @@ export default function AdminQuestions() {
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-          <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{questions.length}</div>
+          <div className="text-3xl font-bold text-primary dark:text-green-400">{questions.length}</div>
           <div className="text-gray-600 dark:text-gray-400 mt-1">{isEnglish ? 'Total Questions' : 'মোট প্রশ্ন'}</div>
         </div>
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-          <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+          <div className="text-3xl font-bold text-green-700 dark:text-green-500">
             {questions.filter(q => q.question_type === 'mcq').length}
           </div>
           <div className="text-gray-600 dark:text-gray-400 mt-1">{isEnglish ? 'MCQ Questions' : 'এমসিকিউ প্রশ্ন'}</div>
         </div>
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-          <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+          <div className="text-3xl font-bold text-amber-600 dark:text-amber-500">
             {questions.filter(q => q.question_type === 'road_sign').length}
           </div>
           <div className="text-gray-600 dark:text-gray-400 mt-1">{isEnglish ? 'Road Signs' : 'রোড সাইন'}</div>
         </div>
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-          <div className="text-3xl font-bold text-gray-600 dark:text-gray-400">
+          <div className="text-3xl font-bold text-teal-600 dark:text-teal-500">
             {questions.filter(q => q.is_active).length}
           </div>
           <div className="text-gray-600 dark:text-gray-400 mt-1">{isEnglish ? 'Active' : 'সক্রিয়'}</div>
@@ -260,7 +260,7 @@ export default function AdminQuestions() {
                 placeholder={isEnglish ? 'Search questions...' : 'প্রশ্ন খুঁজুন...'}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
               />
               <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -268,13 +268,13 @@ export default function AdminQuestions() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setFilter('all')} className={`px-6 py-3 rounded-lg font-semibold transition-all ${filter === 'all' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
+            <button onClick={() => setFilter('all')} className={`px-6 py-3 rounded-lg font-semibold transition-all ${filter === 'all' ? 'bg-primary text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
               {isEnglish ? 'All' : 'সব'}
             </button>
-            <button onClick={() => setFilter('mcq')} className={`px-6 py-3 rounded-lg font-semibold transition-all ${filter === 'mcq' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
+            <button onClick={() => setFilter('mcq')} className={`px-6 py-3 rounded-lg font-semibold transition-all ${filter === 'mcq' ? 'bg-primary text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
               {isEnglish ? 'MCQ' : 'এমসিকিউ'}
             </button>
-            <button onClick={() => setFilter('road_sign')} className={`px-6 py-3 rounded-lg font-semibold transition-all ${filter === 'road_sign' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
+            <button onClick={() => setFilter('road_sign')} className={`px-6 py-3 rounded-lg font-semibold transition-all ${filter === 'road_sign' ? 'bg-primary text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
               {isEnglish ? 'Road Signs' : 'রোড সাইন'}
             </button>
           </div>
@@ -287,7 +287,7 @@ export default function AdminQuestions() {
       {/* Questions List */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
       ) : filteredQuestions.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-12 text-center">
@@ -323,7 +323,7 @@ export default function AdminQuestions() {
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                     {isEnglish ? 'Question Type' : 'প্রশ্নের ধরন'}
                   </label>
-                  <select value={formData.question_type} onChange={(e) => setFormData({ ...formData, question_type: e.target.value })} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" required>
+                  <select value={formData.question_type} onChange={(e) => setFormData({ ...formData, question_type: e.target.value })} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary" required>
                     <option value="mcq">{isEnglish ? 'MCQ' : 'এমসিকিউ'}</option>
                     <option value="road_sign">{isEnglish ? 'Road Sign' : 'রোড সাইন'}</option>
                   </select>
@@ -335,13 +335,13 @@ export default function AdminQuestions() {
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                       {isEnglish ? 'Question (English)' : 'প্রশ্ন (ইংরেজি)'}
                     </label>
-                    <textarea value={formData.question_text_en} onChange={(e) => setFormData({ ...formData, question_text_en: e.target.value })} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" rows="3" required />
+                    <textarea value={formData.question_text_en} onChange={(e) => setFormData({ ...formData, question_text_en: e.target.value })} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary" rows="3" required />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                       {isEnglish ? 'Question (Bangla)' : 'প্রশ্ন (বাংলা)'}
                     </label>
-                    <textarea value={formData.question_text_bn} onChange={(e) => setFormData({ ...formData, question_text_bn: e.target.value })} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" rows="3" required />
+                    <textarea value={formData.question_text_bn} onChange={(e) => setFormData({ ...formData, question_text_bn: e.target.value })} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary" rows="3" required />
                   </div>
                 </div>
 
@@ -352,14 +352,14 @@ export default function AdminQuestions() {
                       {isEnglish ? 'Upload Road Sign Image' : 'রোড সাইন ছবি আপলোড করুন'}
                     </label>
                     <div className="flex items-center gap-4">
-                      <label className="flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer transition-colors">
+                      <label className="flex items-center gap-2 px-4 py-3 bg-primary hover:bg-green-700 text-white rounded-lg cursor-pointer transition-colors">
                         <Upload size={20} />
                         <span>{isEnglish ? 'Choose Image' : 'ছবি নির্বাচন করুন'}</span>
                         <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} className="hidden" />
                       </label>
                       {imageFile && <span className="text-sm text-gray-600 dark:text-gray-400">{imageFile.name}</span>}
                       {editingQuestion?.image_url && !imageFile && (
-                        <a href={editingQuestion.image_url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
+                        <a href={editingQuestion.image_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
                           {isEnglish ? 'View Current Image' : 'বর্তমান ছবি দেখুন'}
                         </a>
                       )}
@@ -376,13 +376,13 @@ export default function AdminQuestions() {
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                           {isEnglish ? `Option ${option.toUpperCase()} (English)` : `বিকল্প ${option.toUpperCase()} (ইংরেজি)`}
                         </label>
-                        <input type="text" value={formData[`option_${option}_en`]} onChange={(e) => setFormData({ ...formData, [`option_${option}_en`]: e.target.value })} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" required />
+                        <input type="text" value={formData[`option_${option}_en`]} onChange={(e) => setFormData({ ...formData, [`option_${option}_en`]: e.target.value })} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary" required />
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                           {isEnglish ? `Option ${option.toUpperCase()} (Bangla)` : `বিকল্প ${option.toUpperCase()} (বাংলা)`}
                         </label>
-                        <input type="text" value={formData[`option_${option}_bn`]} onChange={(e) => setFormData({ ...formData, [`option_${option}_bn`]: e.target.value })} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" required />
+                        <input type="text" value={formData[`option_${option}_bn`]} onChange={(e) => setFormData({ ...formData, [`option_${option}_bn`]: e.target.value })} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary" required />
                       </div>
                     </div>
                   ))}
@@ -394,7 +394,7 @@ export default function AdminQuestions() {
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                       {isEnglish ? 'Correct Answer' : 'সঠিক উত্তর'}
                     </label>
-                    <select value={formData.correct_answer} onChange={(e) => setFormData({ ...formData, correct_answer: e.target.value })} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" required>
+                    <select value={formData.correct_answer} onChange={(e) => setFormData({ ...formData, correct_answer: e.target.value })} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary" required>
                       <option value="A">A</option>
                       <option value="B">B</option>
                       <option value="C">C</option>
@@ -406,7 +406,7 @@ export default function AdminQuestions() {
                       {isEnglish ? 'Status' : 'অবস্থা'}
                     </label>
                     <label className="flex items-center gap-3 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer">
-                      <input type="checkbox" checked={formData.is_active} onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })} className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500" />
+                      <input type="checkbox" checked={formData.is_active} onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })} className="w-5 h-5 text-primary rounded focus:ring-2 focus:ring-primary" />
                       <span className="text-gray-900 dark:text-white">{isEnglish ? 'Active' : 'সক্রিয়'}</span>
                     </label>
                   </div>
@@ -414,7 +414,7 @@ export default function AdminQuestions() {
 
                 {/* Submit Buttons */}
                 <div className="flex gap-4 pt-4">
-                  <button type="submit" disabled={uploading} className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg transition-all shadow-md disabled:opacity-50">
+                  <button type="submit" disabled={uploading} className="flex-1 py-3 bg-gradient-to-r from-primary to-green-600 hover:from-green-700 hover:to-green-700 text-white font-semibold rounded-lg transition-all shadow-md disabled:opacity-50">
                     {uploading ? (isEnglish ? 'Saving...' : 'সংরক্ষণ করা হচ্ছে...') : (editingQuestion ? (isEnglish ? 'Update Question' : 'প্রশ্ন আপডেট করুন') : (isEnglish ? 'Add Question' : 'প্রশ্ন যোগ করুন'))}
                   </button>
                   <button type="button" onClick={() => setShowAddModal(false)} className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">

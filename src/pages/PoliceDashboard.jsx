@@ -35,7 +35,7 @@ const PoliceDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
   const [notifications, setNotifications] = useState([]);
   const [stats, setStats] = useState({
-    inspectionsToday: 0,
+    totalFinesPaid: 0,
     violationsToday: 0,
     unpaidViolations: 0,
     totalInspections: 0
@@ -68,11 +68,14 @@ const PoliceDashboard = () => {
       today.setHours(0, 0, 0, 0);
       const todayISO = today.toISOString();
 
-      // Get today's inspections count
-      const { count: inspectionsToday } = await supabase
-        .from('police_inspections')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', todayISO);
+      // Get total fines paid (from payments with type violation_fine)
+      const { data: finePayments, error: finesError } = await supabase
+        .from('payments')
+        .select('amount')
+        .eq('payment_type', 'violation_fine')
+        .eq('status', 'success');
+
+      const totalFinesPaid = finePayments?.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0) || 0;
 
       // Get today's violations count
       const { count: violationsToday } = await supabase
@@ -94,7 +97,7 @@ const PoliceDashboard = () => {
         .eq('police_user_id', user?.id);
 
       setStats({
-        inspectionsToday: inspectionsToday || 0,
+        totalFinesPaid: totalFinesPaid,
         violationsToday: violationsToday || 0,
         unpaidViolations: unpaidViolations || 0,
         totalInspections: totalInspections || 0
@@ -427,8 +430,8 @@ const PoliceDashboard = () => {
           >
             <StatCard
               icon={<Eye size={48} weight="duotone" />}
-              title={language === 'en' ? 'Inspections Today' : 'আজকের পরিদর্শন'}
-              value={stats.inspectionsToday.toString()}
+              title={language === 'en' ? 'Total Fines Paid' : 'মোট জরিমানা পরিশোধিত'}
+              value={`৳ ${(stats.totalFinesPaid / 1000).toFixed(1)}K`}
               color="info"
             />
             <StatCard

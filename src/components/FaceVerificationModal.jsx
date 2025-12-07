@@ -425,19 +425,41 @@ export default function FaceVerificationModal({ open, onClose, application }) {
 
       console.log('Loading NID image from:', application.nid_face_extracted_url);
       
-      // Load NID face image with better options
-      const nidImage = await faceapi.fetchImage(application.nid_face_extracted_url);
+      // Load NID face image with CORS handling
+      const loadImageWithCORS = (url) => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = (err) => reject(new Error('Failed to load NID image'));
+          img.src = url;
+        });
+      };
+      
+      const nidImage = await loadImageWithCORS(application.nid_face_extracted_url);
       console.log('NID image loaded, size:', nidImage.width, 'x', nidImage.height);
       console.log('Detecting face in NID image...');
       
-      // Try with more lenient detection options for NID image
-      const nidDetection = await faceapi
+      // Use Tiny detector with VERY lenient settings for small NID images
+      let nidDetection = await faceapi
         .detectSingleFace(nidImage, new faceapi.TinyFaceDetectorOptions({
-          inputSize: 512,
-          scoreThreshold: 0.3
+          inputSize: 416,  // Lower input size for small images
+          scoreThreshold: 0.1  // Very low threshold
         }))
         .withFaceLandmarks()
         .withFaceDescriptor();
+      
+      // If still fails, try without size restriction
+      if (!nidDetection) {
+        console.log('First attempt failed, trying with minimal threshold...');
+        nidDetection = await faceapi
+          .detectSingleFace(nidImage, new faceapi.TinyFaceDetectorOptions({
+            inputSize: 224,  // Smallest size
+            scoreThreshold: 0.05  // Extremely low threshold
+          }))
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+      }
 
       if (!nidDetection) {
         console.error('Failed to detect face in NID image');

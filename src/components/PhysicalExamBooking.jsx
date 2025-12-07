@@ -597,16 +597,19 @@ const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking })
           required
         >
           <option value="">Choose a date...</option>
-          {availableDates.map(date => {
+          {availableDates
+            .filter(date => {
+              const info = dateAvailability[date];
+              // Hide dates that are full for this center
+              return !info || !info.is_full;
+            })
+            .map(date => {
             const info = dateAvailability[date];
-            const isFull = info && info.is_full;
             
             return (
               <option 
                 key={date} 
                 value={date}
-                disabled={isFull}
-                className={isFull ? 'text-red-500' : ''}
               >
                 {new Date(date).toLocaleDateString('en-US', { 
                   weekday: 'long', 
@@ -615,7 +618,6 @@ const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking })
                   day: 'numeric' 
                 })}
                 {info ? ` - ${info.available}/${info.total_capacity} slots` : ''}
-                {isFull ? ' (FULL)' : ''}
               </option>
             );
           })}

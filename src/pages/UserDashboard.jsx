@@ -40,6 +40,7 @@ import VehicleRegistrationModal from '../components/VehicleRegistrationModal';
 import VehicleRegistrationCard from '../components/VehicleRegistrationCard';
 import TaxTokenRenewalModal from '../components/TaxTokenRenewalModal';
 import UserViolations from './UserViolations';
+import RoutePermitsInDashboard from '../components/RoutePermitsInDashboard';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -171,10 +172,86 @@ const UserDashboard = () => {
         )
         .subscribe();
 
+      // Subscribe to realtime vehicle registration updates
+      const vehicleSubscription = supabase
+        .channel('user-vehicles')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'registered_vehicles',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Vehicle change:', payload);
+            fetchRegisteredVehicles();
+          }
+        )
+        .subscribe();
+
+      // Subscribe to realtime violation updates
+      const violationSubscription = supabase
+        .channel('user-violations')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'traffic_violations',
+            filter: `violator_user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Violation change:', payload);
+            // Component will handle its own refetch
+          }
+        )
+        .subscribe();
+
+      // Subscribe to realtime payment updates
+      const paymentSubscription = supabase
+        .channel('user-payments')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'payments',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Payment change:', payload);
+            // Component will handle its own refetch
+          }
+        )
+        .subscribe();
+
+      // Subscribe to realtime route permit updates
+      const routePermitSubscription = supabase
+        .channel('user-route-permits')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'route_permits',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Route Permit change:', payload);
+            // Component will handle its own refetch
+          }
+        )
+        .subscribe();
+
       return () => {
         notificationSubscription.unsubscribe();
         applicationSubscription.unsubscribe();
         examBookingSubscription.unsubscribe();
+        vehicleSubscription.unsubscribe();
+        violationSubscription.unsubscribe();
+        paymentSubscription.unsubscribe();
+        routePermitSubscription.unsubscribe();
       };
     }
   }, [user]);
@@ -1257,6 +1334,7 @@ const UserDashboard = () => {
   const menuItems = [
     { id: 'license', icon: <IdentificationCard size={24} weight="duotone" />, label: t.licenseApplication },
     { id: 'vehicle', icon: <Car size={24} weight="duotone" />, label: t.vehicleRegistration },
+    { id: 'routepermits', icon: <MapPin size={24} weight="duotone" />, label: language === 'en' ? 'Route Permits' : 'রুট পারমিট' },
     { id: 'violations', icon: <Warning size={24} weight="duotone" />, label: language === 'en' ? 'My Violations' : 'আমার লঙ্ঘন' },
     { id: 'questionbank', icon: <BookOpen size={24} weight="duotone" />, label: language === 'en' ? 'Question Bank' : 'প্রশ্ন ব্যাংক' },
     { id: 'calculator', icon: <Calculator size={24} weight="duotone" />, label: t.costCalculator },
@@ -1885,6 +1963,9 @@ const UserDashboard = () => {
 
       case 'violations':
         return <UserViolations />;
+
+      case 'routepermits':
+        return <RoutePermitsInDashboard />;
 
       case 'settings':
         return (

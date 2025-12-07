@@ -28,6 +28,7 @@ const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'));
 const PaymentFail = lazy(() => import('./pages/PaymentFail'));
 const PublicLicenseView = lazy(() => import('./pages/PublicLicenseView'));
 const PublicVehicleVerification = lazy(() => import('./pages/PublicVehicleVerification'));
+const PublicRoutePermitVerification = lazy(() => import('./pages/PublicRoutePermitVerification'));
 
 function App() {
   return (
@@ -81,6 +82,7 @@ function App() {
                   <Route path="/payment-fail" element={<PaymentFail />} />
                   <Route path="/license/:license_number" element={<PublicLicenseView />} />
                   <Route path="/verify-vehicle" element={<PublicVehicleVerification />} />
+                  <Route path="/verify-route-permit/:permitNumber" element={<PublicRoutePermitVerification />} />
                   
                   {/* Authentication Routes */}
                   <Route path="/login" element={<Login />} />

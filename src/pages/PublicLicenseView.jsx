@@ -36,13 +36,30 @@ const PublicLicenseView = () => {
       const backendUrl = `${window.location.protocol}//${window.location.hostname}:5000`;
 
       console.log('Fetching license from:', `${backendUrl}/api/licenses/${license_number}`);
-      const response = await fetch(`${backendUrl}/api/licenses/${license_number}`);
-      const data = await response.json();
+      
+      // Add timeout for iOS - if it takes too long, show helpful error
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      try {
+        const response = await fetch(`${backendUrl}/api/licenses/${license_number}`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        const data = await response.json();
 
-      if (data.success) {
-        setLicense(data.license);
-      } else {
-        toast.error('License not found');
+        if (data.success) {
+          setLicense(data.license);
+        } else {
+          toast.error('License not found');
+        }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          toast.error('Connection timeout - iOS may have SSL certificate issues. Try accessing the site directly in Safari first.', { duration: 6000 });
+        }
+        throw fetchError;
       }
     } catch (error) {
       console.error('Error fetching license:', error);

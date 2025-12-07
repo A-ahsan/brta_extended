@@ -879,12 +879,52 @@ const PoliceVerification = () => {
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                          <span className="flex items-center gap-1">
+                        <div className="flex flex-wrap items-center gap-3 text-xs">
+                          <span className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
                             <Calendar size={12} />
-                            {new Date(violation.violation_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD')}
+                            <span className="font-medium">
+                              {language === 'en' ? 'Issued:' : 'জারি:'}
+                            </span>
+                            <span className="font-semibold text-gray-800 dark:text-white">
+                              {new Date(violation.violation_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric' 
+                              })}
+                            </span>
                           </span>
-                          <span>#{violation.violation_number}</span>
+                          {violation.due_date && (
+                            <span className={`flex items-center gap-1 px-2 py-0.5 rounded-md font-semibold ${
+                              (() => {
+                                const daysUntilDue = Math.ceil((new Date(violation.due_date) - new Date()) / (1000 * 60 * 60 * 24));
+                                if (violation.payment_status === 'paid') return 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400';
+                                if (daysUntilDue < 0) return 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400';
+                                if (daysUntilDue <= 3) return 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400';
+                                return 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400';
+                              })()
+                            }`}>
+                              <span className="text-[10px] uppercase tracking-wide">
+                                {language === 'en' ? 'Due' : 'শেষ তারিখ'}
+                              </span>
+                              <span className="font-bold">
+                                {new Date(violation.due_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD', { 
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                              </span>
+                              {violation.payment_status !== 'paid' && (() => {
+                                const daysUntilDue = Math.ceil((new Date(violation.due_date) - new Date()) / (1000 * 60 * 60 * 24));
+                                if (daysUntilDue < 0) {
+                                  return <span className="text-[10px]">({Math.abs(daysUntilDue)}d {language === 'en' ? 'overdue' : 'বিলম্ব'})</span>;
+                                } else if (daysUntilDue <= 7) {
+                                  return <span className="text-[10px]">({daysUntilDue}d {language === 'en' ? 'left' : 'বাকি'})</span>;
+                                }
+                                return null;
+                              })()}
+                            </span>
+                          )}
+                          <span className="text-gray-500 dark:text-gray-400">#{violation.violation_number}</span>
                         </div>
                       </div>
                     ))}

@@ -24,9 +24,10 @@ async function updatePaymentAndNotify({ status, sslczData }) {
   const isVehicleRegistration = payment.payment_type === 'vehicle_registration';
   const isTaxTokenRenewal = payment.payment_type === 'tax_token_renewal' && payment.vehicle_id;
   const isViolationPayment = payment.payment_type === 'violation_fine';
+  const isRoutePermit = payment.payment_type === 'route_permit';
 
   // Get application details or license details based on payment type
-  let application, license, vehicleRegistration, vehicle, violation, appNumber, userName, userNameBn;
+  let application, license, vehicleRegistration, vehicle, violation, routePermit, appNumber, userName, userNameBn;
   
   if (isRenewal) {
     const { data: licData } = await supabase
@@ -73,6 +74,23 @@ async function updatePaymentAndNotify({ status, sslczData }) {
       .single();
     violation = violationData;
     appNumber = violationData?.violation_number || tran_id;
+    
+    // Get user name from profiles
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', payment.user_id)
+      .single();
+    userName = profile?.full_name || 'User';
+    userNameBn = profile?.full_name || 'ব্যবহারকারী';
+  } else if (isRoutePermit) {
+    const { data: permitData } = await supabase
+      .from('route_permits')
+      .select('permit_number, route_from_en, route_to_en, distance_km, permit_days')
+      .eq('payment_id', payment.id)
+      .single();
+    routePermit = permitData;
+    appNumber = permitData?.permit_number || tran_id;
     
     // Get user name from profiles
     const { data: profile } = await supabase
@@ -180,6 +198,17 @@ async function updatePaymentAndNotify({ status, sslczData }) {
       } catch (err) {
         console.error('❌ Error processing violation payment:', err);
       }
+    } else if (isRoutePermit) {
+      // Update route permit payment status
+      await supabase
+        .from('route_permits')
+        .update({ 
+          payment_status: 'completed',
+          payment_date: new Date().toISOString()
+        })
+        .eq('payment_id', payment.id);
+      
+      console.log('✅ Route permit payment processed successfully');
     } else {
       // Update license application
       console.log(`🔄 Updating license application ${payment.application_id} payment status...`);
@@ -244,6 +273,15 @@ async function updatePaymentAndNotify({ status, sslczData }) {
       adminTitleBn = 'ট্রাফিক জরিমানা পেমেন্ট প্রাপ্ত';
       adminMsgEn = `Violation ${appNumber} - Fine Payment SUCCESS. Amount: BDT ${payment.amount}. User: ${userName}`;
       adminMsgBn = `লঙ্ঘন ${appNumber} - জরিমানা পেমেন্ট সফল। পরিমাণ: BDT ${payment.amount}। ব্যবহারকারী: ${userNameBn}`;
+    } else if (isRoutePermit) {
+      userTitleEn = 'Route Permit Payment Successful';
+      userTitleBn = 'রুট পারমিট পেমেন্ট সফল';
+      userMsgEn = `Your route permit payment of BDT ${payment.amount} was successful. Permit: ${appNumber}. Pending admin approval.`;
+      userMsgBn = `আপনার রুট পারমিট পেমেন্ট BDT ${payment.amount} সফল হয়েছে। পারমিট: ${appNumber}। অ্যাডমিন অনুমোদন মুলতুবি।`;
+      adminTitleEn = 'Route Permit Payment Received';
+      adminTitleBn = 'রুট পারমিট পেমেন্ট প্রাপ্ত';
+      adminMsgEn = `Route permit payment received: ${appNumber}. Route: ${routePermit.route_from_en} → ${routePermit.route_to_en} (${routePermit.distance_km} km, ${routePermit.permit_days} days). Amount: BDT ${payment.amount}. Awaiting review.`;
+      adminMsgBn = `রুট পারমিট পেমেন্ট প্রাপ্ত: ${appNumber}। রুট: ${routePermit.route_from_en} → ${routePermit.route_to_en} (${routePermit.distance_km} কিমি, ${routePermit.permit_days} দিন)। পরিমাণ: BDT ${payment.amount}। পর্যালোচনার জন্য অপেক্ষমাণ।`;
     } else {
       userTitleEn = 'Payment Successful';
       userTitleBn = 'পেমেন্ট সফল হয়েছে';
@@ -255,19 +293,19 @@ async function updatePaymentAndNotify({ status, sslczData }) {
       adminMsgBn = `আবেদন ${appNumber} - পেমেন্ট সফল। পরিমাণ: BDT ${payment.amount}`;
     }
   } else if (status === 'failed') {
-    const itemType = isRenewal ? 'license renewal' : isVehicleRegistration ? 'vehicle registration' : isTaxTokenRenewal ? 'tax token renewal' : isViolationPayment ? 'traffic fine' : 'application';
-    const itemTypeBn = isRenewal ? 'লাইসেন্স নবায়ন' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : isViolationPayment ? 'ট্রাফিক জরিমানা' : 'আবেদন';
+    const itemType = isRenewal ? 'license renewal' : isVehicleRegistration ? 'vehicle registration' : isTaxTokenRenewal ? 'tax token renewal' : isViolationPayment ? 'traffic fine' : isRoutePermit ? 'route permit' : 'application';
+    const itemTypeBn = isRenewal ? 'লাইসেন্স নবায়ন' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : isViolationPayment ? 'ট্রাফিক জরিমানা' : isRoutePermit ? 'রুট পারমিট' : 'আবেদন';
     userTitleEn = 'Payment Failed';
     userTitleBn = 'পেমেন্ট ব্যর্থ হয়েছে';
     userMsgEn = `Your payment for ${itemType} ${appNumber} failed. Please try again.`;
     userMsgBn = `আপনার ${itemTypeBn} ${appNumber} এর জন্য পেমেন্ট ব্যর্থ হয়েছে। আবার চেষ্টা করুন।`;
     adminTitleEn = 'Payment Failed';
     adminTitleBn = 'পেমেন্ট ব্যর্থ';
-    adminMsgEn = `${isRenewal ? 'License' : isVehicleRegistration ? 'Vehicle Registration' : isTaxTokenRenewal ? 'Tax Token Renewal' : isViolationPayment ? 'Traffic Fine' : 'Application'} ${appNumber} - Payment FAILED. Amount: BDT ${payment.amount}`;
-    adminMsgBn = `${isRenewal ? 'লাইসেন্স' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : isViolationPayment ? 'ট্রাফিক জরিমানা' : 'আবেদন'} ${appNumber} - পেমেন্ট ব্যর্থ। পরিমাণ: BDT ${payment.amount}`;
+    adminMsgEn = `${isRenewal ? 'License' : isVehicleRegistration ? 'Vehicle Registration' : isTaxTokenRenewal ? 'Tax Token Renewal' : isViolationPayment ? 'Traffic Fine' : isRoutePermit ? 'Route Permit' : 'Application'} ${appNumber} - Payment FAILED. Amount: BDT ${payment.amount}`;
+    adminMsgBn = `${isRenewal ? 'লাইসেন্স' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : isViolationPayment ? 'ট্রাফিক জরিমানা' : isRoutePermit ? 'রুট পারমিট' : 'আবেদন'} ${appNumber} - পেমেন্ট ব্যর্থ। পরিমাণ: BDT ${payment.amount}`;
   } else if (status === 'cancelled') {
-    const itemType = isRenewal ? 'license renewal' : isVehicleRegistration ? 'vehicle registration' : isTaxTokenRenewal ? 'tax token renewal' : isViolationPayment ? 'traffic fine' : 'application';
-    const itemTypeBn = isRenewal ? 'লাইসেন্স নবায়ন' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : isViolationPayment ? 'ট্রাফিক জরিমানা' : 'আবেদন';
+    const itemType = isRenewal ? 'license renewal' : isVehicleRegistration ? 'vehicle registration' : isTaxTokenRenewal ? 'tax token renewal' : isViolationPayment ? 'traffic fine' : isRoutePermit ? 'route permit' : 'application';
+    const itemTypeBn = isRenewal ? 'লাইসেন্স নবায়ন' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : isViolationPayment ? 'ট্রাফিক জরিমানা' : isRoutePermit ? 'রুট পারমিট' : 'আবেদন';
     userTitleEn = 'Payment Cancelled';
     userTitleBn = 'পেমেন্ট বাতিল হয়েছে';
     userMsgEn = `Your payment for ${itemType} ${appNumber} was cancelled.`;

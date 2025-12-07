@@ -20,7 +20,36 @@ export default function UserPayments() {
   const [filterStatus, setFilterStatus] = useState("success");
 
   useEffect(() => {
-    if (user) fetchPayments();
+    if (user) {
+      fetchPayments();
+
+      // Subscribe to realtime payment updates
+      const paymentSubscription = supabase
+        .channel('user-payments-realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'payments',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Payment realtime update:', payload);
+            fetchPayments();
+            
+            // Show toast for new payments
+            if (payload.eventType === 'UPDATE' && payload.new.status === 'success') {
+              toast.success('Payment confirmed!');
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        paymentSubscription.unsubscribe();
+      };
+    }
   }, [user]);
 
   async function fetchPayments() {

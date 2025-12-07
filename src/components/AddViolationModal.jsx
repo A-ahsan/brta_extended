@@ -114,6 +114,20 @@ const AddViolationModal = ({ isOpen, onClose, vehicleData, onSuccess }) => {
   };
 
   const selectedViolationType = violationTypes.find(v => v.id === formData.violation_type_id);
+  
+  // Calculate due date based on severity
+  const getDueDateFromSeverity = (severity) => {
+    const days = {
+      'critical': 7,
+      'severe': 15,
+      'moderate': 30,
+      'minor': 45
+    };
+    const daysToAdd = days[severity] || 30;
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + daysToAdd);
+    return { date: dueDate, days: daysToAdd };
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -146,6 +160,10 @@ const AddViolationModal = ({ isOpen, onClose, vehicleData, onSuccess }) => {
       // Calculate total amount
       const fineAmount = selectedViolationType.base_fine_amount;
       const additionalCharges = parseFloat(formData.additional_charges) || 0;
+      
+      // Calculate due date based on violation severity
+      const dueDateInfo = getDueDateFromSeverity(selectedViolationType.severity);
+      const dueDate = dueDateInfo.date;
 
       // Create violation record
       const { data: violation, error: violationError } = await supabase
@@ -164,6 +182,7 @@ const AddViolationModal = ({ isOpen, onClose, vehicleData, onSuccess }) => {
           description: formData.description,
           fine_amount: fineAmount,
           additional_charges: additionalCharges,
+          due_date: dueDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
           location: formData.location,
           location_bn: formData.location_bn || formData.location,
           photo_evidence_url: formData.photo_evidence_url,
@@ -178,12 +197,15 @@ const AddViolationModal = ({ isOpen, onClose, vehicleData, onSuccess }) => {
 
       // Send bilingual notification to user
       const totalAmount = fineAmount + additionalCharges;
+      const dueDateFormatted = dueDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const dueDateFormattedBn = dueDate.toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' });
+      
       await supabase.from('notifications').insert({
         user_id: vehicleData.user_id,
         title_en: 'Traffic Violation Fine Issued',
         title_bn: 'ট্রাফিক লঙ্ঘন জরিমানা জারি করা হয়েছে',
-        message_en: `A fine of BDT ${totalAmount.toFixed(2)} has been issued for ${selectedViolationType.name_en} at ${formData.location}. Violation #${violationNumber}`,
-        message_bn: `${selectedViolationType.name_bn} এর জন্য ${formData.location_bn || formData.location} এ BDT ${totalAmount.toFixed(2)} জরিমানা জারি করা হয়েছে। লঙ্ঘন #${violationNumber}`,
+        message_en: `A fine of BDT ${totalAmount.toFixed(2)} has been issued for ${selectedViolationType.name_en} at ${formData.location}. Violation #${violationNumber}. Payment due by ${dueDateFormatted} (${dueDateInfo.days} days).`,
+        message_bn: `${selectedViolationType.name_bn} এর জন্য ${formData.location_bn || formData.location} এ BDT ${totalAmount.toFixed(2)} জরিমানা জারি করা হয়েছে। লঙ্ঘন #${violationNumber}। ${dueDateFormattedBn} এর মধ্যে পরিশোধ করুন (${dueDateInfo.days} দিন)।`,
         type: 'violation',
         priority: selectedViolationType.severity === 'critical' || selectedViolationType.severity === 'severe' ? 'high' : 'normal',
         recipient_type: 'user'
@@ -211,7 +233,8 @@ const AddViolationModal = ({ isOpen, onClose, vehicleData, onSuccess }) => {
         description: '',
         additional_charges: 0,
         photo_evidence_url: '',
-        notes: ''
+        notes: '',
+        coordinates: null
       });
 
       if (onSuccess) onSuccess();
@@ -362,7 +385,7 @@ const AddViolationModal = ({ isOpen, onClose, vehicleData, onSuccess }) => {
                 <h4 className="font-bold text-blue-800 dark:text-blue-300 mb-2 text-sm sm:text-base">
                   {language === 'en' ? 'Selected Violation' : 'নির্বাচিত লঙ্ঘন'}
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm">
                   <div>
                     <span className="text-gray-600 dark:text-gray-400">
                       {language === 'en' ? 'Code:' : 'কোড:'}
@@ -377,6 +400,19 @@ const AddViolationModal = ({ isOpen, onClose, vehicleData, onSuccess }) => {
                     </span>
                     <span className="font-semibold text-gray-800 dark:text-white ml-2">
                       BDT {selectedViolationType.base_fine_amount.toFixed(2)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {language === 'en' ? 'Due Date:' : 'শেষ তারিখ:'}
+                    </span>
+                    <span className="font-semibold text-orange-600 dark:text-orange-400 ml-2">
+                      {(() => {
+                        const info = getDueDateFromSeverity(selectedViolationType.severity);
+                        return language === 'en' 
+                          ? `${info.days} days (${info.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`
+                          : `${info.days} দিন (${info.date.toLocaleDateString('bn-BD', { month: 'short', day: 'numeric' })})`;
+                      })()}
                     </span>
                   </div>
                 </div>

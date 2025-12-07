@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Users,
@@ -11,27 +11,175 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import StatCard from '../../components/StatCard';
 import { useLanguage } from '../../contexts/AppContext';
 import { translations } from '../../utils/translations';
+import { supabase } from '../../lib/supabaseClient';
+import toast from 'react-hot-toast';
 
 const AdminOverview = () => {
   const { language } = useLanguage();
   const t = translations[language];
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    pendingApplications: 0,
+    registeredVehicles: 0,
+    monthlyRevenue: 0
+  });
+  const [monthlyData, setMonthlyData] = useState([]);
+  const [testCenterData, setTestCenterData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const monthlyData = [
-    { month: 'Jan', applications: 120, approved: 100, rejected: 20 },
-    { month: 'Feb', applications: 150, approved: 130, rejected: 20 },
-    { month: 'Mar', applications: 180, approved: 160, rejected: 20 },
-    { month: 'Apr', applications: 200, approved: 175, rejected: 25 },
-    { month: 'May', applications: 220, approved: 190, rejected: 30 },
-    { month: 'Jun', applications: 250, approved: 220, rejected: 30 },
-  ];
+  useEffect(() => {
+    fetchStats();
+    fetchChartData();
+  }, []);
 
-  const testCenterData = [
-    { name: 'Mirpur', value: 35 },
-    { name: 'Banani', value: 25 },
-    { name: 'Uttara', value: 20 },
-    { name: 'Dhanmondi', value: 15 },
-    { name: 'Others', value: 5 },
-  ];
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch total users count
+      const { count: usersCount, error: usersError } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+
+      if (usersError) throw usersError;
+
+      // Fetch pending license applications
+      const { count: pendingCount, error: pendingError } = await supabase
+        .from('license_applications')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+
+      if (pendingError) throw pendingError;
+
+      // Fetch total registered vehicles
+      const { count: vehiclesCount, error: vehiclesError } = await supabase
+        .from('registered_vehicles')
+        .select('*', { count: 'exact', head: true });
+
+      if (vehiclesError) throw vehiclesError;
+
+      // Calculate monthly revenue from payments (excluding violation fines)
+      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+      const { data: payments, error: paymentsError } = await supabase
+        .from('payments')
+        .select('amount')
+        .eq('status', 'success')
+        .neq('payment_type', 'violation_fine')
+        .gte('created_at', startOfMonth);
+
+      if (paymentsError) throw paymentsError;
+
+      const monthlyRevenue = payments?.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0) || 0;
+
+      setStats({
+        totalUsers: usersCount || 0,
+        pendingApplications: pendingCount || 0,
+        registeredVehicles: vehiclesCount || 0,
+        monthlyRevenue: monthlyRevenue
+      });
+    } catch (error) {
+      console.error('Error fetching admin stats:', error);
+      toast.error(language === 'en' ? 'Failed to load statistics' : 'পরিসংখ্যান লোড করতে ব্যর্থ');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchChartData = async () => {
+    try {
+      // Fetch monthly applications data for last 6 months
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const currentMonth = new Date().getMonth();
+      const monthlyStats = [];
+
+      for (let i = 5; i >= 0; i--) {
+        const monthIndex = (currentMonth - i + 12) % 12;
+        const year = currentMonth - i < 0 ? new Date().getFullYear() - 1 : new Date().getFullYear();
+        const startDate = new Date(year, monthIndex, 1).toISOString();
+        const endDate = new Date(year, monthIndex + 1, 0, 23, 59, 59).toISOString();
+
+        // Get total applications for this month
+        const { count: totalApps } = await supabase
+          .from('license_applications')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', startDate)
+          .lte('created_at', endDate);
+
+        // Get Light type applications
+        const { count: lightApps } = await supabase
+          .from('license_applications')
+          .select('*', { count: 'exact', head: true })
+          .eq('license_type', 'Light')
+          .gte('created_at', startDate)
+          .lte('created_at', endDate);
+
+        // Get Motor type applications
+        const { count: motorApps } = await supabase
+          .from('license_applications')
+          .select('*', { count: 'exact', head: true })
+          .eq('license_type', 'Motor')
+          .gte('created_at', startDate)
+          .lte('created_at', endDate);
+
+        // Get Light+Motor type applications
+        const { count: lightMotorApps } = await supabase
+          .from('license_applications')
+          .select('*', { count: 'exact', head: true })
+          .eq('license_type', 'Light+Motor')
+          .gte('created_at', startDate)
+          .lte('created_at', endDate);
+
+        monthlyStats.push({
+          month: months[monthIndex],
+          total: totalApps || 0,
+          light: lightApps || 0,
+          motor: motorApps || 0,
+          lightMotor: lightMotorApps || 0
+        });
+      }
+
+      setMonthlyData(monthlyStats);
+
+      // Fetch test center distribution by division
+      const { data: centers, error: centersError } = await supabase
+        .from('test_centers')
+        .select('division, is_active')
+        .eq('is_active', true);
+
+      if (centersError) {
+        console.error('Error fetching test centers:', centersError);
+        setTestCenterData([{ name: 'No Data', value: 100 }]);
+        return;
+      }
+
+      // Count centers per division
+      const divisionCounts = {};
+      centers?.forEach(center => {
+        const division = center.division || 'Others';
+        divisionCounts[division] = (divisionCounts[division] || 0) + 1;
+      });
+
+      // Convert to percentage data
+      const total = centers?.length || 0;
+      if (total === 0) {
+        setTestCenterData([{ name: 'No Data', value: 100 }]);
+        return;
+      }
+
+      const divisionData = Object.entries(divisionCounts).map(([name, count]) => ({
+        name,
+        value: Math.round((count / total) * 100)
+      }));
+
+      setTestCenterData(divisionData);
+
+    } catch (error) {
+      console.error('Error fetching chart data:', error);
+      // Set empty data on error
+      setMonthlyData([]);
+      setTestCenterData([{ name: 'No Data', value: 100 }]);
+    }
+  };
 
   const COLORS = ['#006A4E', '#28A745', '#FFB020', '#DC3545', '#6C757D'];
 
@@ -46,30 +194,26 @@ const AdminOverview = () => {
         <StatCard
           icon={<Users size={48} weight="duotone" />}
           title={t.totalUsers}
-          value="12,450"
+          value={loading ? '...' : stats.totalUsers.toLocaleString()}
           color="primary"
-          trend={15}
         />
         <StatCard
           icon={<IdentificationCard size={48} weight="duotone" />}
           title={t.dlRequests}
-          value="856"
+          value={loading ? '...' : stats.pendingApplications.toLocaleString()}
           color="warning"
-          trend={8}
         />
         <StatCard
           icon={<Car size={48} weight="duotone" />}
           title={t.vehiclesRegistered}
-          value="8,234"
+          value={loading ? '...' : stats.registeredVehicles.toLocaleString()}
           color="success"
-          trend={12}
         />
         <StatCard
           icon={<ChartLine size={48} weight="duotone" />}
           title={language === 'en' ? 'Monthly Revenue' : 'মাসিক আয়'}
-          value="৳ 2.5M"
+          value={loading ? '...' : `৳ ${(stats.monthlyRevenue / 1000).toFixed(1)}K`}
           color="info"
-          trend={20}
         />
       </motion.div>
 
@@ -108,23 +252,28 @@ const AdminOverview = () => {
                     borderRadius: '8px',
                   }}
                 />
-                <Bar dataKey="applications" fill="#006A4E" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="approved" fill="#28A745" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="rejected" fill="#DC3545" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="total" fill="#006A4E" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="light" fill="#14B8A6" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="motor" fill="#F59E0B" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="lightMotor" fill="#8B5CF6" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-            <div className="flex justify-center gap-6 mt-4">
+            <div className="flex justify-center gap-6 mt-4 flex-wrap">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-[#006A4E]"></div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Applications' : 'আবেদন'}</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Total' : 'মোট'}</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-[#28A745]"></div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Approved' : 'অনুমোদিত'}</span>
+                <div className="w-3 h-3 rounded-full bg-[#14B8A6]"></div>
+                <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Light' : 'হালকা'}</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-[#DC3545]"></div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Rejected' : 'প্রত্যাখ্যাত'}</span>
+                <div className="w-3 h-3 rounded-full bg-[#F59E0B]"></div>
+                <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Motor' : 'মোটর'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-[#8B5CF6]"></div>
+                <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Light+Motor' : 'হালকা+মোটর'}</span>
               </div>
             </div>
           </div>
@@ -140,10 +289,10 @@ const AdminOverview = () => {
           <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl">
             <div className="mb-6">
               <h3 className="text-2xl font-bold text-gray-800 dark:text-white">
-                {language === 'en' ? 'Test Center Distribution' : 'পরীক্ষা কেন্দ্র বিতরণ'}
+                {language === 'en' ? 'Test Centers by Division' : 'বিভাগ অনুযায়ী পরীক্ষা কেন্দ্র'}
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {language === 'en' ? 'Percentage of rush per center' : 'প্রতি কেন্দ্রে রাশের শতাংশ'}
+                {language === 'en' ? 'Distribution of test centers across divisions' : 'বিভাগ জুড়ে পরীক্ষা কেন্দ্রের বিতরণ'}
               </p>
             </div>
             <ResponsiveContainer width="100%" height={320}>

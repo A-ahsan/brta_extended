@@ -25,6 +25,7 @@ import AdminSlots from './admin/AdminSlots';
 import AdminQuestions from './admin/AdminQuestions';
 import AdminTestCenters from './admin/AdminTestCenters';
 import AdminNoticesManagement from './admin/AdminNoticesManagement';
+import AdminRoutePermits from './admin/AdminRoutePermits';
 
 const AdminPanel = () => {
   const navigate = useNavigate();
@@ -46,6 +47,64 @@ const AdminPanel = () => {
 
   useEffect(() => {
     fetchNotifications();
+
+    // Subscribe to realtime notifications for admin
+    const notificationSubscription = supabase
+      .channel('admin-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: 'recipient_type=eq.admin'
+        },
+        (payload) => {
+          console.log('Admin notification realtime update:', payload);
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to new license applications
+    const applicationSubscription = supabase
+      .channel('admin-applications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'license_applications'
+        },
+        (payload) => {
+          console.log('New application:', payload);
+          toast.info(language === 'en' ? 'New license application received!' : 'নতুন লাইসেন্স আবেদন প্রাপ্ত!');
+        }
+      )
+      .subscribe();
+
+    // Subscribe to route permit applications
+    const routePermitSubscription = supabase
+      .channel('admin-route-permits')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'route_permits'
+        },
+        (payload) => {
+          console.log('New route permit application:', payload);
+          toast.info(language === 'en' ? 'New route permit application!' : 'নতুন রুট পারমিট আবেদন!');
+        }
+      )
+      .subscribe();
+
+    return () => {
+      notificationSubscription.unsubscribe();
+      applicationSubscription.unsubscribe();
+      routePermitSubscription.unsubscribe();
+    };
   }, [language]);
 
   const fetchNotifications = async () => {
@@ -140,6 +199,11 @@ const AdminPanel = () => {
       label: language === 'en' ? 'Notices' : 'নোটিশসমূহ',
       icon: MegaphoneSimple 
     },
+    { 
+      path: '/admin/route-permits', 
+      label: language === 'en' ? 'Route Permits' : 'রুট পারমিট',
+      icon: CalendarBlank 
+    },
   ];
 
   const monthlyData = [
@@ -198,16 +262,20 @@ const AdminPanel = () => {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <button
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="p-2 rounded-lg hover:bg-primary/10 transition-colors"
-                aria-label="Toggle Menu"
+                className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
               >
-                <List size={24} className="text-primary dark:text-green-400" />
-              </button>
-              <img src="/brta.png" alt="BRTA Logo" className="h-10 w-10" />
-              <div>
-                <h1 className="text-xl font-bold text-primary dark:text-green-400">BRTA 2.0 - {t.adminPanel}</h1>
+                <List size={24} weight="bold" />
+              </motion.button>
+              <div className="flex items-center gap-3">
+                <img src="/brta.png" alt="BRTA Logo" className="h-10 w-10" />
+                <div>
+                  <h1 className="text-xl font-bold text-primary dark:text-green-400">BRTA 2.0 - {t.adminPanel}</h1>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">Admin Dashboard</p>
+                </div>
               </div>
             </div>
 
@@ -419,6 +487,7 @@ const AdminPanel = () => {
               <Route path="/slots" element={<AdminSlots />} />
               <Route path="/questions" element={<AdminQuestions />} />
               <Route path="/notices" element={<AdminNoticesManagement />} />
+              <Route path="/route-permits" element={<AdminRoutePermits />} />
               <Route path="/" element={<AdminOverview />} />
             </Routes>
           </div>

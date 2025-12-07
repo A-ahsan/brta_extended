@@ -1,0 +1,676 @@
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, UploadSimple, MapPin, Calendar, FileText, Truck, CurrencyDollar, NavigationArrow } from 'phosphor-react';
+import { supabase } from '../lib/supabaseClient';
+import { useLanguage, useTheme } from '../contexts/AppContext';
+import RouteMap from './RouteMap';
+
+const RoutePermitApplicationModal = ({ isOpen, onClose, userId, vehicles }) => {
+  const { language } = useLanguage();
+  const { theme } = useTheme();
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [calculating, setCalculating] = useState(false);
+
+  // Form Data
+  const [formData, setFormData] = useState({
+    vehicleId: '',
+    routeNameEn: '',
+    routeNameBn: '',
+    startLocationEn: '',
+    startLocationBn: '',
+    startLat: '',
+    startLng: '',
+    endLocationEn: '',
+    endLocationBn: '',
+    endLat: '',
+    endLng: '',
+    distanceKm: 0,
+    permitDurationDays: 30,
+    vehicleFitnessDoc: null,
+    insuranceDoc: null,
+    registrationDoc: null,
+    otherDocs: null,
+  });
+
+  const [fees, setFees] = useState({
+    baseFee: 0,
+    distanceFee: 0,
+    durationFee: 0,
+    totalFee: 0,
+  });
+
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
+
+  // Duration options
+  const durationOptions = [
+    { days: 30, labelEn: '1 Month', labelBn: '১ মাস' },
+    { days: 90, labelEn: '3 Months', labelBn: '৩ মাস' },
+    { days: 180, labelEn: '6 Months', labelBn: '৬ মাস' },
+    { days: 365, labelEn: '1 Year', labelBn: '১ বছর' },
+  ];
+
+  // Calculate distance between two lat/lng points (Haversine formula)
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radius of Earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c;
+    return Math.round(distance * 100) / 100; // Round to 2 decimal places
+  };
+
+  // Auto-calculate distance when coordinates change
+  useEffect(() => {
+    if (formData.startLat && formData.startLng && formData.endLat && formData.endLng) {
+      const distance = calculateDistance(
+        parseFloat(formData.startLat),
+        parseFloat(formData.startLng),
+        parseFloat(formData.endLat),
+        parseFloat(formData.endLng)
+      );
+      setFormData(prev => ({ ...prev, distanceKm: distance }));
+    }
+  }, [formData.startLat, formData.startLng, formData.endLat, formData.endLng]);
+
+  // Calculate fees when vehicle, distance, or duration changes
+  useEffect(() => {
+    if (selectedVehicle && formData.distanceKm > 0 && formData.permitDurationDays > 0) {
+      calculateFees();
+    }
+  }, [selectedVehicle, formData.distanceKm, formData.permitDurationDays]);
+
+  const calculateFees = async () => {
+    setCalculating(true);
+    try {
+      const { data, error } = await supabase.rpc('calculate_route_permit_fee', {
+        p_vehicle_type: selectedVehicle.vehicle_type,
+        p_distance_km: formData.distanceKm,
+        p_duration_days: formData.permitDurationDays,
+      });
+
+      if (error) throw error;
+      setFees(data);
+    } catch (error) {
+      console.error('Error calculating fees:', error);
+      // Fallback calculation
+      const baseFee = 1000;
+      const distanceFee = formData.distanceKm * 5;
+      const durationFee = formData.permitDurationDays * 10;
+      setFees({
+        base_fee: baseFee,
+        distance_fee: distanceFee,
+        duration_fee: durationFee,
+        total_fee: baseFee + distanceFee + durationFee,
+      });
+    } finally {
+      setCalculating(false);
+    }
+  };
+
+  const handleVehicleSelect = (vehicleId) => {
+    const vehicle = vehicles.find(v => v.id === vehicleId);
+    setSelectedVehicle(vehicle);
+    setFormData(prev => ({ ...prev, vehicleId }));
+  };
+
+  const handleFileUpload = async (file, fieldName) => {
+    if (!file) return null;
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}/${Date.now()}_${fieldName}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('route-permit-documents')
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('route-permit-documents')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert(language === 'bn' ? 'ফাইল আপলোড ব্যর্থ হয়েছে' : 'File upload failed');
+      return null;
+    }
+  };
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      // Upload documents
+      const fitnessUrl = formData.vehicleFitnessDoc 
+        ? await handleFileUpload(formData.vehicleFitnessDoc, 'fitness')
+        : null;
+      const insuranceUrl = formData.insuranceDoc
+        ? await handleFileUpload(formData.insuranceDoc, 'insurance')
+        : null;
+      const registrationUrl = formData.registrationDoc
+        ? await handleFileUpload(formData.registrationDoc, 'registration')
+        : null;
+      const otherUrl = formData.otherDocs
+        ? await handleFileUpload(formData.otherDocs, 'other')
+        : null;
+
+      // Generate application number
+      const { data: appNumber } = await supabase.rpc('generate_route_permit_application_number');
+
+      // Create application
+      const { data, error } = await supabase
+        .from('route_permit_applications')
+        .insert([{
+          application_number: appNumber,
+          user_id: userId,
+          vehicle_id: formData.vehicleId,
+          route_name_en: formData.routeNameEn,
+          route_name_bn: formData.routeNameBn,
+          start_location_en: formData.startLocationEn,
+          start_location_bn: formData.startLocationBn,
+          start_lat: formData.startLat,
+          start_lng: formData.startLng,
+          end_location_en: formData.endLocationEn,
+          end_location_bn: formData.endLocationBn,
+          end_lat: formData.endLat,
+          end_lng: formData.endLng,
+          distance_km: formData.distanceKm,
+          permit_duration_days: formData.permitDurationDays,
+          vehicle_fitness_doc: fitnessUrl,
+          insurance_doc: insuranceUrl,
+          registration_doc: registrationUrl,
+          other_docs: otherUrl,
+          base_fee: fees.base_fee,
+          distance_fee: fees.distance_fee,
+          duration_fee: fees.duration_fee,
+          total_fee: fees.total_fee,
+          status: 'pending',
+          payment_status: 'unpaid',
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Send notification to admin
+      await supabase.from('notifications').insert([{
+        user_id: userId,
+        type: 'route_permit_application',
+        title_en: 'Route Permit Application Submitted',
+        title_bn: 'রুট পারমিট আবেদন জমা দেওয়া হয়েছে',
+        message_en: `Application ${appNumber} for route "${formData.routeNameEn}" has been submitted and is pending review.`,
+        message_bn: `রুট "${formData.routeNameBn}" এর জন্য আবেদন ${appNumber} জমা দেওয়া হয়েছে এবং পর্যালোচনার অপেক্ষায় রয়েছে।`,
+        priority: 'medium',
+        is_read: false,
+      }]);
+
+      alert(language === 'bn' 
+        ? `আবেদন সফলভাবে জমা দেওয়া হয়েছে! আবেদন নম্বর: ${appNumber}`
+        : `Application submitted successfully! Application Number: ${appNumber}`
+      );
+
+      onClose();
+      window.location.reload();
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      alert(language === 'bn' ? 'আবেদন জমা দিতে ব্যর্থ হয়েছে' : 'Failed to submit application');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          onClick={(e) => e.stopPropagation()}
+          className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col`}
+        >
+          {/* Header */}
+          <div className={`${theme === 'dark' ? 'bg-gray-900' : 'bg-gradient-to-r from-primary to-green-600'} p-6 border-b ${theme === 'dark' ? 'border-gray-700' : 'border-green-700'}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 ${theme === 'dark' ? 'bg-primary/20' : 'bg-white/20'} rounded-xl flex items-center justify-center backdrop-blur-sm`}>
+                  <Truck size={24} weight="duotone" className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">
+                    {language === 'bn' ? 'রুট পারমিট আবেদন' : 'Route Permit Application'}
+                  </h2>
+                  <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-white/90'}`}>
+                    {language === 'bn' ? `ধাপ ${step} / 3` : `Step ${step} of 3`}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className={`w-10 h-10 ${theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600' : 'bg-white/10 hover:bg-white/20'} rounded-xl flex items-center justify-center transition-all`}
+              >
+                <X size={20} weight="bold" className="text-white" />
+              </button>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="mt-4 flex gap-2">
+              {[1, 2, 3].map((s) => (
+                <div
+                  key={s}
+                  className={`h-2 flex-1 rounded-full transition-all ${
+                    s <= step 
+                      ? theme === 'dark' ? 'bg-primary' : 'bg-white' 
+                      : theme === 'dark' ? 'bg-gray-700' : 'bg-white/20'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Content - Scrollable */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {/* Step 1: Vehicle & Route Selection */}
+            {step === 1 && (
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-emerald-400 font-semibold mb-2">
+                    {language === 'bn' ? 'যানবাহন নির্বাচন করুন' : 'Select Vehicle'}
+                  </label>
+                  <select
+                    value={formData.vehicleId}
+                    onChange={(e) => handleVehicleSelect(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  >
+                    <option value="">{language === 'bn' ? 'যানবাহন নির্বাচন করুন' : 'Select a vehicle'}</option>
+                    {vehicles?.map((vehicle) => (
+                      <option key={vehicle.id} value={vehicle.id}>
+                        {vehicle.vehicle_type.toUpperCase()} - {vehicle.manufacturer} {vehicle.model} ({vehicle.engine_number})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedVehicle && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-slate-800/50 border border-slate-700 rounded-xl p-4"
+                  >
+                    <h3 className="text-white font-semibold mb-2">
+                      {language === 'bn' ? 'যানবাহনের তথ্য' : 'Vehicle Details'}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-slate-400">{language === 'bn' ? 'ধরন' : 'Type'}</p>
+                        <p className="text-white font-medium">{selectedVehicle.vehicle_type.toUpperCase()}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400">{language === 'bn' ? 'মডেল' : 'Model'}</p>
+                        <p className="text-white font-medium">{selectedVehicle.manufacturer} {selectedVehicle.model}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-emerald-400 font-semibold mb-2">
+                      {language === 'bn' ? 'রুটের নাম (ইংরেজি)' : 'Route Name (English)'}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.routeNameEn}
+                      onChange={(e) => setFormData({ ...formData, routeNameEn: e.target.value })}
+                      placeholder="e.g., Dhaka to Chittagong"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-emerald-400 font-semibold mb-2">
+                      {language === 'bn' ? 'রুটের নাম (বাংলা)' : 'Route Name (Bengali)'}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.routeNameBn}
+                      onChange={(e) => setFormData({ ...formData, routeNameBn: e.target.value })}
+                      placeholder="যেমন: ঢাকা থেকে চট্টগ্রাম"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Start Location */}
+                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <FileText size={20} weight="duotone" className="text-emerald-400" />
+                    <h3 className="text-white font-semibold">
+                      {language === 'bn' ? 'রুট ম্যাপে নির্বাচন করুন' : 'Select Route on Map'}
+                    </h3>
+                  </div>
+                  
+                  {/* Interactive Route Map */}
+                  <RouteMap
+                    startLat={formData.startLat}
+                    startLng={formData.startLng}
+                    endLat={formData.endLat}
+                    endLng={formData.endLng}
+                    startLocationEn={formData.startLocationEn}
+                    endLocationEn={formData.endLocationEn}
+                    interactive={true}
+                    height="400px"
+                    onStartChange={(lat, lng) => {
+                      setFormData({ ...formData, startLat: lat, startLng: lng });
+                    }}
+                    onEndChange={(lat, lng) => {
+                      setFormData({ ...formData, endLat: lat, endLng: lng });
+                    }}
+                  />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="block text-sm text-slate-400 mb-2">
+                        {language === 'bn' ? 'শুরুর স্থান (ইংরেজি)' : 'Start Location (English)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.startLocationEn}
+                        onChange={(e) => setFormData({ ...formData, startLocationEn: e.target.value })}
+                        placeholder="e.g., Dhaka"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-slate-400 mb-2">
+                        {language === 'bn' ? 'শুরুর স্থান (বাংলা)' : 'Start Location (Bengali)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.startLocationBn}
+                        onChange={(e) => setFormData({ ...formData, startLocationBn: e.target.value })}
+                        placeholder="যেমন: ঢাকা"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="block text-sm text-slate-400 mb-2">
+                        {language === 'bn' ? 'গন্তব্য স্থান (ইংরেজি)' : 'End Location (English)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.endLocationEn}
+                        onChange={(e) => setFormData({ ...formData, endLocationEn: e.target.value })}
+                        placeholder="e.g., Chittagong"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-slate-400 mb-2">
+                        {language === 'bn' ? 'গন্তব্য স্থান (বাংলা)' : 'End Location (Bengali)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.endLocationBn}
+                        onChange={(e) => setFormData({ ...formData, endLocationBn: e.target.value })}
+                        placeholder="যেমন: চট্টগ্রাম"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {formData.distanceKm > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="bg-emerald-900/20 border border-emerald-500/30 rounded-xl p-4"
+                  >
+                    <p className="text-emerald-400 font-semibold">
+                      {language === 'bn' ? 'গণনা করা দূরত্ব' : 'Calculated Distance'}: 
+                      <span className="text-white ml-2">{formData.distanceKm} km</span>
+                    </p>
+                  </motion.div>
+                )}
+              </div>
+            )}
+
+            {/* Step 2: Duration & Documents */}
+            {step === 2 && (
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-emerald-400 font-semibold mb-2">
+                    {language === 'bn' ? 'পারমিটের মেয়াদ' : 'Permit Duration'}
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {durationOptions.map((option) => (
+                      <button
+                        key={option.days}
+                        onClick={() => setFormData({ ...formData, permitDurationDays: option.days })}
+                        className={`p-4 rounded-xl border-2 transition-all ${
+                          formData.permitDurationDays === option.days
+                            ? 'bg-emerald-600 border-emerald-400 text-white'
+                            : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-emerald-500'
+                        }`}
+                      >
+                        <Calendar className="w-6 h-6 mx-auto mb-2" />
+                        <p className="text-sm font-semibold">
+                          {language === 'bn' ? option.labelBn : option.labelEn}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Documents Upload */}
+                <div className="space-y-4">
+                  <h3 className="text-white font-semibold flex items-center gap-2">
+                    <FileText size={20} weight="duotone" />
+                    {language === 'bn' ? 'প্রয়োজনীয় নথি' : 'Required Documents'}
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Vehicle Fitness */}
+                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                      <label className="block text-slate-300 mb-2">
+                        {language === 'bn' ? 'যানবাহন ফিটনেস সার্টিফিকেট' : 'Vehicle Fitness Certificate'}
+                        <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={(e) => setFormData({ ...formData, vehicleFitnessDoc: e.target.files[0] })}
+                        className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white hover:file:bg-emerald-700"
+                      />
+                    </div>
+
+                    {/* Insurance */}
+                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                      <label className="block text-slate-300 mb-2">
+                        {language === 'bn' ? 'বীমা কাগজ' : 'Insurance Document'}
+                        <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={(e) => setFormData({ ...formData, insuranceDoc: e.target.files[0] })}
+                        className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white hover:file:bg-emerald-700"
+                      />
+                    </div>
+
+                    {/* Registration */}
+                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                      <label className="block text-slate-300 mb-2">
+                        {language === 'bn' ? 'রেজিস্ট্রেশন নথি' : 'Registration Document'}
+                        <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={(e) => setFormData({ ...formData, registrationDoc: e.target.files[0] })}
+                        className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white hover:file:bg-emerald-700"
+                      />
+                    </div>
+
+                    {/* Other Documents */}
+                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                      <label className="block text-slate-300 mb-2">
+                        {language === 'bn' ? 'অন্যান্য নথি' : 'Other Documents'}
+                        <span className="text-slate-500"> (Optional)</span>
+                      </label>
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={(e) => setFormData({ ...formData, otherDocs: e.target.files[0] })}
+                        className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white hover:file:bg-emerald-700"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Review & Fee Summary */}
+            {step === 3 && (
+              <div className="space-y-6">
+                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                  <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                    <CurrencyDollar size={20} weight="duotone" className="text-emerald-400" />
+                    {language === 'bn' ? 'ফি সারাংশ' : 'Fee Summary'}
+                  </h3>
+                  
+                  {calculating ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                      <p className="text-slate-400">{language === 'bn' ? 'গণনা করা হচ্ছে...' : 'Calculating...'}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-slate-300">
+                        <span>{language === 'bn' ? 'মূল ফি' : 'Base Fee'}</span>
+                        <span>৳ {fees.base_fee?.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-300">
+                        <span>{language === 'bn' ? 'দূরত্ব ফি' : 'Distance Fee'} ({formData.distanceKm} km)</span>
+                        <span>৳ {fees.distance_fee?.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-300">
+                        <span>{language === 'bn' ? 'সময়কাল ফি' : 'Duration Fee'} ({formData.permitDurationDays} days)</span>
+                        <span>৳ {fees.duration_fee?.toLocaleString()}</span>
+                      </div>
+                      <div className="border-t border-slate-600 pt-3 mt-3">
+                        <div className="flex justify-between text-emerald-400 font-bold text-xl">
+                          <span>{language === 'bn' ? 'মোট ফি' : 'Total Fee'}</span>
+                          <span>৳ {fees.total_fee?.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Application Summary */}
+                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                  <h3 className="text-white font-semibold mb-4">
+                    {language === 'bn' ? 'আবেদন সারাংশ' : 'Application Summary'}
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">{language === 'bn' ? 'রুট' : 'Route'}</span>
+                      <span className="text-white">
+                        {language === 'bn' ? formData.routeNameBn : formData.routeNameEn}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">{language === 'bn' ? 'দূরত্ব' : 'Distance'}</span>
+                      <span className="text-white">{formData.distanceKm} km</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">{language === 'bn' ? 'মেয়াদ' : 'Duration'}</span>
+                      <span className="text-white">{formData.permitDurationDays} days</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">{language === 'bn' ? 'যানবাহন' : 'Vehicle'}</span>
+                      <span className="text-white">
+                        {selectedVehicle?.manufacturer} {selectedVehicle?.model}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-900/20 border border-blue-500/30 rounded-xl p-4">
+                  <p className="text-blue-300 text-sm">
+                    {language === 'bn' 
+                      ? 'জমা দেওয়ার পর, আপনার আবেদন অ্যাডমিন দ্বারা পর্যালোচনা করা হবে। অনুমোদনের পরে, আপনি পেমেন্ট করতে পারবেন।'
+                      : 'After submission, your application will be reviewed by admin. After approval, you can proceed to payment.'
+                    }
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer Buttons */}
+          <div className="sticky bottom-0 bg-slate-900 border-t border-slate-700 p-6 rounded-b-3xl">
+            <div className="flex gap-4">
+              {step > 1 && (
+                <button
+                  onClick={() => setStep(step - 1)}
+                  className="flex-1 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-all"
+                >
+                  {language === 'bn' ? 'পূর্ববর্তী' : 'Previous'}
+                </button>
+              )}
+              {step < 3 ? (
+                <button
+                  onClick={() => {
+                    if (step === 1 && (!formData.vehicleId || !formData.routeNameEn || !formData.startLat || !formData.endLat)) {
+                      alert(language === 'bn' ? 'সকল প্রয়োজনীয় তথ্য পূরণ করুন' : 'Please fill all required fields');
+                      return;
+                    }
+                    if (step === 2 && (!formData.vehicleFitnessDoc || !formData.insuranceDoc || !formData.registrationDoc)) {
+                      alert(language === 'bn' ? 'প্রয়োজনীয় নথি আপলোড করুন' : 'Please upload required documents');
+                      return;
+                    }
+                    setStep(step + 1);
+                  }}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-semibold transition-all"
+                >
+                  {language === 'bn' ? 'পরবর্তী' : 'Next'}
+                </button>
+              ) : (
+                <button
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-semibold transition-all disabled:opacity-50"
+                >
+                  {loading 
+                    ? (language === 'bn' ? 'জমা দেওয়া হচ্ছে...' : 'Submitting...') 
+                    : (language === 'bn' ? 'আবেদন জমা দিন' : 'Submit Application')
+                  }
+                </button>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
+export default RoutePermitApplicationModal;

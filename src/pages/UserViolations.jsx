@@ -43,6 +43,35 @@ const UserViolations = () => {
         // Clean URL
         window.history.replaceState({}, '', window.location.pathname);
       }
+
+      // Subscribe to realtime violation updates
+      const violationSubscription = supabase
+        .channel('user-violations-realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'traffic_violations',
+            filter: `violator_user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Violation realtime update:', payload);
+            fetchViolations();
+            
+            // Show toast for important updates
+            if (payload.eventType === 'INSERT') {
+              toast.info(language === 'en' ? 'New violation recorded' : 'নতুন লঙ্ঘন রেকর্ড করা হয়েছে');
+            } else if (payload.eventType === 'UPDATE' && payload.new.payment_status === 'paid') {
+              toast.success(language === 'en' ? 'Violation payment confirmed' : 'লঙ্ঘন পেমেন্ট নিশ্চিত');
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        violationSubscription.unsubscribe();
+      };
     }
   }, [user, language]);
 
@@ -173,8 +202,29 @@ const UserViolations = () => {
       );
     }
     
+    // Check if overdue
+    if (violation.due_date && violation.payment_status === 'unpaid') {
+      const daysUntilDue = Math.ceil((new Date(violation.due_date) - new Date()) / (1000 * 60 * 60 * 24));
+      
+      if (daysUntilDue < 0) {
+        return (
+          <span className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-full text-xs font-bold flex items-center gap-1 animate-pulse">
+            <XCircle size={14} weight="fill" />
+            {language === 'en' ? `OVERDUE (${Math.abs(daysUntilDue)}d)` : `মেয়াদোত্তীর্ণ (${Math.abs(daysUntilDue)}d)`}
+          </span>
+        );
+      } else if (daysUntilDue <= 3) {
+        return (
+          <span className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 rounded-full text-xs font-bold flex items-center gap-1">
+            <Warning size={14} weight="fill" />
+            {language === 'en' ? `Due in ${daysUntilDue}d` : `${daysUntilDue} দিনে পরিশোধ করুন`}
+          </span>
+        );
+      }
+    }
+    
     return (
-      <span className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-full text-xs font-bold flex items-center gap-1">
+      <span className="px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-full text-xs font-bold flex items-center gap-1">
         <Clock size={14} weight="fill" />
         {language === 'en' ? 'Pending Payment' : 'পেমেন্ট বাকি'}
       </span>
@@ -350,6 +400,42 @@ const UserViolations = () => {
                         </p>
                       </div>
                     </div>
+
+                    {/* Due Date - Show only for unpaid violations */}
+                    {violation.payment_status === 'unpaid' && violation.due_date && (
+                      <div className="flex items-center gap-2">
+                        <Clock size={18} className={
+                          (() => {
+                            const daysUntilDue = Math.ceil((new Date(violation.due_date) - new Date()) / (1000 * 60 * 60 * 24));
+                            return daysUntilDue < 0 ? 'text-red-500' : daysUntilDue <= 3 ? 'text-orange-500' : 'text-gray-400';
+                          })()
+                        } weight="fill" />
+                        <div>
+                          <p className="text-gray-600 dark:text-gray-400">
+                            {language === 'en' ? 'Due Date' : 'প্রদানের শেষ তারিখ'}
+                          </p>
+                          <p className={`font-semibold ${
+                            (() => {
+                              const daysUntilDue = Math.ceil((new Date(violation.due_date) - new Date()) / (1000 * 60 * 60 * 24));
+                              if (daysUntilDue < 0) return 'text-red-600 dark:text-red-400';
+                              if (daysUntilDue <= 3) return 'text-orange-600 dark:text-orange-400';
+                              return 'text-gray-800 dark:text-white';
+                            })()
+                          }`}>
+                            {new Date(violation.due_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD')}
+                            {(() => {
+                              const daysUntilDue = Math.ceil((new Date(violation.due_date) - new Date()) / (1000 * 60 * 60 * 24));
+                              if (daysUntilDue < 0) {
+                                return ` (${language === 'en' ? `${Math.abs(daysUntilDue)} days overdue` : `${Math.abs(daysUntilDue)} দিন বাকি`})`;
+                              } else if (daysUntilDue <= 3) {
+                                return ` (${language === 'en' ? `${daysUntilDue} days left` : `${daysUntilDue} দিন বাকি`})`;
+                              }
+                              return '';
+                            })()}
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-2">
                       <User size={18} className="text-gray-400" />

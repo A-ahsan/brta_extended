@@ -10,6 +10,7 @@ import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import { updatePaymentAndNotify } from './updatePayment.js';
 import { createClient } from '@supabase/supabase-js';
+import { sendViolationSMS, getUserPhoneNumber } from './smsService.js';
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1474,6 +1475,65 @@ app.get('/api/licenses/holders', async (req, res) => {
     res.json({ success: true, holders });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message || 'Internal server error' });
+  }
+});
+
+// Send SMS for violation fine
+app.post('/api/violations/send-sms', async (req, res) => {
+  try {
+    const { 
+      userId, 
+      violationNumber, 
+      violationName, 
+      amount, 
+      websiteUrl 
+    } = req.body;
+
+    if (!userId || !violationNumber || !violationName || !amount) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required parameters' 
+      });
+    }
+
+    // Get user's phone number from auth
+    const phoneNumber = await getUserPhoneNumber(supabase, userId);
+
+    if (!phoneNumber) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'User phone number not found' 
+      });
+    }
+
+    // Send SMS
+    const smsResult = await sendViolationSMS({
+      phoneNumber,
+      violationNumber,
+      violationName,
+      amount,
+      websiteUrl: websiteUrl || 'https://brta.gov.bd'
+    });
+
+    if (smsResult.success) {
+      res.json({ 
+        success: true, 
+        message: 'SMS sent successfully',
+        phoneNumber: phoneNumber.replace(/\d(?=\d{4})/g, '*') // Mask phone for privacy
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        error: 'SMS sending failed',
+        details: smsResult.message
+      });
+    }
+  } catch (error) {
+    console.error('SMS endpoint error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Internal server error' 
+    });
   }
 });
 

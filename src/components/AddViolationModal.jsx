@@ -223,6 +223,46 @@ const AddViolationModal = ({ isOpen, onClose, vehicleData, onSuccess }) => {
         recipient_type: 'police'
       });
 
+      // Send SMS to user's phone number
+      try {
+        const websiteUrl = window.location.origin; // Get current website URL
+        
+        // Get backend URL - use window.location.hostname to work on both localhost and mobile
+        const backendHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+          ? window.location.hostname 
+          : window.location.hostname; // Use same host as frontend
+        const backendUrl = `https://${backendHost}:5000/api/violations/send-sms`;
+        
+        console.log('📱 Attempting to send SMS via:', backendUrl);
+        
+        const smsResponse = await fetch(backendUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: vehicleData.user_id,
+            violationNumber: violationNumber,
+            violationName: selectedViolationType.name_en,
+            amount: totalAmount.toFixed(2),
+            websiteUrl: websiteUrl
+          })
+        });
+
+        const smsResult = await smsResponse.json();
+        
+        if (smsResult.success) {
+          console.log('✅ SMS sent successfully to user');
+        } else {
+          console.warn('⚠️ SMS sending failed:', smsResult.error);
+          // Don't fail the whole operation if SMS fails
+        }
+      } catch (smsError) {
+        console.error('❌ SMS Error:', smsError);
+        console.error('Full error details:', smsError.message);
+        // Continue even if SMS fails - violation is already saved
+      }
+
       toast.success(language === 'en' ? 'Violation added successfully!' : 'লঙ্ঘন সফলভাবে যোগ করা হয়েছে!');
       
       // Reset form

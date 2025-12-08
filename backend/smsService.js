@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 const SMS_API_URL = 'http://bulksmsbd.net/api/smsapi';
-const SMS_API_KEY = 'WUc2EjFMY7abkO72ojC5';
-const SMS_SENDER_ID = '8809617623441';
+const SMS_API_KEY = 'QvWIhejLvbHoLq9vCj54';
+const SMS_SENDER_ID = '8809617631284';
 
 /**
  * Send SMS using BulkSMSBD API
@@ -90,6 +90,7 @@ export async function sendSMS(phoneNumber, message) {
  */
 export async function sendViolationSMS({ phoneNumber, violationNumber, violationName, amount, websiteUrl }) {
   const message = `**TEST MESSAGE**\nBRTA Fine Alert!\nFine #${violationNumber}\nReason: ${violationName}\nAmount: ${amount} BDT\nVisit BRTA 2.0 to pay`;
+  // const message = `Fine Alert!\nFine #${violationNumber}\nReason: ${violationName}\nAmount: ${amount} BDT\npay`;
   
   return await sendSMS(phoneNumber, message);
 }

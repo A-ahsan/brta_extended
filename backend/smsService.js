@@ -85,7 +85,7 @@ export async function sendSMS(phoneNumber, message) {
  * @param {string} params.violationNumber - Violation number
  * @param {string} params.violationName - Violation type name
  * @param {number} params.amount - Fine amount
- * @param {string} params.websiteUrl - Website URL for payment
+ * @param {string} params.websiteUrl - Website URL for payments
  * @returns {Promise<Object>} - SMS response
  */
 export async function sendViolationSMS({ phoneNumber, violationNumber, violationName, amount, websiteUrl }) {

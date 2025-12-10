@@ -1496,6 +1496,26 @@ app.post('/api/violations/send-sms', async (req, res) => {
       });
     }
 
+    // Fetch violation details from database to get due_date
+    const { data: violation, error: violationError } = await supabase
+      .from('traffic_violations')
+      .select('due_date')
+      .eq('violation_number', violationNumber)
+      .single();
+
+    if (violationError) {
+      console.error('Error fetching violation:', violationError);
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Violation not found' 
+      });
+    }
+
+    // Format due date
+    const dueDate = violation.due_date 
+      ? new Date(violation.due_date).toLocaleDateString('en-GB') 
+      : 'N/A';
+
     // Get user's phone number from auth
     const phoneNumber = await getUserPhoneNumber(supabase, userId);
 
@@ -1512,7 +1532,8 @@ app.post('/api/violations/send-sms', async (req, res) => {
       violationNumber,
       violationName,
       amount,
-      websiteUrl: websiteUrl || 'https://brta.gov.bd'
+      websiteUrl: websiteUrl || 'https://brta.gov.bd',
+      dueDate
     });
 
     if (smsResult.success) {

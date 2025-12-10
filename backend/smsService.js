@@ -1,8 +1,10 @@
 import axios from 'axios';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const SMS_API_URL = 'http://bulksmsbd.net/api/smsapi';
-const SMS_API_KEY = 'QvWIhejLvbHoLq9vCj54';
-const SMS_SENDER_ID = '8809617631284';
+const SMS_API_URL = process.env.SMS_API_URL || 'http://bulksmsbd.net/api/smsapi';
+const SMS_API_KEY = process.env.SMS_API_KEY || 'QvWIhejLvbHoLq9vCj54';
+const SMS_SENDER_ID = process.env.SMS_SENDER_ID || '8809617631284';
 
 /**
  * Send SMS using BulkSMSBD API
@@ -86,10 +88,11 @@ export async function sendSMS(phoneNumber, message) {
  * @param {string} params.violationName - Violation type name
  * @param {number} params.amount - Fine amount
  * @param {string} params.websiteUrl - Website URL for payments
+ * @param {string} params.dueDate - Due date for payment
  * @returns {Promise<Object>} - SMS response
  */
-export async function sendViolationSMS({ phoneNumber, violationNumber, violationName, amount, websiteUrl }) {
-  const message = `**TEST MESSAGE**\nBRTA Fine Alert!\nFine #${violationNumber}\nReason: ${violationName}\nAmount: ${amount} BDT\nVisit BRTA 2.0 to pay`;
+export async function sendViolationSMS({ phoneNumber, violationNumber, violationName, amount, websiteUrl, dueDate }) {
+  const message = `**TEST MESSAGE**\nBRTA Fine Alert!\nFine #${violationNumber}\nReason: ${violationName}\nAmount: ${amount} BDT\nDue Date: ${dueDate}\nVisit BRTA 2.0 to pay\nPlease pay within the due date.`;
   // const message = `Fine Alert!\nFine #${violationNumber}\nReason: ${violationName}\nAmount: ${amount} BDT\npay`;
   
   return await sendSMS(phoneNumber, message);

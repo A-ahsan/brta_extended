@@ -44,6 +44,7 @@ import UserViolations from './UserViolations';
 import RoutePermitsInDashboard from '../components/RoutePermitsInDashboard';
 import OwnershipTransferModal from '../components/OwnershipTransferModal';
 import UserOwnershipTransfers from '../components/UserOwnershipTransfers';
+import ChatbotWidget from '../components/ChatbotWidget';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -52,7 +53,7 @@ import axios from 'axios';
 const UserDashboard = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const { signOut, updatePassword, updateEmail, updatePhone, user } = useAuth();
+  const { signOut, updatePassword, updateEmail, updatePhone, user, profile } = useAuth();
   const { isDownloading, startDownload, endDownload } = useDownload();
   const t = translations[language] || translations.en;
   
@@ -2473,6 +2474,9 @@ const UserDashboard = () => {
           );
         }}
       />
+
+      {/* Chatbot Widget */}
+      <ChatbotWidget user={user} userProfile={profile} />
 
       {/* Notification Panel removed. Now only the notification bell in the header is used. */}
     </div>

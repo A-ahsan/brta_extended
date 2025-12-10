@@ -38,6 +38,18 @@ export const translations = {
     chatbot: 'AI Chatbot',
     chatbotDesc: '24/7 intelligent assistant for your queries',
     
+    // Chatbot
+    chatbotWidget: {
+      welcome: 'Welcome!',
+      chooseLanguage: 'Choose your preferred language to get started',
+      english: 'English',
+      bangla: 'Bangla',
+      typing: 'Typing...',
+      online: 'Online',
+      typeMessage: 'Type your message...',
+      quickActions: 'Quick Actions:',
+    },
+    
     // Dashboard
     licenseApplication: 'License Application',
     vehicleRegistration: 'Vehicle Registration',
@@ -204,6 +216,18 @@ export const translations = {
     costCalculatorDesc: 'লাইসেন্স এবং নিবন্ধনের জন্য ফি এবং খরচ গণনা করুন',
     chatbot: 'AI চ্যাটবট',
     chatbotDesc: 'আপনার প্রশ্নের জন্য ২৪/৭ বুদ্ধিমান সহায়ক',
+    
+    // Chatbot
+    chatbotWidget: {
+      welcome: 'স্বাগতম!',
+      chooseLanguage: 'শুরু করতে আপনার পছন্দের ভাষা নির্বাচন করুন',
+      english: 'English',
+      bangla: 'বাংলা',
+      typing: 'টাইপ করছে...',
+      online: 'অনলাইন',
+      typeMessage: 'আপনার বার্তা টাইপ করুন...',
+      quickActions: 'দ্রুত অ্যাকশন:',
+    },
     
     // Dashboard
     licenseApplication: 'লাইসেন্স আবেদন',

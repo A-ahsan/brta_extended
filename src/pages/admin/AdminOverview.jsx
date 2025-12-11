@@ -98,43 +98,43 @@ const AdminOverview = () => {
         const startDate = new Date(year, monthIndex, 1).toISOString();
         const endDate = new Date(year, monthIndex + 1, 0, 23, 59, 59).toISOString();
 
-        // Get total applications for this month
-        const { count: totalApps } = await supabase
+        // Get license applications
+        const { count: licenseApps } = await supabase
           .from('license_applications')
           .select('*', { count: 'exact', head: true })
           .gte('created_at', startDate)
           .lte('created_at', endDate);
 
-        // Get Light type applications
-        const { count: lightApps } = await supabase
-          .from('license_applications')
+        // Get route permits
+        const { count: routePermits } = await supabase
+          .from('route_permits')
           .select('*', { count: 'exact', head: true })
-          .eq('license_type', 'Light')
           .gte('created_at', startDate)
           .lte('created_at', endDate);
 
-        // Get Motor type applications
-        const { count: motorApps } = await supabase
-          .from('license_applications')
+        // Get ownership transfers
+        const { count: ownershipTransfers } = await supabase
+          .from('ownership_transfer_applications')
           .select('*', { count: 'exact', head: true })
-          .eq('license_type', 'Motor')
           .gte('created_at', startDate)
           .lte('created_at', endDate);
 
-        // Get Light+Motor type applications
-        const { count: lightMotorApps } = await supabase
-          .from('license_applications')
+        // Get vehicle registrations
+        const { count: vehicleRegs } = await supabase
+          .from('registered_vehicles')
           .select('*', { count: 'exact', head: true })
-          .eq('license_type', 'Light+Motor')
           .gte('created_at', startDate)
           .lte('created_at', endDate);
+
+        const totalApps = (licenseApps || 0) + (routePermits || 0) + (ownershipTransfers || 0) + (vehicleRegs || 0);
 
         monthlyStats.push({
           month: months[monthIndex],
-          total: totalApps || 0,
-          light: lightApps || 0,
-          motor: motorApps || 0,
-          lightMotor: lightMotorApps || 0
+          total: totalApps,
+          license: licenseApps || 0,
+          routePermit: routePermits || 0,
+          ownership: ownershipTransfers || 0,
+          vehicle: vehicleRegs || 0
         });
       }
 
@@ -252,28 +252,28 @@ const AdminOverview = () => {
                     borderRadius: '8px',
                   }}
                 />
-                <Bar dataKey="total" fill="#006A4E" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="light" fill="#14B8A6" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="motor" fill="#F59E0B" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="lightMotor" fill="#8B5CF6" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="license" fill="#14B8A6" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="routePermit" fill="#F59E0B" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="ownership" fill="#8B5CF6" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="vehicle" fill="#EC4899" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-            <div className="flex justify-center gap-6 mt-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-[#006A4E]"></div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Total' : 'মোট'}</span>
-              </div>
+            <div className="flex justify-center gap-4 mt-4 flex-wrap">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-[#14B8A6]"></div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Light' : 'হালকা'}</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'License' : 'লাইসেন্স'}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-[#F59E0B]"></div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Motor' : 'মোটর'}</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Route Permit' : 'রুট পারমিট'}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-[#8B5CF6]"></div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Light+Motor' : 'হালকা+মোটর'}</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Ownership' : 'মালিকানা'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-[#EC4899]"></div>
+                <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'en' ? 'Vehicle Reg' : 'গাড়ি রেজি'}</span>
               </div>
             </div>
           </div>

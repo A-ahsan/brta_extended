@@ -14,7 +14,9 @@ import {
   ClockCounterClockwise,
   List,
   Eye,
+  ChartBar,
 } from 'phosphor-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import StatCard from '../components/StatCard';
 import { useLanguage } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -40,10 +42,12 @@ const PoliceDashboard = () => {
     unpaidViolations: 0,
     totalInspections: 0
   });
+  const [violationTypeData, setViolationTypeData] = useState([]);
 
   useEffect(() => {
     fetchNotifications();
     fetchStats();
+    fetchViolationTypes();
   }, [language, user]);
 
   const fetchNotifications = async () => {
@@ -104,6 +108,51 @@ const PoliceDashboard = () => {
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
+    }
+  };
+
+  const fetchViolationTypes = async () => {
+    try {
+      // Fetch all violations grouped by type
+      const { data: violations, error: violationsError } = await supabase
+        .from('traffic_violations')
+        .select('violation_name_en, violation_name_bn');
+
+      if (violationsError) throw violationsError;
+
+      // Fetch all impoundments
+      const { count: impoundmentCount, error: impoundmentError } = await supabase
+        .from('vehicle_impoundments')
+        .select('*', { count: 'exact', head: true });
+
+      if (impoundmentError) throw impoundmentError;
+
+      // Count violations by type
+      const violationCounts = {};
+      violations?.forEach(v => {
+        const name = language === 'en' ? v.violation_name_en : v.violation_name_bn;
+        violationCounts[name] = (violationCounts[name] || 0) + 1;
+      });
+
+      // Convert to array and add impoundments
+      const chartData = Object.entries(violationCounts).map(([name, count]) => ({
+        name,
+        value: count
+      }));
+
+      // Add impoundments
+      if (impoundmentCount > 0) {
+        chartData.push({
+          name: language === 'en' ? 'Vehicle Impoundment' : 'গাড়ি আটক',
+          value: impoundmentCount
+        });
+      }
+
+      // Sort by value and take top 8
+      chartData.sort((a, b) => b.value - a.value);
+      setViolationTypeData(chartData.slice(0, 8));
+    } catch (error) {
+      console.error('Error fetching violation types:', error);
     }
   };
 
@@ -452,6 +501,76 @@ const PoliceDashboard = () => {
               value={stats.totalInspections.toString()}
               color="success"
             />
+          </motion.div>
+
+          {/* Violation Types Chart */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-6 sm:mb-8"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-gradient-to-br from-primary to-green-600 rounded-xl">
+                <ChartBar size={28} weight="bold" className="text-white" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-800 dark:text-white">
+                  {language === 'en' ? 'Violation Types Distribution' : 'লঙ্ঘনের ধরন বিতরণ'}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {language === 'en' ? 'Most common violations and impoundments' : 'সবচেয়ে সাধারণ লঙ্ঘন এবং আটক'}
+                </p>
+              </div>
+            </div>
+            
+            {violationTypeData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={400}>
+                <BarChart 
+                  data={violationTypeData}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis 
+                    dataKey="name" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                    interval={0}
+                    tick={{ fontSize: 12, fill: '#6B7280' }}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 12, fill: '#6B7280' }}
+                    label={{ 
+                      value: language === 'en' ? 'Number of Cases' : 'মামলার সংখ্যা', 
+                      angle: -90, 
+                      position: 'insideLeft',
+                      style: { fontSize: 14, fill: '#374151' }
+                    }}
+                  />
+                  <Tooltip 
+                    contentStyle={{
+                      backgroundColor: '#fff',
+                      border: '1px solid #E9ECEF',
+                      borderRadius: '8px',
+                    }}
+                    cursor={{ fill: 'rgba(220, 38, 38, 0.1)' }}
+                  />
+                  <Bar 
+                    dataKey="value" 
+                    fill="#DC2626" 
+                    radius={[8, 8, 0, 0]}
+                    maxBarSize={80}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[400px]">
+                <p className="text-gray-500 dark:text-gray-400">
+                  {language === 'en' ? 'No violation data available' : 'কোনো লঙ্ঘনের তথ্য নেই'}
+                </p>
+              </div>
+            )}
           </motion.div>
 
           {/* Sub Routes */}

@@ -251,6 +251,28 @@ const UserDashboard = () => {
         )
         .subscribe();
 
+      // Subscribe to ownership transfer completions (affects both old and new owners)
+      const ownershipTransferSubscription = supabase
+        .channel('ownership-transfer-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'ownership_transfer_applications'
+          },
+          (payload) => {
+            console.log('Ownership transfer update:', payload);
+            // Check if this transfer involves current user (as old or new owner)
+            if (payload.new.status === 'completed' && 
+                (payload.new.current_owner_id === user.id || payload.new.new_owner_id === user.id)) {
+              // Refresh vehicles list for both old and new owner
+              fetchRegisteredVehicles();
+            }
+          }
+        )
+        .subscribe();
+
       return () => {
         notificationSubscription.unsubscribe();
         applicationSubscription.unsubscribe();
@@ -259,6 +281,7 @@ const UserDashboard = () => {
         violationSubscription.unsubscribe();
         paymentSubscription.unsubscribe();
         routePermitSubscription.unsubscribe();
+        ownershipTransferSubscription.unsubscribe();
       };
     }
   }, [user]);

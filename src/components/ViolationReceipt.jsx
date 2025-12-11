@@ -4,6 +4,7 @@ const ViolationReceipt = ({ violation, isOpen, onClose, language }) => {
   if (!isOpen || !violation) return null;
 
   const isPaid = violation.payment_status === 'paid';
+  const isImpoundment = violation.itemType === 'impoundment' || violation.impound_number;
 
   const openReceiptInNewTab = () => {
     const receiptWindow = window.open('', '_blank');
@@ -39,7 +40,7 @@ const ViolationReceipt = ({ violation, isOpen, onClose, language }) => {
           .receipt-header {
             background: linear-gradient(135deg, #006A4E, #004D3A);
             color: white;
-            padding: 20px;
+            padding: 12px;
             text-align: center;
             position: relative;
             overflow: hidden;
@@ -103,11 +104,11 @@ const ViolationReceipt = ({ violation, isOpen, onClose, language }) => {
             color: white;
           }
           .receipt-body {
-            padding: 20px;
+            padding: 12px;
           }
           .section {
-            margin-bottom: 15px;
-            padding-bottom: 12px;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
             border-bottom: 1px solid #E9ECEF;
           }
           .section:last-of-type {
@@ -125,11 +126,11 @@ const ViolationReceipt = ({ violation, isOpen, onClose, language }) => {
           .info-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
+            gap: 6px;
           }
           .info-item {
             background: #F8F9FA;
-            padding: 8px;
+            padding: 6px;
             border-radius: 6px;
             border-left: 3px solid #006A4E;
           }
@@ -169,7 +170,7 @@ const ViolationReceipt = ({ violation, isOpen, onClose, language }) => {
           .amount-box {
             background: linear-gradient(135deg, #FEE2E2, #FECACA);
             border: 2px solid #DC2626;
-            padding: 12px;
+            padding: 8px;
             border-radius: 6px;
             text-align: center;
           }
@@ -201,7 +202,7 @@ const ViolationReceipt = ({ violation, isOpen, onClose, language }) => {
           .payment-confirmed {
             background: linear-gradient(135deg, #D1FAE5, #A7F3D0);
             border: 2px solid #10B981;
-            padding: 10px;
+            padding: 8px;
             border-radius: 6px;
             text-align: center;
           }
@@ -315,7 +316,9 @@ const ViolationReceipt = ({ violation, isOpen, onClose, language }) => {
                 <p>${language === 'en' ? 'Bangladesh Road Transport Authority' : 'বাংলাদেশ সড়ক পরিবহন কর্তৃপক্ষ'}</p>
               </div>
             </div>
-            <h2 style="margin-top: 15px; font-size: 22px;">${language === 'en' ? 'Traffic Violation Receipt' : 'ট্রাফিক লঙ্ঘন রসিদ'}</h2>
+            <h2 style="margin-top: 15px; font-size: 22px;">${isImpoundment 
+              ? (language === 'en' ? 'Vehicle Impoundment Receipt' : 'গাড়ি আটক রসিদ')
+              : (language === 'en' ? 'Traffic Violation Receipt' : 'ট্রাফিক লঙ্ঘন রসিদ')}</h2>
             <div class="status-badge ${isPaid ? 'status-paid' : 'status-unpaid'}">
               ${isPaid ? (language === 'en' ? '✓ PAID' : '✓ পরিশোধিত') : (language === 'en' ? '⚠ UNPAID' : '⚠ বকেয়া')}
             </div>
@@ -328,11 +331,11 @@ const ViolationReceipt = ({ violation, isOpen, onClose, language }) => {
               <div class="info-grid">
                 <div class="info-item">
                   <div class="info-label">${language === 'en' ? 'Receipt Number' : 'রসিদ নম্বর'}</div>
-                  <div class="info-value">${violation.violation_number}</div>
+                  <div class="info-value">${isImpoundment ? violation.impound_number : violation.violation_number}</div>
                 </div>
                 <div class="info-item">
-                  <div class="info-label">${language === 'en' ? 'Issue Date' : 'ইস্যুর তারিখ'}</div>
-                  <div class="info-value">${new Date(violation.violation_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD', {
+                  <div class="info-label">${isImpoundment ? (language === 'en' ? 'Impound Date' : 'আটকের তারিখ') : (language === 'en' ? 'Issue Date' : 'ইস্যুর তারিখ')}</div>
+                  <div class="info-value">${new Date(isImpoundment ? violation.impound_date : violation.violation_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
@@ -341,11 +344,15 @@ const ViolationReceipt = ({ violation, isOpen, onClose, language }) => {
               </div>
             </div>
 
-            <!-- Violation Type -->
+            <!-- Violation/Impound Type -->
             <div class="section">
-              <div class="section-title">${language === 'en' ? 'Violation Details' : 'লঙ্ঘনের বিবরণ'}</div>
+              <div class="section-title">${isImpoundment 
+                ? (language === 'en' ? 'Impoundment Details' : 'আটকের বিবরণ')
+                : (language === 'en' ? 'Violation Details' : 'লঙ্ঘনের বিবরণ')}</div>
               <div class="violation-title">
-                <h2>${language === 'en' ? violation.violation_name_en : violation.violation_name_bn}</h2>
+                <h2>${isImpoundment 
+                  ? (language === 'en' ? violation.reason_en : violation.reason_bn)
+                  : (language === 'en' ? violation.violation_name_en : violation.violation_name_bn)}</h2>
                 ${violation.description ? `<p>${violation.description}</p>` : ''}
               </div>
             </div>
@@ -363,9 +370,13 @@ const ViolationReceipt = ({ violation, isOpen, onClose, language }) => {
                   <div class="info-value" style="font-size: 14px;">${violation.registered_vehicles?.vehicle_name || ''} ${violation.registered_vehicles?.model || ''}</div>
                 </div>
                 <div class="info-item full">
-                  <div class="info-label">${language === 'en' ? 'Violation Location' : 'লঙ্ঘনের স্থান'}</div>
+                  <div class="info-label">${isImpoundment 
+                    ? (language === 'en' ? 'Impound Location' : 'আটকের স্থান')
+                    : (language === 'en' ? 'Violation Location' : 'লঙ্ঘনের স্থান')}</div>
                   <div class="info-value" style="font-size: 14px;">
-                    ${language === 'en' ? violation.location : (violation.location_bn || violation.location)}
+                    ${isImpoundment 
+                      ? (language === 'en' ? violation.impound_location : (violation.impound_location_bn || violation.impound_location))
+                      : (language === 'en' ? violation.location : (violation.location_bn || violation.location))}
                   </div>
                 </div>
               </div>
@@ -386,16 +397,33 @@ const ViolationReceipt = ({ violation, isOpen, onClose, language }) => {
             <div class="section">
               <div class="section-title">${language === 'en' ? 'Payment Details' : 'পেমেন্টের বিবরণ'}</div>
               <div class="amount-box">
-                <div class="amount-breakdown">
-                  <span class="amount-label">${language === 'en' ? 'Base Fine Amount' : 'মূল জরিমানা'}</span>
-                  <span class="amount-value">BDT ${violation.fine_amount.toFixed(2)}</span>
-                </div>
-                ${violation.additional_charges > 0 ? `
+                ${isImpoundment ? `
                   <div class="amount-breakdown">
-                    <span class="amount-label">${language === 'en' ? 'Additional Charges' : 'অতিরিক্ত চার্জ'}</span>
-                    <span class="amount-value">BDT ${violation.additional_charges.toFixed(2)}</span>
+                    <span class="amount-label">${language === 'en' ? 'Base Impound Fee' : 'মূল আটক ফি'}</span>
+                    <span class="amount-value">BDT ${violation.base_impound_fee.toFixed(2)}</span>
                   </div>
-                ` : ''}
+                  <div class="amount-breakdown">
+                    <span class="amount-label">${language === 'en' ? 'Storage Fee' : 'স্টোরেজ ফি'} (${violation.days_impounded} ${language === 'en' ? 'days' : 'দিন'} × BDT ${violation.daily_storage_fee})</span>
+                    <span class="amount-value">BDT ${(violation.days_impounded * violation.daily_storage_fee).toFixed(2)}</span>
+                  </div>
+                  ${violation.additional_charges > 0 ? `
+                    <div class="amount-breakdown">
+                      <span class="amount-label">${language === 'en' ? 'Additional Charges' : 'অতিরিক্ত চার্জ'}</span>
+                      <span class="amount-value">BDT ${violation.additional_charges.toFixed(2)}</span>
+                    </div>
+                  ` : ''}
+                ` : `
+                  <div class="amount-breakdown">
+                    <span class="amount-label">${language === 'en' ? 'Base Fine Amount' : 'মূল জরিমানা'}</span>
+                    <span class="amount-value">BDT ${violation.fine_amount.toFixed(2)}</span>
+                  </div>
+                  ${violation.additional_charges > 0 ? `
+                    <div class="amount-breakdown">
+                      <span class="amount-label">${language === 'en' ? 'Additional Charges' : 'অতিরিক্ত চার্জ'}</span>
+                      <span class="amount-value">BDT ${violation.additional_charges.toFixed(2)}</span>
+                    </div>
+                  ` : ''}
+                `}
                 <div class="amount-breakdown">
                   <span class="amount-label" style="font-size: 16px;">${language === 'en' ? 'Total Amount' : 'মোট পরিমাণ'}</span>
                   <span class="amount-value total-amount">BDT ${violation.total_amount.toFixed(2)}</span>
@@ -425,6 +453,18 @@ const ViolationReceipt = ({ violation, isOpen, onClose, language }) => {
 
           <!-- Footer -->
           <div class="receipt-footer">
+            ${isImpoundment ? `
+              <div style="background: linear-gradient(135deg, #FF6B35, #F7931E); color: white; padding: 10px; border-radius: 8px; margin-bottom: 10px; text-align: center;">
+                <p style="font-size: 13px; font-weight: bold; margin-bottom: 6px;">
+                  ${language === 'en' ? 'IMPORTANT NOTICE' : 'গুরুত্বপূর্ণ নোটিশ'}
+                </p>
+                <p style="font-size: 11px; line-height: 1.4;">
+                  ${language === 'en' 
+                    ? 'Show this receipt to the police officer at the impound location to release your vehicle. Keep this receipt as proof of payment.'
+                    : 'আপনার গাড়ি মুক্ত করতে এই রসিদটি ইম্পাউন্ড লোকেশনের পুলিশ অফিসারকে দেখান। পেমেন্টের প্রমাণ হিসাবে এই রসিদটি সংরক্ষণ করুন।'}
+                </p>
+              </div>
+            ` : ''}
             <p><strong>${language === 'en' ? 'Official Receipt' : 'অফিসিয়াল রসিদ'}</strong></p>
             <p>${language === 'en' 
               ? 'This is a system-generated receipt. For any queries, please contact BRTA helpline.'

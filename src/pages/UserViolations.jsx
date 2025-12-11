@@ -26,6 +26,7 @@ const UserViolations = () => {
   const { user } = useAuth();
   
   const [violations, setViolations] = useState([]);
+  const [impoundments, setImpoundments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, unpaid, paid
   const [selectedViolation, setSelectedViolation] = useState(null);
@@ -69,8 +70,34 @@ const UserViolations = () => {
         )
         .subscribe();
 
+      // Subscribe to realtime impoundment updates
+      const impoundmentSubscription = supabase
+        .channel('user-impoundments-realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'vehicle_impoundments',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Impoundment realtime update:', payload);
+            fetchViolations();
+            
+            // Show toast for important updates
+            if (payload.eventType === 'INSERT') {
+              toast.error(language === 'en' ? 'Vehicle impounded! Check details.' : 'যানবাহন আটক! বিস্তারিত দেখুন।');
+            } else if (payload.eventType === 'UPDATE' && payload.new.status === 'released') {
+              toast.success(language === 'en' ? 'Vehicle released! Payment confirmed.' : 'যানবাহন মুক্ত! পেমেন্ট নিশ্চিত।');
+            }
+          }
+        )
+        .subscribe();
+
       return () => {
         violationSubscription.unsubscribe();
+        impoundmentSubscription.unsubscribe();
       };
     }
   }, [user, language]);
@@ -78,7 +105,9 @@ const UserViolations = () => {
   const fetchViolations = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Fetch violations
+      const { data: violationsData, error: violationsError } = await supabase
         .from('traffic_violations')
         .select(`
           *,
@@ -93,8 +122,27 @@ const UserViolations = () => {
         .eq('user_id', user.id)
         .order('violation_date', { ascending: false });
 
-      if (error) throw error;
-      setViolations(data || []);
+      if (violationsError) throw violationsError;
+      setViolations(violationsData || []);
+
+      // Fetch impoundments
+      const { data: impoundmentsData, error: impoundmentsError } = await supabase
+        .from('vehicle_impoundments')
+        .select(`
+          *,
+          registered_vehicles (
+            registration_number,
+            registration_plate,
+            vehicle_name,
+            model,
+            engine_number
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('impound_date', { ascending: false });
+
+      if (impoundmentsError) throw impoundmentsError;
+      setImpoundments(impoundmentsData || []);
     } catch (error) {
       console.error('Error fetching violations:', error);
       toast.error(language === 'en' ? 'Failed to load violations' : 'লঙ্ঘন লোড করতে ব্যর্থ');
@@ -103,9 +151,9 @@ const UserViolations = () => {
     }
   };
 
-  const handlePayFine = async (violation) => {
+  const handlePayFine = async (item) => {
     try {
-      setPayingViolation(violation.id);
+      setPayingViolation(item.id);
 
       // Get current protocol and host
       const protocol = window.location.protocol;
@@ -115,33 +163,55 @@ const UserViolations = () => {
         ? `https://${host.replace('3000', '5000')}`
         : `http://${host.replace('3000', '5000')}`;
 
-      const transactionId = `FINE-${violation.violation_number}-${Date.now()}`;
+      // Determine if this is a violation or impoundment
+      const isImpoundment = item.itemType === 'impoundment';
+      const transactionId = isImpoundment 
+        ? `IMPOUND-${item.impound_number}-${Date.now()}`
+        : `FINE-${item.violation_number}-${Date.now()}`;
 
       // Create payment record
       const { data: payment, error: paymentError } = await supabase
         .from('payments')
         .insert({
           user_id: user.id,
-          amount: violation.total_amount,
+          amount: item.total_amount,
           currency: 'BDT',
           tran_id: transactionId,
           status: 'initiated',
-          payment_type: 'violation_fine'
+          payment_type: isImpoundment ? 'impoundment' : 'violation_fine'
         })
         .select()
         .single();
 
       if (paymentError) throw paymentError;
 
-      // Update violation with payment_id
-      await supabase
-        .from('traffic_violations')
-        .update({ payment_id: payment.id })
-        .eq('id', violation.id);
+      // Update violation or impoundment with payment_id
+      if (isImpoundment) {
+        const { error: linkError } = await supabase
+          .from('vehicle_impoundments')
+          .update({ payment_id: payment.id })
+          .eq('id', item.id);
+        
+        if (linkError) {
+          console.error('Error linking payment to impoundment:', linkError);
+          throw linkError;
+        }
+        console.log('✅ Impoundment linked to payment:', payment.id);
+      } else {
+        const { error: linkError } = await supabase
+          .from('traffic_violations')
+          .update({ payment_id: payment.id })
+          .eq('id', item.id);
+        
+        if (linkError) {
+          console.error('Error linking payment to violation:', linkError);
+          throw linkError;
+        }
+      }
 
       // Initiate payment with backend
       const response = await axios.post(`${backendUrl}/api/payment/initiate`, {
-        amount: violation.total_amount,
+        amount: item.total_amount,
         customerName: user.user_metadata?.full_name || 'User',
         customerEmail: user.email,
         tran_id: transactionId,
@@ -164,15 +234,36 @@ const UserViolations = () => {
     }
   };
 
-  const getFilteredViolations = () => {
+  const getFilteredItems = () => {
+    let filteredViolations = [];
+    let filteredImpoundments = [];
+
     switch (filter) {
       case 'unpaid':
-        return violations.filter(v => v.payment_status === 'unpaid' && v.status === 'active');
+        filteredViolations = violations.filter(v => v.payment_status === 'unpaid' && v.status === 'active');
+        filteredImpoundments = impoundments.filter(i => i.payment_status === 'unpaid' && i.status === 'impounded');
+        break;
       case 'paid':
-        return violations.filter(v => v.payment_status === 'paid');
+        filteredViolations = violations.filter(v => v.payment_status === 'paid');
+        filteredImpoundments = impoundments.filter(i => i.payment_status === 'paid');
+        break;
       default:
-        return violations;
+        filteredViolations = violations;
+        filteredImpoundments = impoundments;
     }
+
+    // Combine and add type identifier
+    const combined = [
+      ...filteredViolations.map(v => ({ ...v, itemType: 'violation' })),
+      ...filteredImpoundments.map(i => ({ ...i, itemType: 'impoundment' }))
+    ];
+
+    // Sort by date
+    return combined.sort((a, b) => {
+      const dateA = new Date(a.itemType === 'violation' ? a.violation_date : a.impound_date);
+      const dateB = new Date(b.itemType === 'violation' ? b.violation_date : b.impound_date);
+      return dateB - dateA;
+    });
   };
 
   const getSeverityColor = (violationName) => {
@@ -231,11 +322,15 @@ const UserViolations = () => {
     );
   };
 
-  const filteredViolations = getFilteredViolations();
+  const filteredItems = getFilteredItems();
   const totalPending = violations.filter(v => v.payment_status === 'unpaid' && v.status === 'active')
-    .reduce((sum, v) => sum + parseFloat(v.total_amount), 0);
+    .reduce((sum, v) => sum + parseFloat(v.total_amount), 0) +
+    impoundments.filter(i => i.payment_status === 'unpaid' && i.status === 'impounded')
+    .reduce((sum, i) => sum + parseFloat(i.total_amount), 0);
   const totalPaid = violations.filter(v => v.payment_status === 'paid')
-    .reduce((sum, v) => sum + parseFloat(v.total_amount), 0);
+    .reduce((sum, v) => sum + parseFloat(v.total_amount), 0) +
+    impoundments.filter(i => i.payment_status === 'paid')
+    .reduce((sum, i) => sum + parseFloat(i.total_amount), 0);
 
   if (loading) {
     return (
@@ -272,10 +367,10 @@ const UserViolations = () => {
             <div className="flex items-center gap-2 mb-2">
               <Warning size={20} weight="fill" />
               <span className="text-sm opacity-90">
-                {language === 'en' ? 'Total Violations' : 'মোট লঙ্ঘন'}
+                {language === 'en' ? 'Total Issues' : 'মোট সমস্যা'}
               </span>
             </div>
-            <p className="text-3xl font-bold">{violations.length}</p>
+            <p className="text-3xl font-bold">{violations.length + impoundments.length}</p>
           </div>
 
           <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
@@ -320,7 +415,7 @@ const UserViolations = () => {
       </div>
 
       {/* Violations List */}
-      {filteredViolations.length === 0 ? (
+      {filteredItems.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -328,7 +423,7 @@ const UserViolations = () => {
         >
           <CheckCircle size={64} className="text-green-500 mx-auto mb-4" weight="duotone" />
           <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">
-            {language === 'en' ? 'No Violations Found' : 'কোনো লঙ্ঘন পাওয়া যায়নি'}
+            {language === 'en' ? 'No Issues Found' : 'কোনো সমস্যা পাওয়া যায়নি'}
           </h3>
           <p className="text-gray-600 dark:text-gray-400">
             {filter === 'unpaid' 
@@ -338,31 +433,33 @@ const UserViolations = () => {
         </motion.div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
-          {filteredViolations.map((violation, index) => (
-            <motion.div
-              key={violation.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow"
-            >
-              <div className="flex flex-col md:flex-row gap-6">
-                {/* Left Side - Violation Info */}
-                <div className="flex-1">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Warning size={24} weight="fill" className={getSeverityColor(violation.violation_name_en)} />
-                        <h3 className="text-xl font-bold text-gray-800 dark:text-white">
-                          {language === 'en' ? violation.violation_name_en : violation.violation_name_bn}
-                        </h3>
+          {filteredItems.map((item, index) => (
+            item.itemType === 'violation' ? (
+              // Violation Card
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow"
+              >
+                <div className="flex flex-col md:flex-row gap-6">
+                  {/* Left Side - Violation Info */}
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Warning size={24} weight="fill" className={getSeverityColor(item.violation_name_en)} />
+                          <h3 className="text-xl font-bold text-gray-800 dark:text-white">
+                            {language === 'en' ? item.violation_name_en : item.violation_name_bn}
+                          </h3>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {language === 'en' ? 'Violation #' : 'লঙ্ঘন #'}{item.violation_number}
+                        </p>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {language === 'en' ? 'Violation #' : 'লঙ্ঘন #'}{violation.violation_number}
-                      </p>
+                      {getStatusBadge(item)}
                     </div>
-                    {getStatusBadge(violation)}
-                  </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div className="flex items-center gap-2">
@@ -372,7 +469,7 @@ const UserViolations = () => {
                           {language === 'en' ? 'Vehicle' : 'যানবাহন'}
                         </p>
                         <p className="font-semibold text-gray-800 dark:text-white">
-                          {violation.registered_vehicles?.registration_number}
+                          {item.registered_vehicles?.registration_number}
                         </p>
                       </div>
                     </div>
@@ -384,7 +481,7 @@ const UserViolations = () => {
                           {language === 'en' ? 'Location' : 'অবস্থান'}
                         </p>
                         <p className="font-semibold text-gray-800 dark:text-white">
-                          {language === 'en' ? violation.location : (violation.location_bn || violation.location)}
+                          {language === 'en' ? item.location : (item.location_bn || item.location)}
                         </p>
                       </div>
                     </div>
@@ -396,17 +493,17 @@ const UserViolations = () => {
                           {language === 'en' ? 'Date' : 'তারিখ'}
                         </p>
                         <p className="font-semibold text-gray-800 dark:text-white">
-                          {new Date(violation.violation_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD')}
+                          {new Date(item.violation_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD')}
                         </p>
                       </div>
                     </div>
 
                     {/* Due Date - Show only for unpaid violations */}
-                    {violation.payment_status === 'unpaid' && violation.due_date && (
+                    {item.payment_status === 'unpaid' && item.due_date && (
                       <div className="flex items-center gap-2">
                         <Clock size={18} className={
                           (() => {
-                            const daysUntilDue = Math.ceil((new Date(violation.due_date) - new Date()) / (1000 * 60 * 60 * 24));
+                            const daysUntilDue = Math.ceil((new Date(item.due_date) - new Date()) / (1000 * 60 * 60 * 24));
                             return daysUntilDue < 0 ? 'text-red-500' : daysUntilDue <= 3 ? 'text-orange-500' : 'text-gray-400';
                           })()
                         } weight="fill" />
@@ -416,15 +513,15 @@ const UserViolations = () => {
                           </p>
                           <p className={`font-semibold ${
                             (() => {
-                              const daysUntilDue = Math.ceil((new Date(violation.due_date) - new Date()) / (1000 * 60 * 60 * 24));
+                              const daysUntilDue = Math.ceil((new Date(item.due_date) - new Date()) / (1000 * 60 * 60 * 24));
                               if (daysUntilDue < 0) return 'text-red-600 dark:text-red-400';
                               if (daysUntilDue <= 3) return 'text-orange-600 dark:text-orange-400';
                               return 'text-gray-800 dark:text-white';
                             })()
                           }`}>
-                            {new Date(violation.due_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD')}
+                            {new Date(item.due_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD')}
                             {(() => {
-                              const daysUntilDue = Math.ceil((new Date(violation.due_date) - new Date()) / (1000 * 60 * 60 * 24));
+                              const daysUntilDue = Math.ceil((new Date(item.due_date) - new Date()) / (1000 * 60 * 60 * 24));
                               if (daysUntilDue < 0) {
                                 return ` (${language === 'en' ? `${Math.abs(daysUntilDue)} days overdue` : `${Math.abs(daysUntilDue)} দিন বাকি`})`;
                               } else if (daysUntilDue <= 3) {
@@ -444,15 +541,15 @@ const UserViolations = () => {
                           {language === 'en' ? 'Issued By' : 'জারিকারী'}
                         </p>
                         <p className="font-semibold text-gray-800 dark:text-white">
-                          {violation.police_name}
+                          {item.police_name}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {violation.description && (
+                  {item.description && (
                     <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                      <p className="text-sm text-gray-700 dark:text-gray-300">{violation.description}</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{item.description}</p>
                     </div>
                   )}
                 </div>
@@ -464,25 +561,25 @@ const UserViolations = () => {
                       {language === 'en' ? 'Fine Amount' : 'জরিমানার পরিমাণ'}
                     </p>
                     <div className="text-3xl font-bold text-red-600 dark:text-red-400 mb-2">
-                      BDT {violation.total_amount}
+                      BDT {item.total_amount}
                     </div>
-                    {violation.additional_charges > 0 && (
+                    {item.additional_charges > 0 && (
                       <p className="text-xs text-gray-600 dark:text-gray-400">
-                        ({language === 'en' ? 'Base' : 'মূল'}: {violation.fine_amount} + {language === 'en' ? 'Additional' : 'অতিরিক্ত'}: {violation.additional_charges})
+                        ({language === 'en' ? 'Base' : 'মূল'}: {item.fine_amount} + {language === 'en' ? 'Additional' : 'অতিরিক্ত'}: {item.additional_charges})
                       </p>
                     )}
                   </div>
 
-                  {violation.payment_status === 'unpaid' && violation.status === 'active' && (
+                  {item.payment_status === 'unpaid' && item.status === 'active' && (
                     <div className="space-y-3">
                       <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => handlePayFine(violation)}
-                        disabled={payingViolation === violation.id}
+                        onClick={() => handlePayFine(item)}
+                        disabled={payingViolation === item.id}
                         className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
-                        {payingViolation === violation.id ? (
+                        {payingViolation === item.id ? (
                           <>
                             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                             {language === 'en' ? 'Processing...' : 'প্রক্রিয়াকরণ...'}
@@ -494,20 +591,10 @@ const UserViolations = () => {
                           </>
                         )}
                       </motion.button>
-
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setReceiptViolation(violation)}
-                        className="w-full px-6 py-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                      >
-                        <Receipt size={20} weight="bold" />
-                        {language === 'en' ? 'View Receipt' : 'রসিদ দেখুন'}
-                      </motion.button>
                     </div>
                   )}
 
-                  {violation.payment_status === 'paid' && (
+                  {item.payment_status === 'paid' && (
                     <div className="space-y-3">
                       <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
                         <CheckCircle size={32} className="text-green-600 dark:text-green-400 mx-auto mb-2" weight="fill" />
@@ -515,14 +602,14 @@ const UserViolations = () => {
                           {language === 'en' ? 'Paid on' : 'পরিশোধের তারিখ'}
                         </p>
                         <p className="text-xs text-gray-600 dark:text-gray-400">
-                          {new Date(violation.paid_at).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD')}
+                          {new Date(item.paid_at).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD')}
                         </p>
                       </div>
 
                       <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => setReceiptViolation(violation)}
+                        onClick={() => setReceiptViolation(item)}
                         className="w-full px-6 py-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
                       >
                         <Receipt size={20} weight="bold" />
@@ -533,6 +620,162 @@ const UserViolations = () => {
                 </div>
               </div>
             </motion.div>
+            ) : (
+              // Impoundment Card - Matching Violation Format
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all overflow-hidden border border-gray-200 dark:border-gray-700"
+              >
+                {/* Header */}
+                <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 py-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-white/20 rounded-lg">
+                        <Car size={24} weight="fill" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg">
+                          {language === 'en' ? 'Vehicle Impounded' : 'গাড়ি আটক'}
+                        </h3>
+                        <p className="text-sm opacity-90">{item.impound_number}</p>
+                      </div>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      item.payment_status === 'paid'
+                        ? 'bg-green-500 text-white'
+                        : 'bg-white/20 text-white'
+                    }`}>
+                      {item.payment_status === 'paid'
+                        ? (language === 'en' ? 'Paid' : 'পরিশোধিত')
+                        : (language === 'en' ? 'Unpaid' : 'অপরিশোধিত')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Body */}
+                <div className="p-6 md:flex gap-6">
+                  {/* Left Side - Details */}
+                  <div className="flex-1 space-y-4 mb-6 md:mb-0">
+                    <div className="bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-500 p-4 rounded-r-lg">
+                      <h4 className="font-bold text-orange-900 dark:text-orange-300 mb-1">
+                        {language === 'en' ? 'Reason' : 'কারণ'}
+                      </h4>
+                      <p className="text-orange-800 dark:text-orange-400 font-semibold">
+                        {language === 'bn' ? item.reason_bn : item.reason_en}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Car size={18} className="text-gray-400" />
+                      <div>
+                        <p className="text-gray-600 dark:text-gray-400">
+                          {language === 'en' ? 'Vehicle' : 'যানবাহন'}
+                        </p>
+                        <p className="font-semibold text-gray-800 dark:text-white">
+                          {item.registered_vehicles?.registration_number}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <MapPin size={18} className="text-gray-400" />
+                      <div>
+                        <p className="text-gray-600 dark:text-gray-400">
+                          {language === 'en' ? 'Location' : 'অবস্থান'}
+                        </p>
+                        <p className="font-semibold text-gray-800 dark:text-white">
+                          {language === 'en' ? item.impound_location : (item.impound_location_bn || item.impound_location)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Calendar size={18} className="text-gray-400" />
+                      <div>
+                        <p className="text-gray-600 dark:text-gray-400">
+                          {language === 'en' ? 'Date' : 'তারিখ'}
+                        </p>
+                        <p className="font-semibold text-gray-800 dark:text-white">
+                          {new Date(item.impound_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD')}
+                        </p>
+                      </div>
+                    </div>
+
+                    {item.description && (
+                      <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{item.description}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Side - Payment Info */}
+                  <div className="md:w-64 flex flex-col">
+                    <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl p-4 mb-4">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        {language === 'en' ? 'Total Amount' : 'মোট পরিমাণ'}
+                      </p>
+                      <div className="text-3xl font-bold text-orange-600 dark:text-orange-400 mb-2">
+                        BDT {item.total_amount}
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        ({language === 'en' ? 'Base' : 'মূল'}: {item.base_impound_fee} + {language === 'en' ? 'Storage' : 'সংরক্ষণ'}: {item.days_impounded} × {item.daily_storage_fee})
+                      </p>
+                    </div>
+
+                    {item.payment_status === 'unpaid' && item.status === 'impounded' && (
+                      <div className="space-y-3">
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => handlePayFine(item)}
+                          disabled={payingViolation === item.id}
+                          className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                          {payingViolation === item.id ? (
+                            <>
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                              {language === 'en' ? 'Processing...' : 'প্রক্রিয়াকরণ...'}
+                            </>
+                          ) : (
+                            <>
+                              <CreditCard size={20} weight="bold" />
+                              {language === 'en' ? 'Pay to Release Vehicle' : 'গাড়ি মুক্ত করতে পরিশোধ করুন'}
+                            </>
+                          )}
+                        </motion.button>
+                      </div>
+                    )}
+
+                    {item.payment_status === 'paid' && (
+                      <div className="space-y-3">
+                        <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                          <CheckCircle size={32} className="text-green-600 dark:text-green-400 mx-auto mb-2" weight="fill" />
+                          <p className="text-sm font-semibold text-green-800 dark:text-green-300">
+                            {language === 'en' ? 'Paid on' : 'পরিশোধের তারিখ'}
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {new Date(item.paid_at).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD')}
+                          </p>
+                        </div>
+
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => setReceiptViolation({ ...item, itemType: 'impoundment' })}
+                          className="w-full px-6 py-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                        >
+                          <Receipt size={20} weight="bold" />
+                          {language === 'en' ? 'Download Receipt' : 'রসিদ ডাউনলোড করুন'}
+                        </motion.button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )
           ))}
         </div>
       )}

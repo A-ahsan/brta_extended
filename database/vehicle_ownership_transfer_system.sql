@@ -195,13 +195,16 @@ RETURNS TABLE (
   smart_card_valid BOOLEAN,
   tax_token_valid BOOLEAN,
   has_unpaid_fines BOOLEAN,
+  has_impoundment BOOLEAN,
   error_message TEXT
 ) AS $$
 DECLARE
   v_smart_card_valid BOOLEAN;
   v_tax_token_valid BOOLEAN;
   v_has_unpaid_fines BOOLEAN;
+  v_has_impoundment BOOLEAN;
   v_unpaid_fine_count INTEGER;
+  v_impoundment_count INTEGER;
   v_error_msg TEXT := '';
 BEGIN
   -- Check 1: Smart Card (Vehicle Registration) Validity
@@ -241,12 +244,26 @@ BEGIN
     v_error_msg := v_error_msg || v_unpaid_fine_count || ' unpaid fines. ';
   END IF;
   
+  -- Check 4: Vehicle Impoundment
+  SELECT COUNT(*) INTO v_impoundment_count
+  FROM vehicle_impoundments
+  WHERE registered_vehicle_id = p_vehicle_id
+  AND status = 'impounded'
+  AND payment_status = 'unpaid';
+  
+  v_has_impoundment := (v_impoundment_count > 0);
+  
+  IF v_has_impoundment THEN
+    v_error_msg := v_error_msg || 'Vehicle is impounded. ';
+  END IF;
+  
   -- Return results
   RETURN QUERY SELECT 
-    (v_smart_card_valid AND v_tax_token_valid AND NOT v_has_unpaid_fines),
+    (v_smart_card_valid AND v_tax_token_valid AND NOT v_has_unpaid_fines AND NOT v_has_impoundment),
     v_smart_card_valid,
     v_tax_token_valid,
     v_has_unpaid_fines,
+    v_has_impoundment,
     CASE 
       WHEN v_error_msg = '' THEN 'Eligible for transfer'
       ELSE TRIM(v_error_msg)

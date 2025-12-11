@@ -57,12 +57,14 @@ export default function OwnershipTransferModal({ isOpen, onClose, user, onSucces
       smartCard: 'Smart Card Status',
       taxToken: 'Tax Token Status',
       unpaidFines: 'Unpaid Fines',
+      impoundmentStatus: 'Impoundment Status',
       licenseMatch: 'License Type Match',
       valid: 'Valid',
       invalid: 'Invalid',
       expired: 'Expired',
       none: 'None',
       hasFines: 'Has Unpaid Fines',
+      isImpounded: 'Vehicle Impounded',
       compatible: 'Compatible',
       incompatible: 'Incompatible',
       photoOption: 'Choose Photo Option',
@@ -120,12 +122,14 @@ export default function OwnershipTransferModal({ isOpen, onClose, user, onSucces
       smartCard: 'স্মার্ট কার্ড স্ট্যাটাস',
       taxToken: 'ট্যাক্স টোকেন স্ট্যাটাস',
       unpaidFines: 'অপরিশোধিত জরিমানা',
+      impoundmentStatus: 'আটকের অবস্থা',
       licenseMatch: 'লাইসেন্স টাইপ মিল',
       valid: 'বৈধ',
       invalid: 'অবৈধ',
       expired: 'মেয়াদোত্তীর্ণ',
       none: 'নেই',
       hasFines: 'অপরিশোধিত জরিমানা আছে',
+      isImpounded: 'গাড়ি আটক আছে',
       compatible: 'উপযুক্ত',
       incompatible: 'অনুপযুক্ত',
       photoOption: 'ছবির অপশন নির্বাচন করুন',
@@ -405,6 +409,7 @@ export default function OwnershipTransferModal({ isOpen, onClose, user, onSucces
           smart_card_valid: eligibilityCheck?.smart_card_valid,
           tax_token_valid: eligibilityCheck?.tax_token_valid,
           has_unpaid_fines: eligibilityCheck?.has_unpaid_fines,
+          has_impoundment: eligibilityCheck?.has_impoundment,
           license_type_valid: true,
           status: 'pending'
         })
@@ -605,10 +610,18 @@ export default function OwnershipTransferModal({ isOpen, onClose, user, onSucces
                       </div>
 
                       {/* Unpaid Fines */}
-                      <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded col-span-2">
+                      <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded">
                         <span className="text-sm text-gray-600 dark:text-gray-400">{text.unpaidFines}</span>
                         <span className={`text-sm font-bold ${!eligibilityCheck.has_unpaid_fines ? 'text-green-600' : 'text-red-600'}`}>
                           {!eligibilityCheck.has_unpaid_fines ? text.none : text.hasFines}
+                        </span>
+                      </div>
+
+                      {/* Impoundment Status */}
+                      <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">{text.impoundmentStatus}</span>
+                        <span className={`text-sm font-bold ${!eligibilityCheck.has_impoundment ? 'text-green-600' : 'text-orange-600'}`}>
+                          {!eligibilityCheck.has_impoundment ? text.none : text.isImpounded}
                         </span>
                       </div>
                     </div>

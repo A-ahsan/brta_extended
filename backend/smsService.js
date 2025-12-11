@@ -81,21 +81,22 @@ export async function sendSMS(phoneNumber, message) {
 }
 
 /**
- * Send violation fine SMS notification
- * @param {Object} params - Violation parameters
- * @param {string} params.phoneNumber - User's phone number
- * @param {string} params.violationNumber - Violation number
- * @param {string} params.violationName - Violation type name
- * @param {number} params.amount - Fine amount
- * @param {string} params.websiteUrl - Website URL for payments
- * @param {string} params.dueDate - Due date for payment
+ * Send violation fine SMS notification or generic SMS
+ * @param {Object|string} params - If object: violation parameters, If string: phone number
+ * @param {string} message - SMS message (used when first param is phone number)
  * @returns {Promise<Object>} - SMS response
  */
-export async function sendViolationSMS({ phoneNumber, violationNumber, violationName, amount, websiteUrl, dueDate }) {
-  const message = `**TEST MESSAGE**\nBRTA Fine Alert!\nFine #${violationNumber}\nReason: ${violationName}\nAmount: ${amount} BDT\nDue Date: ${dueDate}\nVisit BRTA 2.0 to pay\nPlease pay within the due date.`;
-  // const message = `Fine Alert!\nFine #${violationNumber}\nReason: ${violationName}\nAmount: ${amount} BDT\npay`;
+export async function sendViolationSMS(params, message) {
+  // If called with phone number and message (impoundment style)
+  if (typeof params === 'string' && message) {
+    return await sendSMS(params, message);
+  }
   
-  return await sendSMS(phoneNumber, message);
+  // If called with object (violation style)
+  const { phoneNumber, violationNumber, violationName, amount, websiteUrl, dueDate } = params;
+  const smsMessage = `**TEST MESSAGE**\nBRTA Fine Alert!\nFine #${violationNumber}\nReason: ${violationName}\nAmount: ${amount} BDT\nDue Date: ${dueDate}\nVisit BRTA 2.0 to pay\nPlease pay within the due date.`;
+  
+  return await sendSMS(phoneNumber, smsMessage);
 }
 
 /**

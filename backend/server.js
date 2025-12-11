@@ -1558,6 +1558,71 @@ app.post('/api/violations/send-sms', async (req, res) => {
   }
 });
 
+// Send SMS for vehicle impoundment
+app.post('/api/impoundments/send-sms', async (req, res) => {
+  try {
+    const { 
+      userId, 
+      impoundNumber, 
+      reason, 
+      amount, 
+      websiteUrl 
+    } = req.body;
+
+    if (!userId || !impoundNumber || !reason || !amount) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required parameters' 
+      });
+    }
+
+    // Get user's phone number
+    const phoneNumber = await getUserPhoneNumber(supabase, userId);
+    
+    if (!phoneNumber) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'User phone number not found' 
+      });
+    }
+
+    // Create SMS message
+    const smsMessage = `**TEST MESSAGE**\n🚨 BRTA VEHICLE IMPOUNDED\n` +
+                      `Your vehicle has been impounded (Racker).\n` +
+                      `Reason: ${reason}\n` +
+                      `Impound #: ${impoundNumber}\n` +
+                      `Fee: BDT ${amount} + 200/day storage\n` +
+                      `Pay to release: ${websiteUrl}\n` +
+                      `- Bangladesh Road Transport Authority`;
+
+    console.log('📱 Sending impoundment SMS to:', phoneNumber);
+    console.log('Message:', smsMessage);
+
+    // Send SMS
+    const smsResult = await sendViolationSMS(phoneNumber, smsMessage);
+
+    if (smsResult.success) {
+      res.json({ 
+        success: true, 
+        message: 'Impoundment SMS sent successfully',
+        details: smsResult
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        error: 'SMS sending failed',
+        details: smsResult.message
+      });
+    }
+  } catch (error) {
+    console.error('Impoundment SMS error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Internal server error' 
+    });
+  }
+});
+
 server.listen(PORT, () => {
   const protocol = fs.existsSync(certPath) && fs.existsSync(keyPath) ? 'https' : 'http';
   console.log(`🚀 Backend server running on ${protocol}://localhost:${PORT}`);

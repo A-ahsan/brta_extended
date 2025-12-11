@@ -6,6 +6,7 @@ import {
   Warning,
   User,
   Clock,
+  Car,
 } from 'phosphor-react';
 import { useLanguage } from '../../contexts/AppContext';
 import { translations } from '../../utils/translations';
@@ -83,29 +84,155 @@ const PoliceRecentActivity = () => {
           status = 'Expired'; // No license found
         }
 
-        // Format time
+        // Format time and date
         const inspectionTime = new Date(inspection.created_at);
         const timeString = inspectionTime.toLocaleTimeString('en-US', { 
           hour: 'numeric', 
           minute: '2-digit',
           hour12: true 
         });
+        const dateString = inspectionTime.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
 
         return {
           id: inspection.id,
+          type: 'inspection',
           plate: language === 'bn' ? vehicle.registration_plate?.bn : vehicle.registration_plate?.en,
           model: `${vehicle.vehicle_name} ${vehicle.model}`,
           status: status,
           time: timeString,
+          date: dateString,
           officer: officer ? (language === 'bn' ? (officer.full_name_bn || officer.full_name) : officer.full_name) : 'Unknown Officer',
           location: language === 'bn' 
             ? (inspection.location_bn || inspection.location)
-            : inspection.location
+            : inspection.location,
+          remarks: inspection.remarks || null,
+          inspectionType: inspection.inspection_type,
+          createdAt: inspection.created_at
         };
       }));
 
-      // Filter out null entries and set state
-      setRecentChecks(formattedChecks.filter(check => check !== null));
+      // Filter out null entries
+      const filteredInspections = formattedChecks.filter(check => check !== null);
+
+      // Fetch recent violations added by police
+      const { data: violations, error: violationsError } = await supabase
+        .from('traffic_violations')
+        .select(`
+          *,
+          registered_vehicles!inner(
+            id,
+            registration_plate,
+            vehicle_name,
+            model,
+            user_id
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (violationsError) throw violationsError;
+
+      // Format violations for display
+      const formattedViolations = (violations || []).map(violation => {
+        const vehicle = violation.registered_vehicles;
+        if (!vehicle) return null;
+
+        const officer = allProfiles?.find(p => p.id === violation.police_user_id);
+        
+        const violationTime = new Date(violation.created_at);
+        const timeString = violationTime.toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit',
+          hour12: true 
+        });
+        const dateString = violationTime.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+
+        return {
+          id: violation.id,
+          type: 'violation',
+          plate: language === 'bn' ? vehicle.registration_plate?.bn : vehicle.registration_plate?.en,
+          model: `${vehicle.vehicle_name} ${vehicle.model}`,
+          status: 'Fined',
+          time: timeString,
+          date: dateString,
+          officer: officer ? (language === 'bn' ? (officer.full_name_bn || officer.full_name) : officer.full_name) : 'Unknown Officer',
+          location: language === 'bn' 
+            ? (violation.location_bn || violation.location)
+            : violation.location,
+          violationNumber: violation.violation_number,
+          violationType: language === 'bn' ? violation.violation_name_bn : violation.violation_name_en,
+          fineAmount: violation.total_amount,
+          createdAt: violation.created_at
+        };
+      }).filter(v => v !== null);
+
+      // Fetch recent impoundments
+      const { data: impoundments, error: impoundmentsError } = await supabase
+        .from('vehicle_impoundments')
+        .select(`
+          *,
+          registered_vehicles!inner(
+            id,
+            registration_plate,
+            vehicle_name,
+            model,
+            user_id
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (impoundmentsError) throw impoundmentsError;
+
+      // Format impoundments for display
+      const formattedImpoundments = (impoundments || []).map(impoundment => {
+        const vehicle = impoundment.registered_vehicles;
+        if (!vehicle) return null;
+
+        const officer = allProfiles?.find(p => p.id === impoundment.police_user_id);
+        
+        const impoundTime = new Date(impoundment.created_at);
+        const timeString = impoundTime.toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit',
+          hour12: true 
+        });
+        const dateString = impoundTime.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+
+        return {
+          id: impoundment.id,
+          type: 'impoundment',
+          plate: language === 'bn' ? vehicle.registration_plate?.bn : vehicle.registration_plate?.en,
+          model: `${vehicle.vehicle_name} ${vehicle.model}`,
+          status: 'Impounded',
+          time: timeString,
+          date: dateString,
+          officer: officer ? (language === 'bn' ? (officer.full_name_bn || officer.full_name) : officer.full_name) : 'Unknown Officer',
+          location: language === 'bn' 
+            ? (impoundment.impound_location_bn || impoundment.impound_location)
+            : impoundment.impound_location,
+          impoundNumber: impoundment.impound_number,
+          impoundReason: language === 'bn' ? impoundment.reason_bn : impoundment.reason_en,
+          impoundFee: impoundment.total_amount,
+          createdAt: impoundment.created_at
+        };
+      }).filter(i => i !== null);
+
+      // Merge inspections, violations, and impoundments, sort by creation date
+      const allActivities = [...filteredInspections, ...formattedViolations, ...formattedImpoundments]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      setRecentChecks(allActivities);
     } catch (error) {
       console.error('Error fetching recent activity:', error);
       toast.error(language === 'en' ? 'Failed to load recent activity' : 'সাম্প্রতিক কার্যকলাপ লোড করতে ব্যর্থ');
@@ -122,6 +249,8 @@ const PoliceRecentActivity = () => {
         return <XCircle size={24} weight="fill" className="text-danger" />;
       case 'Fined':
         return <Warning size={24} weight="fill" className="text-yellow-500" />;
+      case 'Impounded':
+        return <Car size={24} weight="fill" className="text-orange-600" />;
       default:
         return null;
     }
@@ -131,6 +260,8 @@ const PoliceRecentActivity = () => {
     switch (status) {
       case 'Valid':
         return 'bg-success/20 text-success border-success';
+      case 'Impounded':
+        return 'bg-orange-500/20 text-orange-600 border-orange-500';
       case 'Expired':
         return 'bg-danger/20 text-danger border-danger';
       case 'Fined':
@@ -217,9 +348,12 @@ const PoliceRecentActivity = () => {
                           <p className="text-gray-600 dark:text-gray-400 font-medium">{check.model}</p>
                         </div>
                         <div className="text-right">
-                          <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm">
-                            <Clock size={16} />
-                            <span>{check.time}</span>
+                          <div className="text-gray-500 dark:text-gray-400 text-sm">
+                            <div className="flex items-center justify-end gap-1 mb-1">
+                              <Clock size={16} />
+                              <span className="font-semibold">{check.time}</span>
+                            </div>
+                            <div className="text-xs">{check.date}</div>
                           </div>
                         </div>
                       </div>
@@ -240,6 +374,62 @@ const PoliceRecentActivity = () => {
                           </div>
                         </div>
                       </div>
+
+                      {/* Remarks for Inspections */}
+                      {check.type === 'inspection' && check.remarks && (
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                          <p className="text-gray-500 dark:text-gray-400 text-xs mb-1">{language === 'en' ? 'Remarks' : 'মন্তব্য'}</p>
+                          <p className="text-gray-700 dark:text-gray-300 text-sm">{check.remarks}</p>
+                        </div>
+                      )}
+
+                      {/* Violation Details */}
+                      {check.type === 'violation' && (
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <p className="text-gray-500 dark:text-gray-400 text-xs">{language === 'en' ? 'Violation' : 'লঙ্ঘনের ধরন'}</p>
+                              <p className="text-gray-700 dark:text-gray-300 text-sm font-semibold">{check.violationType}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500 dark:text-gray-400 text-xs">{language === 'en' ? 'Fine Amount' : 'জরিমানা'}</p>
+                              <p className="text-red-600 dark:text-red-400 text-sm font-bold">BDT {check.fineAmount}</p>
+                            </div>
+                          </div>
+                          <div className="mt-2">
+                            <p className="text-gray-500 dark:text-gray-400 text-xs">{language === 'en' ? 'Violation Number' : 'লঙ্ঘন নম্বর'}</p>
+                            <p className="text-gray-700 dark:text-gray-300 text-sm font-mono">{check.violationNumber}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Impoundment Details */}
+                      {check.type === 'impoundment' && (
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                          <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-800 rounded-lg p-3 mb-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Car size={18} weight="bold" className="text-orange-600 dark:text-orange-400" />
+                              <span className="font-bold text-orange-800 dark:text-orange-300 text-sm">
+                                {language === 'en' ? 'VEHICLE IMPOUNDED' : 'গাড়ি আটক করা হয়েছে'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <p className="text-gray-500 dark:text-gray-400 text-xs">{language === 'en' ? 'Reason' : 'কারণ'}</p>
+                              <p className="text-gray-700 dark:text-gray-300 text-sm font-semibold">{check.impoundReason}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500 dark:text-gray-400 text-xs">{language === 'en' ? 'Fee' : 'ফি'}</p>
+                              <p className="text-orange-600 dark:text-orange-400 text-sm font-bold">BDT {check.impoundFee} + 200/day</p>
+                            </div>
+                          </div>
+                          <div className="mt-2">
+                            <p className="text-gray-500 dark:text-gray-400 text-xs">{language === 'en' ? 'Impound Number' : 'আটক নম্বর'}</p>
+                            <p className="text-gray-700 dark:text-gray-300 text-sm font-mono">{check.impoundNumber}</p>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Action Indicator */}
                       {check.status !== 'Valid' && (

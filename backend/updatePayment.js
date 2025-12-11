@@ -26,9 +26,10 @@ async function updatePaymentAndNotify({ status, sslczData }) {
   const isViolationPayment = payment.payment_type === 'violation_fine';
   const isRoutePermit = payment.payment_type === 'route_permit';
   const isOwnershipTransfer = payment.payment_type === 'ownership_transfer';
+  const isImpoundment = payment.payment_type === 'impoundment';
 
   // Get application details or license details based on payment type
-  let application, license, vehicleRegistration, vehicle, violation, routePermit, ownershipTransfer, appNumber, userName, userNameBn;
+  let application, license, vehicleRegistration, vehicle, violation, routePermit, ownershipTransfer, impoundment, appNumber, userName, userNameBn;
   
   if (isRenewal) {
     const { data: licData } = await supabase
@@ -109,6 +110,23 @@ async function updatePaymentAndNotify({ status, sslczData }) {
       .single();
     ownershipTransfer = transferData;
     appNumber = transferData?.application_number || tran_id;
+    
+    // Get user name from profiles
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', payment.user_id)
+      .single();
+    userName = profile?.full_name || 'User';
+    userNameBn = profile?.full_name || 'ব্যবহারকারী';
+  } else if (isImpoundment) {
+    const { data: impoundData } = await supabase
+      .from('vehicle_impoundments')
+      .select('impound_number, reason_en, reason_bn, total_amount, police_user_id, registered_vehicle_id')
+      .eq('payment_id', payment.id)
+      .single();
+    impoundment = impoundData;
+    appNumber = impoundData?.impound_number || tran_id;
     
     // Get user name from profiles
     const { data: profile } = await supabase
@@ -249,6 +267,117 @@ async function updatePaymentAndNotify({ status, sslczData }) {
       } catch (err) {
         console.error('❌ Error processing ownership transfer:', err.response?.data || err.message);
       }
+    } else if (isImpoundment) {
+      // Update vehicle impoundment to released status
+      try {
+        console.log('🔄 Updating impoundment with payment_id:', payment.id);
+        console.log('🔄 Transaction ID:', payment.tran_id);
+        
+        // First try to find by payment_id
+        let { data: updatedImpoundment, error: updateError } = await supabase
+          .from('vehicle_impoundments')
+          .update({
+            payment_status: 'paid',
+            paid_at: new Date().toISOString(),
+            status: 'released',
+            release_date: new Date().toISOString(),
+            payment_id: payment.id // Also set it in case it wasn't set
+          })
+          .eq('payment_id', payment.id)
+          .select('police_user_id, impound_number, reason_en, reason_bn, registered_vehicle_id, user_id')
+          .single();
+
+        // If not found by payment_id, try to find by impound_number from transaction ID
+        if (updateError && updateError.code === 'PGRST116') {
+          console.log('⚠️ Payment_id not found, trying to match by impound_number from tran_id');
+          
+          // Extract impound number from transaction ID (format: IMPOUND-IMP-2025-675058-timestamp)
+          const impoundMatch = payment.tran_id.match(/IMPOUND-(IMP-\d+-\d+)/);
+          if (impoundMatch && impoundMatch[1]) {
+            const impoundNumber = impoundMatch[1];
+            console.log('🔍 Extracted impound_number:', impoundNumber);
+            
+            const { data: foundImpoundment, error: findError } = await supabase
+              .from('vehicle_impoundments')
+              .update({
+                payment_status: 'paid',
+                paid_at: new Date().toISOString(),
+                status: 'released',
+                release_date: new Date().toISOString(),
+                payment_id: payment.id // Link the payment
+              })
+              .eq('impound_number', impoundNumber)
+              .eq('status', 'impounded') // Only update if still impounded
+              .select('police_user_id, impound_number, reason_en, reason_bn, registered_vehicle_id, user_id')
+              .single();
+            
+            if (findError) {
+              console.error('❌ Error finding impoundment by number:', findError);
+              throw findError;
+            }
+            
+            updatedImpoundment = foundImpoundment;
+            updateError = null;
+          } else {
+            throw new Error('Could not extract impound number from transaction ID');
+          }
+        }
+
+        if (updateError) {
+          console.error('❌ Error updating impoundment:', updateError);
+          throw updateError;
+        }
+
+        if (!updatedImpoundment) {
+          console.error('❌ No impoundment found');
+          throw new Error('Impoundment not found');
+        }
+
+        console.log('✅ Impoundment updated:', updatedImpoundment);
+        
+        // Get vehicle details
+        let vehicleData = null;
+        if (updatedImpoundment.registered_vehicle_id) {
+          const { data: vehicle } = await supabase
+            .from('registered_vehicles')
+            .select('registration_number')
+            .eq('id', updatedImpoundment.registered_vehicle_id)
+            .single();
+          vehicleData = vehicle;
+        }
+        
+        // Notify the police officer who impounded the vehicle
+        if (updatedImpoundment.police_user_id) {
+          await supabase.from('notifications').insert({
+            user_id: updatedImpoundment.police_user_id,
+            title_en: 'Vehicle Released from Impound',
+            title_bn: 'গাড়ি আটক থেকে মুক্ত',
+            message_en: `Vehicle ${vehicleData?.registration_number || 'N/A'} impounded under ${updatedImpoundment.impound_number} has been released. Payment received: BDT ${payment.amount}`,
+            message_bn: `${updatedImpoundment.impound_number} এর অধীনে আটক গাড়ি ${vehicleData?.registration_number || 'N/A'} মুক্ত করা হয়েছে। পেমেন্ট প্রাপ্ত: BDT ${payment.amount}`,
+            notification_type: 'payment',
+            priority: 'normal',
+            recipient_type: 'police'
+          });
+        }
+
+        // Notify the user
+        if (updatedImpoundment.user_id) {
+          await supabase.from('notifications').insert({
+            user_id: updatedImpoundment.user_id,
+            title_en: 'Vehicle Released - Payment Successful',
+            title_bn: 'গাড়ি মুক্ত - পেমেন্ট সফল',
+            message_en: `Your impoundment payment of BDT ${payment.amount} for impound ${updatedImpoundment.impound_number} has been received. Vehicle released.`,
+            message_bn: `আপনার BDT ${payment.amount} এর ইম্পাউন্ড পেমেন্ট ${updatedImpoundment.impound_number} এর জন্য প্রাপ্ত হয়েছে। গাড়ি মুক্ত করা হয়েছে।`,
+            notification_type: 'payment',
+            priority: 'high',
+            recipient_type: 'user'
+          });
+        }
+        
+        console.log('✅ Impoundment payment processed successfully');
+      } catch (err) {
+        console.error('❌ Error processing impoundment payment:', err);
+      }
     } else {
       // Update license application
       console.log(`🔄 Updating license application ${payment.application_id} payment status...`);
@@ -331,6 +460,15 @@ async function updatePaymentAndNotify({ status, sslczData }) {
       adminTitleBn = 'মালিকানা হস্তান্তর পেমেন্ট প্রাপ্ত';
       adminMsgEn = `Ownership transfer ${appNumber} - Payment SUCCESS. Vehicle: ${ownershipTransfer?.vehicle_registration_number}. New owner: ${ownershipTransfer?.new_owner_name_en}. Amount: BDT ${payment.amount}`;
       adminMsgBn = `মালিকানা হস্তান্তর ${appNumber} - পেমেন্ট সফল। গাড়ি: ${ownershipTransfer?.vehicle_registration_number}। নতুন মালিক: ${ownershipTransfer?.new_owner_name_bn}। পরিমাণ: BDT ${payment.amount}`;
+    } else if (isImpoundment) {
+      userTitleEn = 'Vehicle Released - Payment Successful';
+      userTitleBn = 'গাড়ি মুক্ত - পেমেন্ট সফল';
+      userMsgEn = `Your impoundment payment of BDT ${payment.amount} for impound ${appNumber} was successful. Your vehicle has been released and is ready for pickup.`;
+      userMsgBn = `আটক ${appNumber} এর জন্য আপনার পেমেন্ট BDT ${payment.amount} সফল হয়েছে। আপনার গাড়ি মুক্ত করা হয়েছে এবং নেওয়ার জন্য প্রস্তুত।`;
+      adminTitleEn = 'Impoundment Payment Received';
+      adminTitleBn = 'আটক পেমেন্ট প্রাপ্ত';
+      adminMsgEn = `Impoundment ${appNumber} - Payment SUCCESS. Reason: ${impoundment?.reason_en}. Amount: BDT ${payment.amount}. Vehicle RELEASED. User: ${userName}`;
+      adminMsgBn = `আটক ${appNumber} - পেমেন্ট সফল। কারণ: ${impoundment?.reason_bn}। পরিমাণ: BDT ${payment.amount}। গাড়ি মুক্ত করা হয়েছে। ব্যবহারকারী: ${userNameBn}`;
     } else {
       userTitleEn = 'Payment Successful';
       userTitleBn = 'পেমেন্ট সফল হয়েছে';
@@ -342,16 +480,16 @@ async function updatePaymentAndNotify({ status, sslczData }) {
       adminMsgBn = `আবেদন ${appNumber} - পেমেন্ট সফল। পরিমাণ: BDT ${payment.amount}`;
     }
   } else if (status === 'failed') {
-    const itemType = isRenewal ? 'license renewal' : isVehicleRegistration ? 'vehicle registration' : isTaxTokenRenewal ? 'tax token renewal' : isViolationPayment ? 'traffic fine' : isRoutePermit ? 'route permit' : isOwnershipTransfer ? 'ownership transfer' : 'application';
-    const itemTypeBn = isRenewal ? 'লাইসেন্স নবায়ন' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : isViolationPayment ? 'ট্রাফিক জরিমানা' : isRoutePermit ? 'রুট পারমিট' : isOwnershipTransfer ? 'মালিকানা হস্তান্তর' : 'আবেদন';
+    const itemType = isRenewal ? 'license renewal' : isVehicleRegistration ? 'vehicle registration' : isTaxTokenRenewal ? 'tax token renewal' : isViolationPayment ? 'traffic fine' : isRoutePermit ? 'route permit' : isOwnershipTransfer ? 'ownership transfer' : isImpoundment ? 'vehicle impoundment' : 'application';
+    const itemTypeBn = isRenewal ? 'লাইসেন্স নবায়ন' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : isViolationPayment ? 'ট্রাফিক জরিমানা' : isRoutePermit ? 'রুট পারমিট' : isOwnershipTransfer ? 'মালিকানা হস্তান্তর' : isImpoundment ? 'গাড়ি আটক' : 'আবেদন';
     userTitleEn = 'Payment Failed';
     userTitleBn = 'পেমেন্ট ব্যর্থ হয়েছে';
     userMsgEn = `Your payment for ${itemType} ${appNumber} failed. Please try again.`;
     userMsgBn = `আপনার ${itemTypeBn} ${appNumber} এর জন্য পেমেন্ট ব্যর্থ হয়েছে। আবার চেষ্টা করুন।`;
     adminTitleEn = 'Payment Failed';
     adminTitleBn = 'পেমেন্ট ব্যর্থ';
-    adminMsgEn = `${isRenewal ? 'License' : isVehicleRegistration ? 'Vehicle Registration' : isTaxTokenRenewal ? 'Tax Token Renewal' : isViolationPayment ? 'Traffic Fine' : isRoutePermit ? 'Route Permit' : isOwnershipTransfer ? 'Ownership Transfer' : 'Application'} ${appNumber} - Payment FAILED. Amount: BDT ${payment.amount}`;
-    adminMsgBn = `${isRenewal ? 'লাইসেন্স' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : isViolationPayment ? 'ট্রাফিক জরিমানা' : isRoutePermit ? 'রুট পারমিট' : isOwnershipTransfer ? 'মালিকানা হস্তান্তর' : 'আবেদন'} ${appNumber} - পেমেন্ট ব্যর্থ। পরিমাণ: BDT ${payment.amount}`;
+    adminMsgEn = `${isRenewal ? 'License' : isVehicleRegistration ? 'Vehicle Registration' : isTaxTokenRenewal ? 'Tax Token Renewal' : isViolationPayment ? 'Traffic Fine' : isRoutePermit ? 'Route Permit' : isOwnershipTransfer ? 'Ownership Transfer' : isImpoundment ? 'Vehicle Impoundment' : 'Application'} ${appNumber} - Payment FAILED. Amount: BDT ${payment.amount}`;
+    adminMsgBn = `${isRenewal ? 'লাইসেন্স' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : isViolationPayment ? 'ট্রাফিক জরিমানা' : isRoutePermit ? 'রুট পারমিট' : isOwnershipTransfer ? 'মালিকানা হস্তান্তর' : isImpoundment ? 'গাড়ি আটক' : 'আবেদন'} ${appNumber} - পেমেন্ট ব্যর্থ। পরিমাণ: BDT ${payment.amount}`;
   } else if (status === 'cancelled') {
     const itemType = isRenewal ? 'license renewal' : isVehicleRegistration ? 'vehicle registration' : isTaxTokenRenewal ? 'tax token renewal' : isViolationPayment ? 'traffic fine' : isRoutePermit ? 'route permit' : isOwnershipTransfer ? 'ownership transfer' : 'application';
     const itemTypeBn = isRenewal ? 'লাইসেন্স নবায়ন' : isVehicleRegistration ? 'যানবাহন নিবন্ধন' : isTaxTokenRenewal ? 'ট্যাক্স টোকেন নবায়ন' : isViolationPayment ? 'ট্রাফিক জরিমানা' : isRoutePermit ? 'রুট পারমিট' : isOwnershipTransfer ? 'মালিকানা হস্তান্তর' : 'আবেদন';

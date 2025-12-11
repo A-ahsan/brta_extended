@@ -52,8 +52,8 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
 
       // Send greeting message
       const greeting = lang === 'en'
-        ? `Hello ${userContext.name}! 👋\n\nI'm your BRTA AI Assistant. I can help you with:\n• License applications & tracking\n• Vehicle registration & services\n• Payment inquiries\n• Traffic violations\n• Route permits\n• Exam preparation\n• And much more!\n\nHow can I assist you today?`
-        : `নমস্কার ${userContext.name_bn}! 👋\n\nআমি আপনার BRTA AI সহায়ক। আমি আপনাকে সাহায্য করতে পারি:\n• লাইসেন্স আবেদন এবং ট্র্যাকিং\n• যানবাহন নিবন্ধন এবং সেবা\n• পেমেন্ট সংক্রান্ত প্রশ্ন\n• ট্রাফিক লঙ্ঘন\n• রুট পারমিট\n• পরীক্ষার প্রস্তুতি\n• এবং আরও অনেক কিছু!\n\nআজ আমি কীভাবে আপনাকে সাহায্য করতে পারি?`;
+        ? `Hello ${userContext.name}! 👋\n\nI'm your BRTA AI Assistant. I can help you with:\n• License applications & tracking\n• Vehicle registration & services\n• Traffic violations & fines\n• Route permits\n• Ownership transfer\n• Renewals (License & Tax Token)\n• Online exam & physical test booking\n• QR code verification\n\nHow can I assist you today?`
+        : `নমস্কার ${userContext.name_bn}! 👋\n\nআমি আপনার BRTA AI সহায়ক। আমি আপনাকে সাহায্য করতে পারি:\n• লাইসেন্স আবেদন এবং ট্র্যাকিং\n• যানবাহন নিবন্ধন এবং সেবা\n• ট্রাফিক লঙ্ঘন এবং জরিমানা\n• রুট পারমিট\n• মালিকানা স্থানান্তর\n• নবায়ন (লাইসেন্স এবং ট্যাক্স টোকেন)\n• অনলাইন পরীক্ষা এবং শারীরিক পরীক্ষা বুকিং\n• QR কোড যাচাইকরণ\n\nআজ আমি কীভাবে আপনাকে সাহায্য করতে পারি?`;
 
       setMessages([
         {
@@ -126,10 +126,21 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
       setIsLoading(true);
 
       const response = await chatbotService.handleQuickAction(actionId, user?.id, selectedLanguage);
+      
+      // Debug log
+      console.log('Quick action response:', response, 'Type:', typeof response);
+
+      // Ensure response is a string
+      const content = typeof response === 'string' 
+        ? response 
+        : JSON.stringify(response, null, 2);
+
+      // Add to chat history so AI remembers this context
+      chatbotService.addAssistantMessage(content);
 
       const newMessage = {
         role: 'assistant',
-        content: response,
+        content: content,
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, newMessage]);
@@ -172,8 +183,8 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
             {/* Header */}
             <div className="bg-gradient-to-r from-primary to-green-600 p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                  <Robot size={24} weight="duotone" className="text-white" />
+                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center overflow-hidden">
+                  <img src="/bot.png" alt="Bot" className="w-8 h-8 object-cover rounded-full" />
                 </div>
                 <div>
                   <h3 className="text-white font-bold text-lg">
@@ -200,8 +211,8 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
             {showLanguageSelect && (
               <div className="flex-1 flex items-center justify-center p-6">
                 <div className="text-center">
-                  <div className="w-20 h-20 bg-gradient-to-br from-primary to-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Robot size={40} weight="duotone" className="text-white" />
+                  <div className="w-20 h-20 bg-gradient-to-br from-primary to-green-600 rounded-full flex items-center justify-center mx-auto mb-6 overflow-hidden">
+                    <img src="/bot.png" alt="Bot" className="w-16 h-16 object-cover rounded-full" />
                   </div>
                   <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
                     {isEnglish ? 'Welcome!' : 'স্বাগতম!'}
@@ -218,7 +229,7 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
                       onClick={() => initializeChatbot('en')}
                       className="px-8 py-4 bg-gradient-to-r from-primary to-green-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
                     >
-                      English 🇬🇧
+                      English
                     </motion.button>
                     <motion.button
                       whileHover={{ scale: 1.05 }}
@@ -226,7 +237,7 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
                       onClick={() => initializeChatbot('bn')}
                       className="px-8 py-4 bg-gradient-to-r from-primary to-green-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
                     >
-                      বাংলা 🇧🇩
+                      বাংলা
                     </motion.button>
                   </div>
                 </div>
@@ -251,7 +262,7 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
                       >
                         {/* Avatar */}
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${
                             message.role === 'user'
                               ? 'bg-primary text-white'
                               : 'bg-gradient-to-br from-primary to-green-600 text-white'
@@ -260,7 +271,7 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
                           {message.role === 'user' ? (
                             <UserIcon size={18} weight="bold" />
                           ) : (
-                            <Robot size={18} weight="duotone" />
+                            <img src="/bot.png" alt="Bot" className="w-6 h-6 object-cover rounded-full" />
                           )}
                         </div>
 
@@ -285,8 +296,8 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
                       className="flex justify-start"
                     >
                       <div className="flex items-start gap-2">
-                        <div className="w-8 h-8 bg-gradient-to-br from-primary to-green-600 rounded-full flex items-center justify-center">
-                          <Robot size={18} weight="duotone" className="text-white" />
+                        <div className="w-8 h-8 bg-gradient-to-br from-primary to-green-600 rounded-full flex items-center justify-center overflow-hidden">
+                          <img src="/bot.png" alt="Bot" className="w-6 h-6 object-cover rounded-full" />
                         </div>
                         <div className="px-4 py-3 bg-white dark:bg-gray-800 rounded-2xl rounded-tl-none shadow-md">
                           <div className="flex gap-1">
@@ -315,7 +326,7 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
                 </div>
 
                 {/* Quick Actions */}
-                {quickActions.length > 0 && messages.length <= 1 && (
+                {quickActions.length > 0 && (
                   <div className="px-4 py-2 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                       {selectedLanguage === 'en' ? 'Quick Actions:' : 'দ্রুত অ্যাকশন:'}

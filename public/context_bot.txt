@@ -1,0 +1,41 @@
+license application
+1.you have to create a new application
+2.you have to upload you nid cards front side image clear ,so that the ocr can read and fetch your data(dont use any others nid it will violet our term)
+3.do the face verification step as it is told in your screen.
+4.do the online exam test ,dont change tab or window it will cancel your exam,there will be 12 mcq and 3 road sign related image question.
+for your preparation you can go to to the question option from your sidebar in dashboard 
+5.after that you have to give the physical test for driving license ,book a slot in your appropriate test centre in your suitable time ,you can use your location to see which test centre is near to you ,also you can see the available slots.
+6.after you pass complete the payment using SSL COMMERZ gateway and generate the license
+7.in your profile you can see your license card and can download it 
+
+vehicle registration
+1.create a new application based on your vehicle which is added from your authorised vehicle dealer
+2.provide your new image or use the DL's image ,select your tax token period,complete the payment ,you will get your smart card,tax token also the number plate of your vehicles
+
+fees
+1.for any kind of fees that you want to know go to fee calculator from the sidebar of your dashboard 
+
+renewal 
+1.dont forget to renew your tax token,licenses ,you can do it easily from profile with ssl commerz gateway
+
+route permit
+1.to get route permit go to the option from side bar
+2.select your vehicle,draw your appropriate route and select the time 
+3.provide documentation and reason why you want to use the route
+4.wait for admins approval and pay you will get your route permit pass
+
+violation fine 
+1.in violation option you can see your violations based on your vehicle ,click the paynow button to clear your fines
+2.dont forget to pay your fine within the time!!
+
+Ownership Transfer
+1.go to that particular section from sidebar of your dashboard
+2.select your vehicle that you want to change the ownership
+3.provide the new owners dl number 
+4.provide deed documentation
+5.after admin approval new owner pay the fine and the ownership transfer will be completed!!
+
+
+QR Code
+1.your driving license,smart card,tax token,route permit pass everything has qr code,scan to verify it 
+2.for smart card and tax token you have to go to the verify vehicle section to scan the qr code !!

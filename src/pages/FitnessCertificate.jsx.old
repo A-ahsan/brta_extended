@@ -1,0 +1,558 @@
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Certificate, 
+  Car, 
+  CheckCircle, 
+  XCircle, 
+  Download, 
+  QrCode,
+  CalendarBlank,
+  Clock,
+  MapPin,
+  Shield
+} from 'phosphor-react';
+import { useLanguage } from '../contexts/AppContext';
+import { useAuth } from '../contexts/AuthContext';
+import { translations } from '../utils/translations';
+import { supabase } from '../lib/supabaseClient';
+import toast from 'react-hot-toast';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+
+export default function FitnessCertificate() {
+  const { language } = useLanguage();
+  const { user } = useAuth();
+  const t = translations[language];
+
+  const [vehicles, setVehicles] = useState([]);
+  const [certificates, setCertificates] = useState([]);
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [applying, setApplying] = useState(false);
+  const [flippedCard, setFlippedCard] = useState(null);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchData();
+      subscribeToChanges();
+    }
+  }, [user?.id]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch user's vehicles
+      const { data: vehiclesData, error: vehiclesError } = await supabase
+        .from('registered_vehicles')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+
+      if (vehiclesError) throw vehiclesError;
+      setVehicles(vehiclesData || []);
+
+      // Fetch fitness certificates
+      const { data: certificatesData, error: certificatesError } = await supabase
+        .from('fitness_certificates')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (certificatesError) throw certificatesError;
+      setCertificates(certificatesData || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error(language === 'en' ? 'Failed to load data' : 'ডেটা লোড করতে ব্যর্থ');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const subscribeToChanges = () => {
+    const channel = supabase
+      .channel('fitness-certificates-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'fitness_certificates',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  };
+
+  const handleApply = async (vehicle) => {
+    try {
+      setApplying(true);
+
+      // Check if already has pending/approved certificate
+      const existing = certificates.find(
+        cert => cert.registered_vehicle_id === vehicle.id && 
+        ['pending', 'approved'].includes(cert.status)
+      );
+
+      if (existing) {
+        toast.error(language === 'en' 
+          ? 'This vehicle already has an active fitness certificate application' 
+          : 'এই যানবাহনের ইতিমধ্যে একটি সক্রিয় ফিটনেস সার্টিফিকেট আবেদন আছে'
+        );
+        return;
+      }
+
+      // Generate certificate number
+      const { data: certNumberData, error: certNumberError } = await supabase
+        .rpc('generate_fitness_certificate_number');
+
+      if (certNumberError) throw certNumberError;
+
+      // Create fitness certificate application
+      const { error: insertError } = await supabase
+        .from('fitness_certificates')
+        .insert({
+          certificate_number: certNumberData,
+          registered_vehicle_id: vehicle.id,
+          user_id: user.id,
+          vehicle_name: vehicle.vehicle_name,
+          vehicle_type: vehicle.vehicle_type,
+          registration_plate: vehicle.registration_plate,
+          expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year
+          status: 'pending',
+          qr_code_data: `${window.location.origin}/fitness-verify/${certNumberData}`
+        });
+
+      if (insertError) throw insertError;
+
+      toast.success(language === 'en' 
+        ? 'Fitness certificate application submitted successfully!' 
+        : 'ফিটনেস সার্টিফিকেট আবেদন সফলভাবে জমা হয়েছে!'
+      );
+
+      fetchData();
+    } catch (error) {
+      console.error('Error applying:', error);
+      toast.error(language === 'en' ? 'Failed to apply' : 'আবেদন করতে ব্যর্থ');
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const downloadCertificate = async (certificate) => {
+    const cardElement = document.getElementById(`fitness-cert-${certificate.id}`);
+    if (!cardElement) return;
+
+    try {
+      const canvas = await html2canvas(cardElement, { scale: 2 });
+      const pdf = new jsPDF('landscape', 'mm', 'a4');
+      const imgData = canvas.toDataURL('image/png');
+      pdf.addImage(imgData, 'PNG', 10, 10, 277, 180);
+      pdf.save(`Fitness-Certificate-${certificate.certificate_number}.pdf`);
+      toast.success(language === 'en' ? 'Certificate downloaded!' : 'সার্টিফিকেট ডাউনলোড হয়েছে!');
+    } catch (error) {
+      console.error('Error downloading:', error);
+      toast.error(language === 'en' ? 'Download failed' : 'ডাউনলোড ব্যর্থ');
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      pending: { 
+        bg: 'bg-yellow-100 dark:bg-yellow-900/30', 
+        text: 'text-yellow-800 dark:text-yellow-400',
+        label: language === 'en' ? 'Pending Inspection' : 'পরিদর্শন মুলতুবি',
+        icon: <Clock size={16} weight="bold" />
+      },
+      approved: { 
+        bg: 'bg-green-100 dark:bg-green-900/30', 
+        text: 'text-green-800 dark:text-green-400',
+        label: language === 'en' ? 'Approved' : 'অনুমোদিত',
+        icon: <CheckCircle size={16} weight="bold" />
+      },
+      rejected: { 
+        bg: 'bg-red-100 dark:bg-red-900/30', 
+        text: 'text-red-800 dark:text-red-400',
+        label: language === 'en' ? 'Rejected' : 'প্রত্যাখ্যাত',
+        icon: <XCircle size={16} weight="bold" />
+      },
+      expired: { 
+        bg: 'bg-gray-100 dark:bg-gray-700', 
+        text: 'text-gray-800 dark:text-gray-400',
+        label: language === 'en' ? 'Expired' : 'মেয়াদোত্তীর্ণ',
+        icon: <XCircle size={16} weight="bold" />
+      }
+    };
+    return badges[status] || badges.pending;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  const approvedCertificates = certificates.filter(c => c.status === 'approved');
+  const pendingCertificates = certificates.filter(c => c.status === 'pending');
+  const vehiclesWithoutCert = vehicles.filter(v => 
+    !certificates.some(c => c.registered_vehicle_id === v.id && ['pending', 'approved'].includes(c.status))
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl p-6 text-white"
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+            <Certificate size={32} weight="duotone" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-bold">
+              {language === 'en' ? 'Vehicle Fitness Certificate' : 'যানবাহন ফিটনেস সার্টিফিকেট'}
+            </h2>
+            <p className="text-white/90 mt-1">
+              {language === 'en' ? 'Ensure your vehicle is roadworthy' : 'আপনার যানবাহন সড়কযোগ্য নিশ্চিত করুন'}
+            </p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1 }}
+          className="bg-green-50 dark:bg-green-900/20 border-2 border-green-200 dark:border-green-800 rounded-xl p-4"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+                {language === 'en' ? 'Approved' : 'অনুমোদিত'}
+              </p>
+              <p className="text-3xl font-bold text-green-700 dark:text-green-300">{approvedCertificates.length}</p>
+            </div>
+            <CheckCircle size={40} className="text-green-500" weight="duotone" />
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+          className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-200 dark:border-yellow-800 rounded-xl p-4"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-yellow-600 dark:text-yellow-400 font-medium">
+                {language === 'en' ? 'Pending' : 'মুলতুবি'}
+              </p>
+              <p className="text-3xl font-bold text-yellow-700 dark:text-yellow-300">{pendingCertificates.length}</p>
+            </div>
+            <Clock size={40} className="text-yellow-500" weight="duotone" />
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3 }}
+          className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-xl p-4"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                {language === 'en' ? 'Total Vehicles' : 'মোট যানবাহন'}
+              </p>
+              <p className="text-3xl font-bold text-blue-700 dark:text-blue-300">{vehicles.length}</p>
+            </div>
+            <Car size={40} className="text-blue-500" weight="duotone" />
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Apply for New Certificate */}
+      {vehiclesWithoutCert.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg"
+        >
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <Car size={24} weight="duotone" />
+            {language === 'en' ? 'Apply for Fitness Certificate' : 'ফিটনেস সার্টিফিকেটের জন্য আবেদন করুন'}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {vehiclesWithoutCert.map(vehicle => (
+              <motion.div
+                key={vehicle.id}
+                whileHover={{ scale: 1.02 }}
+                className="border-2 border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-primary transition-all cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-bold text-gray-900 dark:text-white">
+                    {vehicle.registration_plate?.en || vehicle.registration_plate}
+                  </h4>
+                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 text-xs rounded-full">
+                    {vehicle.vehicle_type}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  {vehicle.vehicle_name} {vehicle.model}
+                </p>
+                <button
+                  onClick={() => handleApply(vehicle)}
+                  disabled={applying}
+                  className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-bold hover:shadow-lg transition-all disabled:opacity-50"
+                >
+                  {applying ? (
+                    language === 'en' ? 'Applying...' : 'আবেদন করা হচ্ছে...'
+                  ) : (
+                    language === 'en' ? 'Apply Now' : 'এখনই আবেদন করুন'
+                  )}
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Approved Certificates */}
+      {approvedCertificates.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-4"
+        >
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <Shield size={24} weight="duotone" className="text-green-500" />
+            {language === 'en' ? 'Active Certificates' : 'সক্রিয় সার্টিফিকেট'}
+          </h3>
+          {approvedCertificates.map(cert => (
+            <FitnessCertificateCard
+              key={cert.id}
+              certificate={cert}
+              language={language}
+              flipped={flippedCard === cert.id}
+              onFlip={() => setFlippedCard(flippedCard === cert.id ? null : cert.id)}
+              onDownload={() => downloadCertificate(cert)}
+              getStatusBadge={getStatusBadge}
+            />
+          ))}
+        </motion.div>
+      )}
+
+      {/* Pending Certificates */}
+      {pendingCertificates.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-4"
+        >
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <Clock size={24} weight="duotone" className="text-yellow-500" />
+            {language === 'en' ? 'Pending Inspection' : 'পরিদর্শন মুলতুবি'}
+          </h3>
+          {pendingCertificates.map(cert => {
+            const badge = getStatusBadge(cert.status);
+            return (
+              <motion.div
+                key={cert.id}
+                whileHover={{ scale: 1.01 }}
+                className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border-2 border-yellow-200 dark:border-yellow-800"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                      {cert.vehicle_name}
+                    </h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {cert.registration_plate?.en || cert.registration_plate}
+                    </p>
+                  </div>
+                  <span className={`${badge.bg} ${badge.text} px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1`}>
+                    {badge.icon}
+                    {badge.label}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <strong>{language === 'en' ? 'Certificate No:' : 'সার্টিফিকেট নং:'}</strong> {cert.certificate_number}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <strong>{language === 'en' ? 'Applied:' : 'আবেদন:'}</strong> {new Date(cert.created_at).toLocaleDateString()}
+                  </p>
+                  <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                    <p className="text-sm text-yellow-800 dark:text-yellow-400">
+                      ⏳ {language === 'en' 
+                        ? 'Your vehicle is awaiting inspection by BRTA officials. You will be notified once the inspection is complete.' 
+                        : 'আপনার যানবাহন BRTA কর্মকর্তাদের দ্বারা পরিদর্শনের অপেক্ষায় আছে। পরিদর্শন সম্পূর্ণ হলে আপনাকে অবহিত করা হবে।'}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      )}
+
+      {/* Empty State */}
+      {certificates.length === 0 && vehicles.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center py-16"
+        >
+          <Certificate size={80} className="mx-auto text-gray-400 mb-4" weight="duotone" />
+          <h3 className="text-xl font-bold text-gray-700 dark:text-gray-300 mb-2">
+            {language === 'en' ? 'No Vehicles Registered' : 'কোনো যানবাহন নিবন্ধিত নেই'}
+          </h3>
+          <p className="text-gray-500 dark:text-gray-400">
+            {language === 'en' 
+              ? 'Register a vehicle first to apply for fitness certificate' 
+              : 'ফিটনেস সার্টিফিকেটের জন্য প্রথমে একটি যানবাহন নিবন্ধন করুন'}
+          </p>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+// Fitness Certificate Card Component (Different design from License Card)
+function FitnessCertificateCard({ certificate, language, flipped, onFlip, onDownload, getStatusBadge }) {
+  const badge = getStatusBadge(certificate.status);
+  const isExpired = new Date(certificate.expiry_date) < new Date();
+  const daysUntilExpiry = Math.ceil((new Date(certificate.expiry_date) - new Date()) / (1000 * 60 * 60 * 24));
+
+  return (
+    <div className="perspective-1000">
+      <motion.div
+        id={`fitness-cert-${certificate.id}`}
+        className={`relative w-full h-96 transition-transform duration-700 preserve-3d cursor-pointer ${flipped ? 'rotate-y-180' : ''}`}
+        onClick={onFlip}
+        style={{ transformStyle: 'preserve-3d' }}
+      >
+        {/* Front Side */}
+        <div className="absolute w-full h-full backface-hidden">
+          <div className="h-full bg-gradient-to-br from-blue-600 via-cyan-600 to-blue-700 rounded-2xl p-8 shadow-2xl text-white border-4 border-white/20">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <Shield size={40} weight="duotone" />
+                <div>
+                  <h3 className="text-xl font-bold">FITNESS CERTIFICATE</h3>
+                  <p className="text-xs opacity-80">Bangladesh Road Transport Authority</p>
+                </div>
+              </div>
+              <span className={`${badge.bg} ${badge.text} px-3 py-1 rounded-full text-xs font-bold`}>
+                {badge.label}
+              </span>
+            </div>
+
+            {/* Certificate Number */}
+            <div className="mb-4 p-3 bg-white/10 rounded-lg backdrop-blur-sm">
+              <p className="text-xs opacity-80 mb-1">{language === 'en' ? 'Certificate No' : 'সার্টিফিকেট নং'}</p>
+              <p className="text-lg font-mono font-bold">{certificate.certificate_number}</p>
+            </div>
+
+            {/* Vehicle Info */}
+            <div className="space-y-3 mb-4">
+              <div>
+                <p className="text-xs opacity-80">{language === 'en' ? 'Vehicle' : 'যানবাহন'}</p>
+                <p className="text-xl font-bold">{certificate.vehicle_name}</p>
+              </div>
+              <div>
+                <p className="text-xs opacity-80">{language === 'en' ? 'Registration Plate' : 'নিবন্ধন প্লেট'}</p>
+                <p className="text-lg font-bold">
+                  {language === 'en' 
+                    ? certificate.registration_plate?.en 
+                    : certificate.registration_plate?.bn || certificate.registration_plate?.en}
+                </p>
+              </div>
+            </div>
+
+            {/* Validity */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 bg-white/10 rounded-lg backdrop-blur-sm">
+                <p className="text-xs opacity-80 mb-1">{language === 'en' ? 'Issue Date' : 'ইস্যু তারিখ'}</p>
+                <p className="font-bold">{new Date(certificate.issue_date).toLocaleDateString()}</p>
+              </div>
+              <div className={`p-3 rounded-lg backdrop-blur-sm ${isExpired ? 'bg-red-500/30' : 'bg-white/10'}`}>
+                <p className="text-xs opacity-80 mb-1">{language === 'en' ? 'Expiry Date' : 'মেয়াদ শেষ'}</p>
+                <p className="font-bold">{new Date(certificate.expiry_date).toLocaleDateString()}</p>
+              </div>
+            </div>
+
+            {/* Expiry Warning */}
+            {!isExpired && daysUntilExpiry < 30 && (
+              <div className="mt-3 p-2 bg-yellow-500/30 rounded-lg">
+                <p className="text-xs">
+                  ⚠️ {language === 'en' ? `Expires in ${daysUntilExpiry} days` : `${daysUntilExpiry} দিনে মেয়াদ শেষ`}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Back Side */}
+        <div className="absolute w-full h-full backface-hidden rotate-y-180">
+          <div className="h-full bg-gradient-to-br from-gray-800 via-gray-900 to-gray-800 rounded-2xl p-8 shadow-2xl text-white border-4 border-white/20">
+            {/* QR Code */}
+            <div className="flex flex-col items-center justify-center h-full space-y-4">
+              <QrCode size={48} weight="duotone" />
+              <h3 className="text-xl font-bold">{language === 'en' ? 'Scan to Verify' : 'যাচাই করতে স্ক্যান করুন'}</h3>
+              <div className="w-48 h-48 bg-white rounded-xl p-4 flex items-center justify-center">
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(certificate.qr_code_data)}`}
+                  alt="QR Code"
+                  className="w-full h-full"
+                />
+              </div>
+              <p className="text-xs opacity-70 text-center max-w-xs">
+                {certificate.qr_code_data}
+              </p>
+
+              {/* Test Center */}
+              {certificate.test_center_name_en && (
+                <div className="mt-4 text-center">
+                  <p className="text-xs opacity-80">{language === 'en' ? 'Inspected At' : 'পরিদর্শিত'}</p>
+                  <p className="font-bold">
+                    {language === 'en' ? certificate.test_center_name_en : certificate.test_center_name_bn}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Download Button */}
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDownload();
+        }}
+        className="mt-4 w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+      >
+        <Download size={20} weight="bold" />
+        {language === 'en' ? 'Download Certificate' : 'সার্টিফিকেট ডাউনলোড করুন'}
+      </motion.button>
+    </div>
+  );
+}

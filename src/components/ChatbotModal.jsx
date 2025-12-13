@@ -27,6 +27,15 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
     scrollToBottom();
   }, [messages]);
 
+  // Focus input after initialization
+  useEffect(() => {
+    if (isInitialized && !showLanguageSelect) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 300);
+    }
+  }, [isInitialized, showLanguageSelect]);
+
   // Initialize chatbot when language is selected
   const initializeChatbot = async (lang) => {
     try {
@@ -117,6 +126,10 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      // Refocus input after message is sent and loading is done
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
     }
   };
 

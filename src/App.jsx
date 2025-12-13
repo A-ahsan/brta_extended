@@ -13,6 +13,8 @@ const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 const PoliceDashboard = lazy(() => import('./pages/PoliceDashboard'));
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const PoliceLogin = lazy(() => import('./pages/PoliceLogin'));
 const VehicleAdderLogin = lazy(() => import('./pages/VehicleAdderLogin'));
@@ -87,6 +89,8 @@ function App() {
                   {/* Authentication Routes */}
                   <Route path="/login" element={<Login />} />
                   <Route path="/signup" element={<Signup />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/admin-login" element={<AdminLogin />} />
                   <Route path="/police-login" element={<PoliceLogin />} />
                   <Route path="/vehicle-adder-login" element={<VehicleAdderLogin />} />

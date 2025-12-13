@@ -31,6 +31,8 @@ const PublicTaxTokenVerification = () => {
   const [ownerPhoto, setOwnerPhoto] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [cameraStream, setCameraStream] = useState(null);
+  const [impoundments, setImpoundments] = useState([]);
+  const [loadingImpoundments, setLoadingImpoundments] = useState(false);
   const scanningLockRef = useRef(false);
   const lastScanTimeRef = useRef(0);
   const scannerActiveRef = useRef(false);
@@ -232,6 +234,9 @@ const PublicTaxTokenVerification = () => {
             setOwnerPhoto(profileData.photo_url || profileData.avatar_url);
           }
         }
+
+        // Fetch impoundment records
+        await fetchImpoundments(vehicleData.id);
       }
       
       toast.success(language === 'en' ? 'Tax token found!' : 'ট্যাক্স টোকেন পাওয়া গেছে!');
@@ -243,6 +248,25 @@ const PublicTaxTokenVerification = () => {
       setOwnerPhoto(null);
     } finally {
       setLoadingToken(false);
+    }
+  };
+
+  const fetchImpoundments = async (vehicleId) => {
+    setLoadingImpoundments(true);
+    try {
+      const { data: impoundmentsData, error: impoundmentsError } = await supabase
+        .from('vehicle_impoundments')
+        .select('*')
+        .eq('registered_vehicle_id', vehicleId)
+        .order('impound_date', { ascending: false });
+
+      if (impoundmentsError) throw impoundmentsError;
+      setImpoundments(impoundmentsData || []);
+    } catch (error) {
+      console.error('Error fetching impoundments:', error);
+      setImpoundments([]);
+    } finally {
+      setLoadingImpoundments(false);
     }
   };
 
@@ -259,6 +283,7 @@ const PublicTaxTokenVerification = () => {
     setSelectedVehicle(null);
     setSearchQuery('');
     setOwnerPhoto(null);
+    setImpoundments([]);
     scanningLockRef.current = false;
     scannerActiveRef.current = false;
     setIsScanning(false);
@@ -450,6 +475,97 @@ const PublicTaxTokenVerification = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Vehicle Impoundment History */}
+              {impoundments.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="font-semibold text-lg text-gray-700 dark:text-gray-300 flex items-center gap-2 mb-4">
+                    <Car size={20} weight="fill" />
+                    {language === 'en' ? 'Impoundment History' : 'আটক ইতিহাস'}
+                  </h3>
+                  <div className="space-y-3">
+                    {impoundments.map((impoundment) => (
+                      <div key={impoundment.id} className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl border-2 border-orange-300 dark:border-orange-700">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Car size={18} weight="fill" className="text-orange-600 dark:text-orange-400" />
+                              <h6 className="font-bold text-gray-800 dark:text-white">
+                                {language === 'en' ? 'Vehicle Impounded' : 'যানবাহন আটক'}
+                              </h6>
+                            </div>
+                            <p className="text-sm font-medium text-orange-700 dark:text-orange-300 mb-2">
+                              {language === 'en' ? impoundment.reason_en : impoundment.reason_bn}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              📍 {impoundment.impound_location}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-xl text-orange-600 dark:text-orange-400">
+                              ৳ {impoundment.total_amount?.toLocaleString()}
+                            </p>
+                            <span className={`inline-block mt-1 text-xs px-3 py-1 rounded-full font-semibold ${
+                              impoundment.status === 'released' 
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                : 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300'
+                            }`}>
+                              {impoundment.status === 'released' 
+                                ? (language === 'en' ? 'Released' : 'মুক্ত')
+                                : (language === 'en' ? 'Impounded' : 'আটক')}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-wrap items-center gap-4 text-sm">
+                          <span className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
+                            <Calendar size={14} />
+                            <span className="font-medium">
+                              {language === 'en' ? 'Impounded:' : 'আটক:'}
+                            </span>
+                            <span className="font-semibold text-gray-800 dark:text-white">
+                              {new Date(impoundment.impound_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric' 
+                              })}
+                            </span>
+                          </span>
+                          
+                          {impoundment.release_date && (
+                            <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                              <CheckCircle size={14} weight="fill" />
+                              <span className="font-medium">
+                                {language === 'en' ? 'Released:' : 'মুক্ত:'}
+                              </span>
+                              <span className="font-semibold">
+                                {new Date(impoundment.release_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD', { 
+                                  year: 'numeric', 
+                                  month: 'short', 
+                                  day: 'numeric' 
+                                })}
+                              </span>
+                            </span>
+                          )}
+                          
+                          <span className="text-gray-500 dark:text-gray-400 text-xs">
+                            #{impoundment.impound_number}
+                          </span>
+                        </div>
+                        
+                        {impoundment.status !== 'released' && (
+                          <div className="mt-3 text-sm bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-3 py-2 rounded-lg">
+                            {language === 'en' 
+                              ? `Storage: ${Math.floor((new Date() - new Date(impoundment.impound_date)) / (1000 * 60 * 60 * 24))} days × ৳200/day`
+                              : `সংরক্ষণ: ${Math.floor((new Date() - new Date(impoundment.impound_date)) / (1000 * 60 * 60 * 24))} দিন × ৳২০০/দিন`
+                            }
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

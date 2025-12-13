@@ -196,7 +196,7 @@ const Login = () => {
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">{t.rememberMe}</span>
               </label>
-              <Link to="#" className="text-sm text-primary hover:text-primary-dark font-semibold transition-colors">
+              <Link to="/forgot-password" className="text-sm text-primary hover:text-primary-dark font-semibold transition-colors">
                 {t.forgotPassword}
               </Link>
             </motion.div>

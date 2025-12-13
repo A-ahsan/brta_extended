@@ -11,6 +11,13 @@ import dotenv from 'dotenv';
 import { updatePaymentAndNotify } from './updatePayment.js';
 import { createClient } from '@supabase/supabase-js';
 import { sendViolationSMS, getUserPhoneNumber } from './smsService.js';
+import { 
+  generateOTP, 
+  verifyOTP, 
+  deleteOTP, 
+  sendOTPEmail 
+} from './emailService.js';
+import chatbotRoutes from './chatbotRoutes.js';
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1623,7 +1630,215 @@ app.post('/api/impoundments/send-sms', async (req, res) => {
   }
 });
 
+// ============================================
+// PASSWORD RESET ENDPOINTS (OTP-BASED)
+// ============================================
+
+// Request OTP for password reset
+app.post('/api/auth/request-otp', async (req, res) => {
+  try {
+    const { email, language = 'en', skipUserCheck = false } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ 
+        success: false, 
+        error: language === 'en' ? 'Email is required' : 'ইমেইল প্রয়োজন' 
+      });
+    }
+
+    // Only check if user exists for password reset (not for signup)
+    if (!skipUserCheck) {
+      // Check if user exists in Supabase Auth
+      const { data: userData, error: userError } = await supabase.auth.admin.listUsers();
+      
+      if (userError) {
+        console.error('Error checking user:', userError);
+        return res.status(500).json({ 
+          success: false, 
+          error: language === 'en' ? 'Server error' : 'সার্ভার ত্রুটি' 
+        });
+      }
+
+      // Find user by email
+      const user = userData.users.find(u => u.email === email.toLowerCase());
+
+      if (!user) {
+        // For security, return success even if user doesn't exist
+        // This prevents email enumeration attacks
+        return res.json({ 
+          success: true, 
+          message: language === 'en' 
+            ? 'If an account exists with this email, you will receive an OTP code' 
+            : 'যদি এই ইমেইলের সাথে কোনো অ্যাকাউন্ট থাকে, আপনি একটি OTP কোড পাবেন'
+        });
+      }
+    }
+
+    // Generate OTP
+    const otp = generateOTP(email);
+
+    // Send OTP email
+    const emailResult = await sendOTPEmail(email, otp, language);
+
+    if (emailResult.success) {
+      res.json({ 
+        success: true, 
+        message: language === 'en' 
+          ? 'OTP sent to your email. Valid for 10 minutes' 
+          : 'আপনার ইমেইলে OTP পাঠানো হয়েছে। ১০ মিনিটের জন্য বৈধ'
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        error: language === 'en' 
+          ? 'Failed to send OTP. Please try again later' 
+          : 'OTP পাঠাতে ব্যর্থ। পরে আবার চেষ্টা করুন'
+      });
+    }
+  } catch (error) {
+    console.error('Request OTP error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// Verify OTP
+app.post('/api/auth/verify-otp', async (req, res) => {
+  try {
+    const { email, otp, language = 'en' } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ 
+        success: false, 
+        error: language === 'en' 
+          ? 'Email and OTP are required' 
+          : 'ইমেইল এবং OTP প্রয়োজন'
+      });
+    }
+
+    const verification = verifyOTP(email, otp);
+
+    if (verification.valid) {
+      res.json({ 
+        success: true, 
+        message: language === 'en' 
+          ? 'OTP verified successfully' 
+          : 'OTP সফলভাবে যাচাই হয়েছে'
+      });
+    } else {
+      res.status(400).json({ 
+        success: false, 
+        error: verification.message,
+        attemptsLeft: verification.attemptsLeft
+      });
+    }
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// Reset password with OTP
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email, otp, newPassword, language = 'en' } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ 
+        success: false, 
+        error: language === 'en' 
+          ? 'Email, OTP, and new password are required' 
+          : 'ইমেইল, OTP এবং নতুন পাসওয়ার্ড প্রয়োজন' 
+      });
+    }
+
+    // Validate password strength
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\\/;'])[A-Za-z\d!@#$%^&*(),.?":{}|<>_\-+=\[\]\\\/;']{8,}$/;
+    
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: language === 'en' 
+          ? 'Password must be at least 8 characters with uppercase, lowercase, number, and special character' 
+          : 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে এবং বড় হাতের, ছোট হাতের, সংখ্যা এবং বিশেষ অক্ষর থাকতে হবে'
+      });
+    }
+
+    // Verify OTP
+    const verification = verifyOTP(email, otp);
+
+    if (!verification.valid) {
+      return res.status(400).json({ 
+        success: false, 
+        error: verification.message,
+        attemptsLeft: verification.attemptsLeft
+      });
+    }
+
+    // Update password in Supabase Auth
+    const { data: userData, error: userError } = await supabase.auth.admin.listUsers();
+    
+    if (userError) {
+      console.error('Error finding user:', userError);
+      return res.status(500).json({ 
+        success: false, 
+        error: language === 'en' ? 'Server error' : 'সার্ভার ত্রুটি' 
+      });
+    }
+
+    const user = userData.users.find(u => u.email === email.toLowerCase());
+
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        error: language === 'en' ? 'User not found' : 'ব্যবহারকারী পাওয়া যায়নি' 
+      });
+    }
+
+    // Update password
+    const { error: updateError } = await supabase.auth.admin.updateUserById(
+      user.id,
+      { password: newPassword }
+    );
+
+    if (updateError) {
+      console.error('Error updating password:', updateError);
+      return res.status(500).json({ 
+        success: false, 
+        error: language === 'en' 
+          ? 'Failed to update password' 
+          : 'পাসওয়ার্ড আপডেট করতে ব্যর্থ' 
+      });
+    }
+
+    // Delete the used OTP
+    deleteOTP(email);
+
+    res.json({ 
+      success: true, 
+      message: language === 'en' 
+        ? 'Password reset successfully. You can now login with your new password' 
+        : 'পাসওয়ার্ড সফলভাবে রিসেট হয়েছে। এখন আপনি নতুন পাসওয়ার্ড দিয়ে লগইন করতে পারবেন'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// Chatbot routes
+app.use('/api/chatbot', chatbotRoutes);
+
 server.listen(PORT, () => {
   const protocol = fs.existsSync(certPath) && fs.existsSync(keyPath) ? 'https' : 'http';
   console.log(`🚀 Backend server running on ${protocol}://localhost:${PORT}`);
+  console.log(`🤖 Chatbot API available at ${protocol}://localhost:${PORT}/api/chatbot`);
 });

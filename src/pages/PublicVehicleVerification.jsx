@@ -15,6 +15,7 @@ import {
   MapPin,
   Clock,
   CurrencyCircleDollar,
+  CreditCard,
 } from 'phosphor-react';
 import { useLanguage } from '../contexts/AppContext';
 import { supabase } from '../lib/supabaseClient';
@@ -37,6 +38,8 @@ const PublicVehicleVerification = () => {
   const [cameraStream, setCameraStream] = useState(null);
   const [violations, setViolations] = useState([]);
   const [loadingViolations, setLoadingViolations] = useState(false);
+  const [impoundments, setImpoundments] = useState([]);
+  const [loadingImpoundments, setLoadingImpoundments] = useState(false);
   const scanningLockRef = useRef(false);
   const lastScanTimeRef = useRef(0);
   const scannerActiveRef = useRef(false);
@@ -329,9 +332,10 @@ const PublicVehicleVerification = () => {
         }
       }
       
-      // Fetch violations for this vehicle
+      // Fetch violations and impoundments for this vehicle
       if (data.id) {
         fetchVehicleViolations(data.id);
+        fetchVehicleImpoundments(data.id);
       }
       
       toast.success(language === 'en' ? 'Vehicle found!' : 'যানবাহন পাওয়া গেছে!');
@@ -364,6 +368,25 @@ const PublicVehicleVerification = () => {
     }
   };
 
+  const fetchVehicleImpoundments = async (vehicleId) => {
+    try {
+      setLoadingImpoundments(true);
+      const { data, error } = await supabase
+        .from('vehicle_impoundments')
+        .select('*')
+        .eq('registered_vehicle_id', vehicleId)
+        .order('impound_date', { ascending: false });
+
+      if (error) throw error;
+      setImpoundments(data || []);
+    } catch (error) {
+      console.error('Error fetching impoundments:', error);
+      setImpoundments([]);
+    } finally {
+      setLoadingImpoundments(false);
+    }
+  };
+
   const handleSearch = () => {
     if (!searchQuery.trim()) {
       toast.error(language === 'en' ? 'Enter registration number or plate' : 'নিবন্ধন নম্বর বা প্লেট লিখুন');
@@ -378,6 +401,7 @@ const PublicVehicleVerification = () => {
     setOwnerPhoto(null);
     setTaxTokenData(null);
     setViolations([]);
+    setImpoundments([]);
     scanningLockRef.current = false;
     scannerActiveRef.current = false;
     setIsScanning(false);
@@ -721,15 +745,91 @@ const PublicVehicleVerification = () => {
                   <div className="text-center py-4">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                   </div>
-                ) : violations.length === 0 ? (
+                ) : violations.length === 0 && impoundments.length === 0 ? (
                   <div className="text-center py-6">
                     <CheckCircle size={48} className="text-green-500 mx-auto mb-2" weight="duotone" />
                     <p className="text-gray-600 dark:text-gray-400">
-                      {language === 'en' ? 'No violations recorded' : 'কোনো লঙ্ঘন রেকর্ড করা হয়নি'}
+                      {language === 'en' ? 'No violations or impoundments recorded' : 'কোনো লঙ্ঘন বা আটক রেকর্ড করা হয়নি'}
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {/* Display impoundments first */}
+                    {impoundments.map((impoundment) => (
+                      <div key={impoundment.id} className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border-2 border-orange-300 dark:border-orange-700">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Car size={16} weight="fill" className="text-orange-600 dark:text-orange-400" />
+                              <h6 className="font-bold text-gray-800 dark:text-white text-sm">
+                                {language === 'en' ? 'Vehicle Impounded' : 'যানবাহন আটক'}
+                              </h6>
+                            </div>
+                            <p className="text-xs font-medium text-orange-700 dark:text-orange-300 mb-1">
+                              {language === 'en' ? impoundment.reason_en : impoundment.reason_bn}
+                            </p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              {impoundment.impound_location}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-orange-600 dark:text-orange-400">
+                              BDT {impoundment.total_amount}
+                            </p>
+                            <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                              impoundment.status === 'released' 
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                : 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300'
+                            }`}>
+                              {impoundment.status === 'released' 
+                                ? (language === 'en' ? 'Released' : 'মুক্ত')
+                                : (language === 'en' ? 'Impounded' : 'আটক')}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 text-xs">
+                          <span className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
+                            <Calendar size={12} />
+                            <span className="font-medium">
+                              {language === 'en' ? 'Impounded:' : 'আটক:'}
+                            </span>
+                            <span className="font-semibold text-gray-800 dark:text-white">
+                              {new Date(impoundment.impound_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric' 
+                              })}
+                            </span>
+                          </span>
+                          {impoundment.release_date && (
+                            <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                              <CheckCircle size={12} weight="fill" />
+                              <span className="font-medium">
+                                {language === 'en' ? 'Released:' : 'মুক্ত:'}
+                              </span>
+                              <span className="font-semibold">
+                                {new Date(impoundment.release_date).toLocaleDateString(language === 'en' ? 'en-US' : 'bn-BD', { 
+                                  year: 'numeric', 
+                                  month: 'short', 
+                                  day: 'numeric' 
+                                })}
+                              </span>
+                            </span>
+                          )}
+                          <span className="text-gray-500 dark:text-gray-400">#{impoundment.impound_number}</span>
+                        </div>
+                        {impoundment.status !== 'released' && (
+                          <div className="mt-2 text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-2 py-1 rounded">
+                            {language === 'en' 
+                              ? `Storage: ${Math.floor((new Date() - new Date(impoundment.impound_date)) / (1000 * 60 * 60 * 24))} days × BDT 200/day`
+                              : `সংরক্ষণ: ${Math.floor((new Date() - new Date(impoundment.impound_date)) / (1000 * 60 * 60 * 24))} দিন × BDT ২০০/দিন`
+                            }
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    
+                    {/* Display violations */}
                     {violations.map((violation) => (
                       <div key={violation.id} className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
                         <div className="flex items-start justify-between mb-2">

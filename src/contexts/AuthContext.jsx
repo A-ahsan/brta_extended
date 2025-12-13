@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
+import { validateEmail } from '../utils/emailValidation';
 
 const AuthContext = createContext({});
 
@@ -171,6 +172,24 @@ export const AuthProvider = ({ children }) => {
 
   const signUp = async (email, password, fullName, phone) => {
     try {
+      // Validate email before signup
+      const emailValidation = validateEmail(email);
+      
+      if (!emailValidation.isValid) {
+        toast.error(emailValidation.message);
+        return { success: false, error: new Error(emailValidation.message) };
+      }
+      
+      // Show warning if there's a typo suggestion
+      if (emailValidation.warning && emailValidation.suggestion) {
+        toast.error(emailValidation.message);
+        return { 
+          success: false, 
+          error: new Error(emailValidation.message),
+          suggestion: emailValidation.suggestion
+        };
+      }
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,

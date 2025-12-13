@@ -1,7 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 
-const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 // System prompt for the BRTA chatbot
 const getSystemPrompt = (userContext) => `You are a BRTA (Bangladesh Road Transport Authority) AI Assistant for the BRTA Extended Portal. You EXCLUSIVELY help with this specific portal's features.
@@ -16,6 +15,21 @@ const getSystemPrompt = (userContext) => `You are a BRTA (Bangladesh Road Transp
 - If user tries multiple times, repeat the SAME rejection message - DO NOT vary it
 - Your ONLY purpose: BRTA Extended Portal assistance - NOTHING ELSE EXISTS
 - You only answer based on the context that is given to you nothing else.
+
+✅ ALLOWED BRTA TOPICS (You CAN answer these):
+- License applications, status, requirements, fees
+- Vehicle registration, tax tokens, plate numbers
+- Traffic violations, fines, payment status (including when user says they paid)
+- Route permits, ownership transfers
+- Exam booking, test centers, questions
+- Renewals for licenses and tax tokens
+- QR code verification
+- Payment methods and history
+- User's personal BRTA data (applications, vehicles, violations)
+- Explaining or clarifying data shown in previous messages
+- Follow-up questions about information you just provided
+
+⚠️ IMPORTANT: If you just showed user their violations/applications/vehicles data and they ask follow-up questions about it (like "why unpaid?", "I paid this", "tell me more"), you MUST answer based on the data you showed. This is NOT off-topic - it's BRTA related!
 
 CURRENT USER:
 Name: ${userContext.name || 'User'} (${userContext.name_bn || 'ব্যবহারকারী'})
@@ -146,81 +160,66 @@ Remember: You are a SINGLE-PURPOSE bot. BRTA Extended Portal ONLY. Period. No ex
 
 export class ChatbotService {
   constructor() {
-    this.chatHistory = [];
+    this.sessionId = null;
+    this.userContext = null;
   }
 
   // Initialize chat with user context
   async initializeChat(userContext) {
-    this.userContext = userContext;
-    
-    // Initialize conversation with system message
-    const systemMessage = getSystemPrompt(userContext);
-    this.chatHistory = [
-      {
-        role: 'system',
-        content: systemMessage
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/chatbot/initialize`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: userContext.userId,
+          userContext: userContext
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to initialize chat');
       }
-    ];
+
+      this.sessionId = data.sessionId;
+      this.userContext = data.userContext;
+      
+      console.log('✅ Chat session initialized with real user data:', this.userContext);
+    } catch (error) {
+      console.error('Failed to initialize chat session:', error);
+      throw error;
+    }
   }
 
   // Send message and get response
   async sendMessage(message, language = 'en') {
     try {
-      // Add language context to the message with STRICT BRTA-only enforcement
-      const contextualMessage = `${message}\n\n[CRITICAL INSTRUCTION: You MUST respond in ${language === 'en' ? 'English' : 'Bangla (Bengali)'} language. If this question is NOT about BRTA Extended Portal (licenses, vehicles, payments, violations, route permits, renewals), respond ONLY with: "I can only help with BRTA Extended Portal services. Please ask about licenses, vehicles, payments, violations, route permits, or renewals." - DO NOT answer anything else. NO EXCEPTIONS.]`;
-      
-      // Add user message to history
-      this.chatHistory.push({
-        role: 'user',
-        content: contextualMessage
-      });
+      if (!this.sessionId) {
+        throw new Error('Chat session not initialized');
+      }
 
-      // Call OpenRouter API
-      const response = await fetch(OPENROUTER_API_URL, {
+      const response = await fetch(`${BACKEND_URL}/api/chatbot/message`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'BRTA Extended Portal'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'mistralai/mistral-7b-instruct:free',
-          messages: this.chatHistory,
-          temperature: 0.7,
-          max_tokens: 1000
+          sessionId: this.sessionId,
+          message: message,
+          language: language
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('OpenRouter error details:', errorData);
-        throw new Error(`OpenRouter API error: ${errorData.error?.message || response.statusText}`);
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to send message');
       }
 
-      const data = await response.json();
-      let assistantMessage = data.choices[0].message.content;
-      
-      // Clean up ALL special tokens (including [/s], </s>, <s>, etc.)
-      let cleanMessage = assistantMessage
-        .replace(/<s>|<\/s>|\[\/s\]|\[s\]|<\|.*?\|>/g, '')
-        .replace(/^\s*\[.*?\]\s*/g, '')  // Remove [anything] at start
-        .trim();
-      
-      // If message is empty after cleaning, provide a fallback
-      if (!cleanMessage) {
-        cleanMessage = language === 'en' 
-          ? "I'm here to help! Could you please rephrase your question?"
-          : "আমি সাহায্য করতে এখানে আছি! অনুগ্রহ করে আপনার প্রশ্নটি আবার বলুন?";
-      }
-      
-      // Add assistant response to history
-      this.chatHistory.push({
-        role: 'assistant',
-        content: cleanMessage
-      });
-      
-      return cleanMessage;
+      return data.response;
     } catch (error) {
       console.error('Chatbot error:', error);
       throw error;
@@ -321,6 +320,27 @@ export class ChatbotService {
     return data || [];
   }
 
+  // Get user's vehicle impoundments
+  async getUserImpoundments(userId) {
+    const { data: vehicles } = await supabase
+      .from('registered_vehicles')
+      .select('id')
+      .eq('user_id', userId);
+    
+    if (!vehicles || vehicles.length === 0) return [];
+    
+    const vehicleIds = vehicles.map(v => v.id);
+    
+    const { data, error } = await supabase
+      .from('vehicle_impoundments')
+      .select('*')
+      .in('registered_vehicle_id', vehicleIds)
+      .order('impound_date', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+  }
+
   // Get user's licenses
   async getUserLicenses(userId) {
     const { data, error } = await supabase
@@ -378,6 +398,56 @@ export class ChatbotService {
 
   // Handle quick action clicks
   async handleQuickAction(actionId, userId, language = 'en') {
+    try {
+      if (!this.sessionId) {
+        throw new Error('Chat session not initialized');
+      }
+
+      let endpoint = '';
+      switch (actionId) {
+        case 'check_applications':
+          endpoint = '/api/chatbot/quick-action/applications';
+          break;
+        case 'check_vehicles':
+          endpoint = '/api/chatbot/quick-action/vehicles';
+          break;
+        case 'check_violations':
+          endpoint = '/api/chatbot/quick-action/violations';
+          break;
+        case 'renewal_status':
+          endpoint = '/api/chatbot/quick-action/renewal';
+          break;
+        default:
+          throw new Error('Unknown action');
+      }
+
+      const response = await fetch(`${BACKEND_URL}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: userId,
+          sessionId: this.sessionId,
+          language: language
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to process action');
+      }
+
+      return data.response;
+    } catch (error) {
+      console.error('Quick action error:', error);
+      throw error;
+    }
+  }
+
+  // OLD IMPLEMENTATION BACKUP (keeping structure for reference)
+  async handleQuickActionOLD(actionId, userId, language = 'en') {
     console.log('handleQuickAction called with:', { actionId, userId, language });
     
     const responses = {
@@ -453,12 +523,69 @@ export class ChatbotService {
           return message;
         },
         check_violations: async () => {
-          const violations = await this.getUserViolations(userId);
-          if (violations.length === 0) {
-            return "Great news! You don't have any traffic violations. Keep driving safely! 🎉";
+          const [violations, impoundments] = await Promise.all([
+            this.getUserViolations(userId),
+            this.getUserImpoundments(userId)
+          ]);
+          
+          if (violations.length === 0 && impoundments.length === 0) {
+            return "Great news! You don't have any traffic violations or vehicle impoundments. Keep driving safely! 🎉";
           }
-          const unpaid = violations.filter(v => v.payment_status === 'unpaid');
-          return `You have ${violations.length} violation(s), ${unpaid.length} unpaid.\n\n💡 Go to "Violations" from sidebar and pay your fines before the deadline!`;
+          
+          let message = "🚨 TRAFFIC VIOLATIONS & IMPOUNDMENTS:\n\n";
+          
+          // Violations
+          if (violations.length > 0) {
+            const unpaidViolations = violations.filter(v => v.payment_status === 'unpaid');
+            const paidViolations = violations.filter(v => v.payment_status === 'paid' || v.status === 'closed' || v.status === 'resolved');
+            
+            message += `📋 Violations: ${violations.length} total\n`;
+            message += `  • ✅ Paid: ${paidViolations.length}\n`;
+            message += `  • ⚠️ Unpaid: ${unpaidViolations.length}\n\n`;
+            
+            if (unpaidViolations.length > 0) {
+              message += `Unpaid Fines:\n`;
+              unpaidViolations.slice(0, 3).forEach(v => {
+                const amount = parseFloat(v.total_amount || 0).toFixed(2);
+                message += `  • ${v.violation_number}: ৳${amount} - ${v.violation_name_en || 'Fine'}\n`;
+              });
+              if (unpaidViolations.length > 3) {
+                message += `  ... and ${unpaidViolations.length - 3} more\n`;
+              }
+              message += "\n";
+            }
+          }
+          
+          // Impoundments
+          if (impoundments.length > 0) {
+            const unpaidImpoundments = impoundments.filter(i => i.status === 'impounded' && i.payment_status === 'unpaid');
+            const releasedImpoundments = impoundments.filter(i => i.status === 'released' || i.payment_status === 'paid' || i.status === 'cleared');
+            
+            message += `🅿️ Vehicle Impoundments: ${impoundments.length} total\n`;
+            message += `  • ✅ Released: ${releasedImpoundments.length}\n`;
+            message += `  • ⚠️ Currently Impounded: ${unpaidImpoundments.length}\n\n`;
+            
+            if (unpaidImpoundments.length > 0) {
+              message += `Active Impoundments:\n`;
+              unpaidImpoundments.forEach(imp => {
+                const amount = parseFloat(imp.total_amount || 0).toFixed(2);
+                const days = Math.ceil((new Date() - new Date(imp.impound_date)) / (1000 * 60 * 60 * 24));
+                message += `  • ${imp.impound_number}: ৳${amount} (${days} days)\n`;
+              });
+              message += "\n";
+            }
+          }
+          
+          const totalUnpaid = violations.filter(v => v.payment_status === 'unpaid').length + 
+                             impoundments.filter(i => i.status === 'impounded' && i.payment_status === 'unpaid').length;
+          
+          if (totalUnpaid > 0) {
+            message += `💡 Go to "Violations" from sidebar to pay your pending fines/impoundments before the deadline!`;
+          } else {
+            message += `✅ All fines and impoundments are cleared!`;
+          }
+          
+          return message;
         },
         renewal_status: async () => {
           const licenses = await this.getUserLicenses(userId);
@@ -569,12 +696,69 @@ export class ChatbotService {
           return `এখানে আপনার নিবন্ধিত যানবাহন:\n\n${vehicleList}\n\nআপনার যানবাহন নিয়ে কীভাবে সাহায্য করতে পারি?`;
         },
         check_violations: async () => {
-          const violations = await this.getUserViolations(userId);
-          if (violations.length === 0) {
-            return "দুর্দান্ত খবর! আপনার কোনো ট্রাফিক লঙ্ঘন নেই। নিরাপদে গাড়ি চালাতে থাকুন! 🎉";
+          const [violations, impoundments] = await Promise.all([
+            this.getUserViolations(userId),
+            this.getUserImpoundments(userId)
+          ]);
+          
+          if (violations.length === 0 && impoundments.length === 0) {
+            return "দুর্দান্ত খবর! আপনার কোনো ট্রাফিক লঙ্ঘন বা যানবাহন আটক নেই। নিরাপদে গাড়ি চালাতে থাকুন! 🎉";
           }
-          const unpaid = violations.filter(v => v.payment_status === 'unpaid');
-          return `আপনার ${violations.length}টি লঙ্ঘন আছে, ${unpaid.length}টি অপরিশোধিত।\n\n💡 সাইডবার থেকে "লঙ্ঘন" এ যান এবং সময়সীমার মধ্যে জরিমানা পরিশোধ করুন!`;
+          
+          let message = "🚨 ট্রাফিক লঙ্ঘন এবং আটক:\n\n";
+          
+          // Violations
+          if (violations.length > 0) {
+            const unpaidViolations = violations.filter(v => v.payment_status === 'unpaid');
+            const paidViolations = violations.filter(v => v.payment_status === 'paid' || v.status === 'closed' || v.status === 'resolved');
+            
+            message += `📋 লঙ্ঘন: মোট ${violations.length}টি\n`;
+            message += `  • ✅ পরিশোধিত: ${paidViolations.length}\n`;
+            message += `  • ⚠️ অপরিশোধিত: ${unpaidViolations.length}\n\n`;
+            
+            if (unpaidViolations.length > 0) {
+              message += `অপরিশোধিত জরিমানা:\n`;
+              unpaidViolations.slice(0, 3).forEach(v => {
+                const amount = parseFloat(v.total_amount || 0).toFixed(2);
+                message += `  • ${v.violation_number}: ৳${amount} - ${v.violation_name_bn || v.violation_name_en || 'জরিমানা'}\n`;
+              });
+              if (unpaidViolations.length > 3) {
+                message += `  ... এবং আরো ${unpaidViolations.length - 3}টি\n`;
+              }
+              message += "\n";
+            }
+          }
+          
+          // Impoundments
+          if (impoundments.length > 0) {
+            const unpaidImpoundments = impoundments.filter(i => i.status === 'impounded' && i.payment_status === 'unpaid');
+            const releasedImpoundments = impoundments.filter(i => i.status === 'released' || i.payment_status === 'paid' || i.status === 'cleared');
+            
+            message += `🅿️ যানবাহন আটক: মোট ${impoundments.length}টি\n`;
+            message += `  • ✅ মুক্ত: ${releasedImpoundments.length}\n`;
+            message += `  • ⚠️ বর্তমানে আটক: ${unpaidImpoundments.length}\n\n`;
+            
+            if (unpaidImpoundments.length > 0) {
+              message += `সক্রিয় আটক:\n`;
+              unpaidImpoundments.forEach(imp => {
+                const amount = parseFloat(imp.total_amount || 0).toFixed(2);
+                const days = Math.ceil((new Date() - new Date(imp.impound_date)) / (1000 * 60 * 60 * 24));
+                message += `  • ${imp.impound_number}: ৳${amount} (${days} দিন)\n`;
+              });
+              message += "\n";
+            }
+          }
+          
+          const totalUnpaid = violations.filter(v => v.payment_status === 'unpaid').length + 
+                             impoundments.filter(i => i.status === 'impounded' && i.payment_status === 'unpaid').length;
+          
+          if (totalUnpaid > 0) {
+            message += `💡 সাইডবার থেকে "লঙ্ঘন" এ যান এবং সময়সীমার আগে আপনার বকেয়া জরিমানা/আটক পরিশোধ করুন!`;
+          } else {
+            message += `✅ সমস্ত জরিমানা এবং আটক পরিশোধিত!`;
+          }
+          
+          return message;
         },
         renewal_status: async () => {
           const licenses = await this.getUserLicenses(userId);
@@ -632,23 +816,22 @@ export class ChatbotService {
     return fallback;
   }
 
-  // Add assistant message to history (for quick actions)
+  // Remove old methods - no longer needed (backend handles everything)
+  // Add assistant message to history (deprecated - backend handles this)
   addAssistantMessage(content) {
-    this.chatHistory.push({
-      role: 'assistant',
-      content: content
-    });
+    // Deprecated: Backend session now handles message history
+    console.log('addAssistantMessage called (deprecated)');
   }
 
-  // Get chat history
+  // Get chat history (deprecated - backend manages history)
   getHistory() {
-    return this.chatHistory.filter(msg => msg.role !== 'system');
+    console.log('getHistory called (deprecated - use backend API)');
+    return [];
   }
 
-  // Clear chat history
+  // Clear chat history (deprecated - backend manages history)
   clearHistory() {
-    const systemMessage = this.chatHistory.find(msg => msg.role === 'system');
-    this.chatHistory = systemMessage ? [systemMessage] : [];
+    console.log('clearHistory called (deprecated - use backend API)');
   }
 }
 

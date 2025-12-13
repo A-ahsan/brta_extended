@@ -1,0 +1,768 @@
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Certificate,
+  CheckCircle,
+  XCircle,
+  Clock,
+  MagnifyingGlass,
+  Upload,
+  X,
+  MapPin,
+  Car,
+  Camera,
+  ChatText,
+  TrendUp,
+  TrendDown,
+  Equals
+} from 'phosphor-react';
+import { useLanguage } from '../../contexts/AppContext';
+import { translations } from '../../utils/translations';
+import { supabase } from '../../lib/supabaseClient';
+import toast from 'react-hot-toast';
+
+export default function AdminFitnessCertificates() {
+  const { language } = useLanguage();
+  const t = translations[language];
+
+  const [certificates, setCertificates] = useState([]);
+  const [testCenters, setTestCenters] = useState([]);
+  const [rushData, setRushData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all'); // all, pending, approved, rejected
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCert, setSelectedCert] = useState(null);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+
+  // Approval form state
+  const [approvalData, setApprovalData] = useState({
+    testCenterId: '',
+    remarks: '',
+    remarksBn: '',
+    vehicleImage: null,
+    vehicleImageUrl: ''
+  });
+  const [uploading, setUploading] = useState(false);
+  const [processing, setProcessing] = useState(false);
+
+  useEffect(() => {
+    fetchData();
+    subscribeToChanges();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch certificates
+      const { data: certsData, error: certsError } = await supabase
+        .from('fitness_certificates')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (certsError) throw certsError;
+      setCertificates(certsData || []);
+
+      // Fetch test centers
+      const { data: centersData, error: centersError } = await supabase
+        .from('test_centers')
+        .select('*')
+        .eq('is_active', true);
+
+      if (centersError) throw centersError;
+      setTestCenters(centersData || []);
+
+      // Fetch rush data
+      const { data: rushDataResult, error: rushError } = await supabase
+        .rpc('get_fitness_center_rush');
+
+      if (rushError) throw rushError;
+      setRushData(rushDataResult || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error(language === 'en' ? 'Failed to load data' : 'ডেটা লোড করতে ব্যর্থ');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const subscribeToChanges = () => {
+    const channel = supabase
+      .channel('admin-fitness-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'fitness_certificates' },
+        () => fetchData()
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error(language === 'en' ? 'Please upload an image file' : 'অনুগ্রহ করে একটি ছবি আপলোড করুন');
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(language === 'en' ? 'Image size must be less than 5MB' : 'ছবির আকার 5MB এর কম হতে হবে');
+      return;
+    }
+
+    try {
+      setUploading(true);
+
+      // Upload to Supabase Storage
+      const fileName = `fitness-inspections/${Date.now()}-${file.name}`;
+      const { data, error } = await supabase.storage
+        .from('vehicle-documents')
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('vehicle-documents')
+        .getPublicUrl(fileName);
+
+      setApprovalData(prev => ({
+        ...prev,
+        vehicleImage: file,
+        vehicleImageUrl: publicUrl
+      }));
+
+      toast.success(language === 'en' ? 'Image uploaded!' : 'ছবি আপলোড হয়েছে!');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error(language === 'en' ? 'Failed to upload image' : 'ছবি আপলোড করতে ব্যর্থ');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!approvalData.testCenterId || !approvalData.remarks || !approvalData.vehicleImageUrl) {
+      toast.error(language === 'en' 
+        ? 'Please fill all fields and upload vehicle image' 
+        : 'অনুগ্রহ করে সমস্ত ক্ষেত্র পূরণ করুন এবং যানবাহনের ছবি আপলোড করুন'
+      );
+      return;
+    }
+
+    try {
+      setProcessing(true);
+
+      const selectedCenter = testCenters.find(c => c.id === approvalData.testCenterId);
+
+      // Get admin profile
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: adminProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      // Update certificate
+      const { error: updateError } = await supabase
+        .from('fitness_certificates')
+        .update({
+          status: 'approved',
+          test_center_id: approvalData.testCenterId,
+          test_center_name_en: selectedCenter?.center_name_en,
+          test_center_name_bn: selectedCenter?.center_name_bn,
+          inspector_remarks: approvalData.remarks,
+          inspector_remarks_bn: approvalData.remarksBn,
+          vehicle_image_url: approvalData.vehicleImageUrl,
+          inspected_by: user.id,
+          inspected_at: new Date().toISOString()
+        })
+        .eq('id', selectedCert.id);
+
+      if (updateError) throw updateError;
+
+      // Send notifications
+      await sendNotifications(selectedCert, 'approved', adminProfile);
+
+      toast.success(language === 'en' 
+        ? 'Certificate approved successfully!' 
+        : 'সার্টিফিকেট সফলভাবে অনুমোদিত হয়েছে!'
+      );
+
+      closeModal();
+      fetchData();
+    } catch (error) {
+      console.error('Error approving:', error);
+      toast.error(language === 'en' ? 'Failed to approve' : 'অনুমোদন করতে ব্যর্থ');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!approvalData.remarks) {
+      toast.error(language === 'en' ? 'Please provide rejection reason' : 'প্রত্যাখ্যানের কারণ প্রদান করুন');
+      return;
+    }
+
+    try {
+      setProcessing(true);
+
+      // Get admin profile
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: adminProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      // Update certificate
+      const { error: updateError } = await supabase
+        .from('fitness_certificates')
+        .update({
+          status: 'rejected',
+          rejection_reason: approvalData.remarks,
+          rejection_reason_bn: approvalData.remarksBn,
+          inspected_by: user.id,
+          inspected_at: new Date().toISOString()
+        })
+        .eq('id', selectedCert.id);
+
+      if (updateError) throw updateError;
+
+      // Send notifications
+      await sendNotifications(selectedCert, 'rejected', adminProfile);
+
+      toast.success(language === 'en' ? 'Certificate rejected' : 'সার্টিফিকেট প্রত্যাখ্যাত');
+
+      closeModal();
+      fetchData();
+    } catch (error) {
+      console.error('Error rejecting:', error);
+      toast.error(language === 'en' ? 'Failed to reject' : 'প্রত্যাখ্যান করতে ব্যর্থ');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const sendNotifications = async (cert, status, admin) => {
+    try {
+      // User notification
+      await supabase.from('notifications').insert({
+        user_id: cert.user_id,
+        title: language === 'en' 
+          ? `Fitness Certificate ${status === 'approved' ? 'Approved' : 'Rejected'}`
+          : `ফিটনেস সার্টিফিকেট ${status === 'approved' ? 'অনুমোদিত' : 'প্রত্যাখ্যাত'}`,
+        message: language === 'en'
+          ? `Your fitness certificate application for ${cert.vehicle_name} (${cert.registration_plate?.en}) has been ${status}. ${status === 'approved' ? 'You can now download your certificate.' : 'Reason: ' + approvalData.remarks}`
+          : `${cert.vehicle_name} (${cert.registration_plate?.bn || cert.registration_plate?.en}) এর জন্য আপনার ফিটনেস সার্টিফিকেট আবেদন ${status === 'approved' ? 'অনুমোদিত হয়েছে। আপনি এখন আপনার সার্টিফিকেট ডাউনলোড করতে পারেন।' : 'প্রত্যাখ্যাত হয়েছে। কারণ: ' + approvalData.remarksBn}`,
+        type: `fitness_${status}`,
+        is_read: false
+      });
+
+      // Admin notification
+      const { data: admins } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin');
+
+      if (admins) {
+        const adminNotifications = admins.map(a => ({
+          user_id: a.id,
+          title: language === 'en' 
+            ? `Fitness Certificate ${status === 'approved' ? 'Approved' : 'Rejected'}`
+            : `ফিটনেস সার্টিফিকেট ${status === 'approved' ? 'অনুমোদিত' : 'প্রত্যাখ্যাত'}`,
+          message: language === 'en'
+            ? `${admin?.full_name_en || 'Admin'} ${status} fitness certificate ${cert.certificate_number} for ${cert.vehicle_name}.`
+            : `${admin?.full_name_bn || 'অ্যাডমিন'} ${cert.vehicle_name} এর ফিটনেস সার্টিফিকেট ${cert.certificate_number} ${status === 'approved' ? 'অনুমোদন' : 'প্রত্যাখ্যান'} করেছেন।`,
+          type: `admin_fitness_${status}`,
+          is_read: false
+        }));
+
+        await supabase.from('notifications').insert(adminNotifications);
+      }
+    } catch (error) {
+      console.error('Error sending notifications:', error);
+    }
+  };
+
+  const openApprovalModal = (cert) => {
+    setSelectedCert(cert);
+    setApprovalData({
+      testCenterId: '',
+      remarks: '',
+      remarksBn: '',
+      vehicleImage: null,
+      vehicleImageUrl: ''
+    });
+    setShowApprovalModal(true);
+  };
+
+  const closeModal = () => {
+    setShowApprovalModal(false);
+    setSelectedCert(null);
+    setApprovalData({
+      testCenterId: '',
+      remarks: '',
+      remarksBn: '',
+      vehicleImage: null,
+      vehicleImageUrl: ''
+    });
+  };
+
+  const getFilteredCertificates = () => {
+    let filtered = certificates;
+
+    if (filter !== 'all') {
+      filtered = filtered.filter(c => c.status === filter);
+    }
+
+    if (searchTerm) {
+      filtered = filtered.filter(c =>
+        c.certificate_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.vehicle_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.registration_plate?.en?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    return filtered;
+  };
+
+  const getRushBadge = (level) => {
+    const badges = {
+      low: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-400', icon: <TrendDown size={16} />, label: language === 'en' ? 'Low' : 'কম' },
+      medium: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-800 dark:text-yellow-400', icon: <Equals size={16} />, label: language === 'en' ? 'Medium' : 'মধ্যম' },
+      high: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-400', icon: <TrendUp size={16} />, label: language === 'en' ? 'High' : 'উচ্চ' }
+    };
+    return badges[level] || badges.low;
+  };
+
+  const stats = {
+    total: certificates.length,
+    pending: certificates.filter(c => c.status === 'pending').length,
+    approved: certificates.filter(c => c.status === 'approved').length,
+    rejected: certificates.filter(c => c.status === 'rejected').length
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl p-6 text-white">
+        <div className="flex items-center gap-4">
+          <Certificate size={40} weight="duotone" />
+          <div>
+            <h2 className="text-3xl font-bold">
+              {language === 'en' ? 'Fitness Certificates Management' : 'ফিটনেস সার্টিফিকেট ম্যানেজমেন্ট'}
+            </h2>
+            <p className="text-white/90 mt-1">
+              {language === 'en' ? 'Review and approve vehicle fitness inspections' : 'যানবাহন ফিটনেস পরিদর্শন পর্যালোচনা এবং অনুমোদন করুন'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <motion.div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-xl p-4">
+          <p className="text-sm text-blue-600 dark:text-blue-400 font-medium mb-1">
+            {language === 'en' ? 'Total' : 'মোট'}
+          </p>
+          <p className="text-3xl font-bold text-blue-700 dark:text-blue-300">{stats.total}</p>
+        </motion.div>
+        <motion.div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
+          <p className="text-sm text-yellow-600 dark:text-yellow-400 font-medium mb-1">
+            {language === 'en' ? 'Pending' : 'মুলতুবি'}
+          </p>
+          <p className="text-3xl font-bold text-yellow-700 dark:text-yellow-300">{stats.pending}</p>
+        </motion.div>
+        <motion.div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-200 dark:border-green-800 rounded-xl p-4">
+          <p className="text-sm text-green-600 dark:text-green-400 font-medium mb-1">
+            {language === 'en' ? 'Approved' : 'অনুমোদিত'}
+          </p>
+          <p className="text-3xl font-bold text-green-700 dark:text-green-300">{stats.approved}</p>
+        </motion.div>
+        <motion.div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-xl p-4">
+          <p className="text-sm text-red-600 dark:text-red-400 font-medium mb-1">
+            {language === 'en' ? 'Rejected' : 'প্রত্যাখ্যাত'}
+          </p>
+          <p className="text-3xl font-bold text-red-700 dark:text-red-300">{stats.rejected}</p>
+        </motion.div>
+      </div>
+
+      {/* Test Center Rush Levels */}
+      <motion.div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <MapPin size={24} weight="duotone" />
+          {language === 'en' ? 'Test Center Rush Levels' : 'টেস্ট সেন্টার রাশ লেভেল'}
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {rushData.map(center => {
+            const badge = getRushBadge(center.rush_level);
+            return (
+              <motion.div
+                key={center.center_id}
+                whileHover={{ scale: 1.02 }}
+                className="border-2 border-gray-200 dark:border-gray-700 rounded-lg p-4"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <h4 className="font-bold text-gray-900 dark:text-white text-sm">
+                    {language === 'en' ? center.center_name_en : center.center_name_bn}
+                  </h4>
+                  <span className={`${badge.bg} ${badge.text} px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1`}>
+                    {badge.icon}
+                    {badge.label}
+                  </span>
+                </div>
+                <div className="space-y-1 text-sm">
+                  <p className="text-gray-600 dark:text-gray-400">
+                    <strong>{language === 'en' ? 'Pending:' : 'মুলতুবি:'}</strong> {center.pending_count}
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    <strong>{language === 'en' ? 'This Month:' : 'এই মাসে:'}</strong> {center.approved_this_month}
+                  </p>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </motion.div>
+
+      {/* Filters */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg">
+        <div className="flex flex-col md:flex-row gap-4 items-center">
+          {/* Search */}
+          <div className="flex-1 relative">
+            <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              placeholder={language === 'en' ? 'Search by certificate number, vehicle...' : 'সার্টিফিকেট নম্বর, যানবাহন দ্বারা অনুসন্ধান...'}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border-2 border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:border-primary focus:outline-none"
+            />
+          </div>
+
+          {/* Filter Buttons */}
+          <div className="flex gap-2">
+            {['all', 'pending', 'approved', 'rejected'].map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-4 py-2 rounded-lg font-bold transition-all ${
+                  filter === f
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {f === 'all' && (language === 'en' ? 'All' : 'সব')}
+                {f === 'pending' && (language === 'en' ? 'Pending' : 'মুলতুবি')}
+                {f === 'approved' && (language === 'en' ? 'Approved' : 'অনুমোদিত')}
+                {f === 'rejected' && (language === 'en' ? 'Rejected' : 'প্রত্যাখ্যাত')}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Certificates List */}
+      <div className="space-y-4">
+        {getFilteredCertificates().map(cert => (
+          <CertificateCard
+            key={cert.id}
+            certificate={cert}
+            language={language}
+            onInspect={() => openApprovalModal(cert)}
+          />
+        ))}
+
+        {getFilteredCertificates().length === 0 && (
+          <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl">
+            <Certificate size={80} className="mx-auto text-gray-400 mb-4" weight="duotone" />
+            <p className="text-gray-500 dark:text-gray-400">
+              {language === 'en' ? 'No certificates found' : 'কোনো সার্টিফিকেট পাওয়া যায়নি'}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Approval Modal */}
+      <AnimatePresence>
+        {showApprovalModal && selectedCert && (
+          <ApprovalModal
+            certificate={selectedCert}
+            approvalData={approvalData}
+            setApprovalData={setApprovalData}
+            testCenters={testCenters}
+            language={language}
+            uploading={uploading}
+            processing={processing}
+            onImageUpload={handleImageUpload}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            onClose={closeModal}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// Certificate Card Component (Cursor Friendly)
+function CertificateCard({ certificate, language, onInspect }) {
+  const getStatusBadge = (status) => {
+    const badges = {
+      pending: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-800 dark:text-yellow-400', label: language === 'en' ? 'Pending' : 'মুলতুবি', icon: <Clock size={16} /> },
+      approved: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-400', label: language === 'en' ? 'Approved' : 'অনুমোদিত', icon: <CheckCircle size={16} /> },
+      rejected: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-400', label: language === 'en' ? 'Rejected' : 'প্রত্যাখ্যাত', icon: <XCircle size={16} /> }
+    };
+    return badges[status] || badges.pending;
+  };
+
+  const badge = getStatusBadge(certificate.status);
+
+  return (
+    <motion.div
+      whileHover={{ scale: 1.01, cursor: 'pointer' }}
+      className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary transition-all"
+    >
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+            <Car size={32} weight="duotone" className="text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+              {certificate.vehicle_name}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {certificate.registration_plate?.en || certificate.registration_plate}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+              {certificate.certificate_number}
+            </p>
+          </div>
+        </div>
+        <span className={`${badge.bg} ${badge.text} px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1`}>
+          {badge.icon}
+          {badge.label}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+            {language === 'en' ? 'Applied Date' : 'আবেদনের তারিখ'}
+          </p>
+          <p className="text-sm font-bold text-gray-900 dark:text-white">
+            {new Date(certificate.created_at).toLocaleDateString()}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+            {language === 'en' ? 'Vehicle Type' : 'যানবাহনের ধরন'}
+          </p>
+          <p className="text-sm font-bold text-gray-900 dark:text-white">
+            {certificate.vehicle_type}
+          </p>
+        </div>
+      </div>
+
+      {certificate.status === 'pending' && (
+        <button
+          onClick={onInspect}
+          className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+        >
+          <Camera size={20} weight="bold" />
+          {language === 'en' ? 'Inspect Vehicle' : 'যানবাহন পরিদর্শন করুন'}
+        </button>
+      )}
+
+      {certificate.status === 'approved' && certificate.vehicle_image_url && (
+        <div className="mt-4">
+          <img
+            src={certificate.vehicle_image_url}
+            alt="Vehicle"
+            className="w-full h-48 object-cover rounded-lg"
+          />
+        </div>
+      )}
+
+      {certificate.status === 'rejected' && certificate.rejection_reason && (
+        <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+          <p className="text-sm text-red-800 dark:text-red-400">
+            <strong>{language === 'en' ? 'Rejection Reason:' : 'প্রত্যাখ্যানের কারণ:'}</strong> {certificate.rejection_reason}
+          </p>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// Approval Modal Component (Cursor Friendly, Championship Design)
+function ApprovalModal({ certificate, approvalData, setApprovalData, testCenters, language, uploading, processing, onImageUpload, onApprove, onReject, onClose }) {
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+      />
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-800 rounded-2xl shadow-2xl z-50 p-6"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <Camera size={28} weight="duotone" />
+            {language === 'en' ? 'Vehicle Inspection' : 'যানবাহন পরিদর্শন'}
+          </h3>
+          <button
+            onClick={onClose}
+            className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Vehicle Info */}
+        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+          <h4 className="font-bold text-gray-900 dark:text-white mb-2">{certificate.vehicle_name}</h4>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            <strong>{language === 'en' ? 'Plate:' : 'প্লেট:'}</strong> {certificate.registration_plate?.en}
+          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            <strong>{language === 'en' ? 'Certificate No:' : 'সার্টিফিকেট নং:'}</strong> {certificate.certificate_number}
+          </p>
+        </div>
+
+        {/* Form */}
+        <div className="space-y-4 mb-6">
+          {/* Test Center */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+              <MapPin size={16} className="inline mr-1" />
+              {language === 'en' ? 'Test Center' : 'টেস্ট সেন্টার'} <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={approvalData.testCenterId}
+              onChange={(e) => setApprovalData(prev => ({ ...prev, testCenterId: e.target.value }))}
+              className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:border-primary focus:outline-none cursor-pointer"
+            >
+              <option value="">{language === 'en' ? 'Select test center' : 'টেস্ট সেন্টার নির্বাচন করুন'}</option>
+              {testCenters.map(center => (
+                <option key={center.id} value={center.id}>
+                  {language === 'en' ? center.center_name_en : center.center_name_bn}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Vehicle Image Upload */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+              <Camera size={16} className="inline mr-1" />
+              {language === 'en' ? 'Vehicle Image' : 'যানবাহনের ছবি'} <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={onImageUpload}
+                className="hidden"
+                id="vehicle-image-upload"
+              />
+              <label
+                htmlFor="vehicle-image-upload"
+                className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-primary cursor-pointer transition-all bg-gray-50 dark:bg-gray-900"
+              >
+                <Upload size={20} />
+                <span className="text-gray-700 dark:text-gray-300">
+                  {uploading ? (language === 'en' ? 'Uploading...' : 'আপলোড হচ্ছে...') : (language === 'en' ? 'Click to upload image' : 'ছবি আপলোড করতে ক্লিক করুন')}
+                </span>
+              </label>
+            </div>
+            {approvalData.vehicleImageUrl && (
+              <div className="mt-3">
+                <img src={approvalData.vehicleImageUrl} alt="Vehicle" className="w-full h-48 object-cover rounded-lg" />
+              </div>
+            )}
+          </div>
+
+          {/* Remarks (English) */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+              <ChatText size={16} className="inline mr-1" />
+              {language === 'en' ? 'Inspector Remarks (English)' : 'পরিদর্শকের মন্তব্য (ইংরেজি)'} <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={approvalData.remarks}
+              onChange={(e) => setApprovalData(prev => ({ ...prev, remarks: e.target.value }))}
+              rows={3}
+              placeholder={language === 'en' ? 'Enter inspection remarks...' : 'পরিদর্শনের মন্তব্য লিখুন...'}
+              className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:border-primary focus:outline-none resize-none"
+            />
+          </div>
+
+          {/* Remarks (Bengali) */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+              <ChatText size={16} className="inline mr-1" />
+              {language === 'en' ? 'Inspector Remarks (Bengali)' : 'পরিদর্শকের মন্তব্য (বাংলা)'}
+            </label>
+            <textarea
+              value={approvalData.remarksBn}
+              onChange={(e) => setApprovalData(prev => ({ ...prev, remarksBn: e.target.value }))}
+              rows={3}
+              placeholder={language === 'en' ? 'Enter remarks in Bengali...' : 'বাংলায় মন্তব্য লিখুন...'}
+              className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:border-primary focus:outline-none resize-none"
+            />
+          </div>
+        </div>
+
+        {/* Action Buttons (Cursor Friendly) */}
+        <div className="flex gap-3">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onApprove}
+            disabled={processing}
+            className="flex-1 px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-bold text-lg hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+          >
+            <CheckCircle size={24} weight="bold" />
+            {processing ? (language === 'en' ? 'Processing...' : 'প্রক্রিয়াকরণ...') : (language === 'en' ? 'Approve' : 'অনুমোদন')}
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onReject}
+            disabled={processing}
+            className="flex-1 px-6 py-4 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-xl font-bold text-lg hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+          >
+            <XCircle size={24} weight="bold" />
+            {processing ? (language === 'en' ? 'Processing...' : 'প্রক্রিয়াকরণ...') : (language === 'en' ? 'Reject' : 'প্রত্যাখ্যান')}
+          </motion.button>
+        </div>
+      </motion.div>
+    </>
+  );
+}

@@ -85,12 +85,9 @@ export default function ProgressTracker({ application }) {
   
   const LICENSE_FEE = calculateLicenseFee();
 
-  // Get dynamic backend URL based on current hostname and protocol
+  // Get backend URL from environment variable
   const getBackendUrl = () => {
-    const hostname = window.location.hostname;
-    const protocol = window.location.protocol;
-    const port = 5000;
-    return `${protocol}//${hostname}:${port}`;
+    return import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
   };
 
   // Generate License handler

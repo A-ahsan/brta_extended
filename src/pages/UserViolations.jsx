@@ -155,13 +155,8 @@ const UserViolations = () => {
     try {
       setPayingViolation(item.id);
 
-      // Get current protocol and host
-      const protocol = window.location.protocol;
-      const host = window.location.host;
-      const baseUrl = `${protocol}//${host}`;
-      const backendUrl = protocol === 'https:' 
-        ? `https://${host.replace('3000', '5000')}`
-        : `http://${host.replace('3000', '5000')}`;
+      // Get backend URL from environment variable
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
 
       // Determine if this is a violation or impoundment
       const isImpoundment = item.itemType === 'impoundment';

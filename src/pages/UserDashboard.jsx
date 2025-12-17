@@ -590,8 +590,10 @@ const UserDashboard = () => {
   };
 
   const generateLicenseQRCode = (licenseNumber) => {
-    // Get current URL (localhost or network)
-    const baseUrl = window.location.origin;
+    // Use production URL for QR codes
+    const baseUrl = import.meta.env.PROD 
+      ? 'https://brta-extended.vercel.app' 
+      : window.location.origin;
     const licenseUrl = `${baseUrl}/license/${licenseNumber}`;
     return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(licenseUrl)}`;
   };

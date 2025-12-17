@@ -94,7 +94,7 @@ export async function sendViolationSMS(params, message) {
   
   // If called with object (violation style)
   const { phoneNumber, violationNumber, violationName, amount, websiteUrl, dueDate } = params;
-  const smsMessage = `**TEST MESSAGE**\nBRTA Fine Alert!\nFine #${violationNumber}\nReason: ${violationName}\nAmount: ${amount} BDT\nDue Date: ${dueDate}\nVisit BRTA 2.0 to pay\nPlease pay within the due date.`;
+  const smsMessage = `BRTA Fine Alert!\nFine #${violationNumber}\nReason: ${violationName}\nAmount: ${amount} BDT\nDue: ${dueDate}\nVisit ${websiteUrl || 'https://brta-extended.vercel.app'} to pay online.\nPay before due date to avoid penalties.`;
   
   return await sendSMS(phoneNumber, smsMessage);
 }

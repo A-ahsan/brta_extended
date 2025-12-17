@@ -1539,7 +1539,7 @@ app.post('/api/violations/send-sms', async (req, res) => {
       violationNumber,
       violationName,
       amount,
-      websiteUrl: websiteUrl || 'https://brta.gov.bd',
+      websiteUrl: websiteUrl || process.env.FRONTEND_URL || 'https://brta-extended.vercel.app',
       dueDate
     });
 

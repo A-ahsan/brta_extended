@@ -205,10 +205,7 @@ const ImpoundVehicleModal = ({ isOpen, onClose, vehicleData, onSuccess }) => {
       // Send SMS to user
       try {
         const websiteUrl = window.location.origin;
-        const backendHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-          ? window.location.hostname 
-          : window.location.hostname;
-        const backendUrl = `https://${backendHost}:5000/api/impoundments/send-sms`;
+        const backendUrl = `${import.meta.env.VITE_BACKEND_URL}/api/impoundments/send-sms`;
         
         await fetch(backendUrl, {
           method: 'POST',

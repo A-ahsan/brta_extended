@@ -64,11 +64,9 @@ export default function UserPayments() {
     setLoading(false);
   }
 
-  // Get dynamic backend URL based on current hostname
+  // Get backend URL from environment variable
   const getBackendUrl = () => {
-    const hostname = window.location.hostname;
-    const port = 5000;
-    return `http://${hostname}:${port}`;
+    return import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
   };
 
   async function handlePay() {

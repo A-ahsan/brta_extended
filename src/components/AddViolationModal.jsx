@@ -227,11 +227,8 @@ const AddViolationModal = ({ isOpen, onClose, vehicleData, onSuccess }) => {
       try {
         const websiteUrl = window.location.origin; // Get current website URL
         
-        // Get backend URL - use window.location.hostname to work on both localhost and mobile
-        const backendHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-          ? window.location.hostname 
-          : window.location.hostname; // Use same host as frontend
-        const backendUrl = `https://${backendHost}:5000/api/violations/send-sms`;
+        // Use environment variable for backend URL
+        const backendUrl = `${import.meta.env.VITE_BACKEND_URL}/api/violations/send-sms`;
         
         console.log('📱 Attempting to send SMS via:', backendUrl);
         

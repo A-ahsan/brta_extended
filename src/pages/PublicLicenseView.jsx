@@ -33,7 +33,7 @@ const PublicLicenseView = () => {
       
       // Get backend URL dynamically - support localhost and network IPs
       const hostname = window.location.hostname;
-      const backendUrl = `${window.location.protocol}//${window.location.hostname}:5000`;
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
 
       console.log('Fetching license from:', `${backendUrl}/api/licenses/${license_number}`);
       

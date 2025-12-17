@@ -130,7 +130,7 @@ const TaxTokenRenewalModal = ({ open, onClose, vehicle, language, onSuccess }) =
 
       const tran_id = `TTREN${Date.now()}`;
       const frontendUrl = window.location.origin;
-      const backendUrl = `${window.location.protocol}//${window.location.hostname}:5000`;
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
 
       // Get user info
       const { data: { user } } = await supabase.auth.getUser();

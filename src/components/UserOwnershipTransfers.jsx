@@ -206,7 +206,8 @@ export default function UserOwnershipTransfers({ user, onOpenModal }) {
         .eq('id', app.id);
 
       // Initiate SSLCommerz payment
-      const response = await axios.post('https://localhost:5000/api/payment/ownership-transfer', {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
+      const response = await axios.post(`${backendUrl}/api/payment/ownership-transfer`, {
         payment_id: payment.id,
         amount: app.transfer_fee,
         application_number: app.application_number,

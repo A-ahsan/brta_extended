@@ -267,7 +267,8 @@ const VehicleRegistrationModal = ({ isOpen, onClose, user, onSuccess }) => {
       const frontendUrl = `${protocol}//${host}${port ? ':' + port : ''}`;
       const backendHost = host === 'localhost' ? 'localhost' : host;
       
-      const response = await fetch(`${protocol}//${backendHost}:5000/api/payment/vehicle-registration`, {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
+      const response = await fetch(`${backendUrl}/api/payment/vehicle-registration`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

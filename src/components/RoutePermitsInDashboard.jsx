@@ -119,7 +119,8 @@ export default function RoutePermitsInDashboard() {
         .eq('id', permit.id);
 
       // Initiate SSLCommerz payment
-      const response = await axios.post('https://localhost:5000/api/payment/route-permit', {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
+      const response = await axios.post(`${backendUrl}/api/payment/route-permit`, {
         payment_id: payment.id,
         amount: permit.total_fee,
         permit_number: permit.permit_number,

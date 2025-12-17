@@ -80,7 +80,7 @@ const RenewalPaymentModal = ({ open, onClose, license, language, onSuccess }) =>
       setLoading(true);
       setError(null);
 
-      const backendUrl = `${window.location.protocol}//${window.location.hostname}:5000`;
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
       const response = await axios.get(
         `${backendUrl}/api/licenses/${license.id}/renewal-status`
       );
@@ -105,7 +105,7 @@ const RenewalPaymentModal = ({ open, onClose, license, language, onSuccess }) =>
 
       const tran_id = `REN${Date.now()}`;
       const frontendUrl = window.location.origin;
-      const backendUrl = `${window.location.protocol}//${window.location.hostname}:5000`;
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
 
       // Create payment record
       const initiateResponse = await axios.post(

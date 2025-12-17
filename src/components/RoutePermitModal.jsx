@@ -408,7 +408,7 @@ export default function RoutePermitModal({ isOpen, onClose, user, onSuccess }) {
   const initiatePayment = async (paymentId, amount, permitNumber) => {
     try {
       const frontendUrl = window.location.origin;
-      const backendUrl = `${window.location.protocol}//${window.location.hostname}:5000`;
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
 
       const response = await axios.post(`${backendUrl}/api/payment/route-permit`, {
         payment_id: paymentId,

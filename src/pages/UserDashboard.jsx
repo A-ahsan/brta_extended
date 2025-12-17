@@ -399,7 +399,7 @@ const UserDashboard = () => {
       setGeneratingLicense(true);
       
       // Get backend URL dynamically
-      const backendUrl = `${window.location.protocol}//${window.location.hostname}:5000`;
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
 
       const response = await fetch(`${backendUrl}/api/licenses/generate`, {
         method: 'POST',

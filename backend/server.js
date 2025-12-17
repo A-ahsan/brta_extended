@@ -1,7 +1,5 @@
 // Minimal Node.js/Express backend for SSLCommerz demo integration
 import express from 'express';
-import https from 'https';
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
@@ -32,26 +30,28 @@ const supabase = createClient(
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+// CORS configuration for production
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  process.env.FRONTEND_URL // Will be set in Render dashboard
+].filter(Boolean);
+
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all origins in production (you can restrict this later)
+    }
+  },
+  credentials: true
+}));
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-
-// HTTPS Configuration
-let server;
-const certPath = path.join(__dirname, '../cert/cert.pem');
-const keyPath = path.join(__dirname, '../cert/key.pem');
-
-if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
-  const httpsOptions = {
-    key: fs.readFileSync(keyPath),
-    cert: fs.readFileSync(certPath)
-  };
-  server = https.createServer(httpsOptions, app);
-  console.log('🔒 HTTPS enabled for backend');
-} else {
-  server = app;
-  console.log('⚠️  HTTPS certificates not found, running on HTTP');
-}
 
 // SSLCommerz credentials (use .env for real projects)
 const SSLCZ_STORE_ID = process.env.SSLCZ_STORE_ID || 'testbox';
@@ -1837,8 +1837,8 @@ app.post('/api/auth/reset-password', async (req, res) => {
 // Chatbot routes
 app.use('/api/chatbot', chatbotRoutes);
 
-server.listen(PORT, () => {
-  const protocol = fs.existsSync(certPath) && fs.existsSync(keyPath) ? 'https' : 'http';
-  console.log(`🚀 Backend server running on ${protocol}://localhost:${PORT}`);
-  console.log(`🤖 Chatbot API available at ${protocol}://localhost:${PORT}/api/chatbot`);
+app.listen(PORT, () => {
+  console.log(`🚀 Backend server running on port ${PORT}`);
+  console.log(`🤖 Chatbot API available at /api/chatbot`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });

@@ -211,7 +211,7 @@ const UserViolations = () => {
         customerEmail: user.email,
         tran_id: transactionId,
         user_id: user.id,
-        frontend_url: baseUrl
+        frontend_url: window.location.origin
       });
 
       const gatewayUrl = response.data.url || response.data.GatewayPageURL;

@@ -1,0 +1,9 @@
+node_modules
+.env
+.git
+backend
+*.md
+selenium_tests
+.venv
+.pytest_cache
+cert

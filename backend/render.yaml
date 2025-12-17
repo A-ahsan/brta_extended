@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: brta-backend
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SSLCZ_STORE_ID
+        sync: false
+      - key: SSLCZ_STORE_PASSWORD
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false

@@ -136,4 +136,134 @@ export async function getUserPhoneNumber(supabase, userId) {
   }
 }
 
-export default { sendSMS, sendViolationSMS, getUserPhoneNumber };
+/**
+ * Send license generation SMS notification
+ * @param {string} phoneNumber - User phone number
+ * @param {string} licenseNumber - Generated license number
+ * @param {string} fullName - User's full name
+ * @param {string} expiryDate - License expiry date
+ * @returns {Promise<Object>} - SMS response
+ */
+export async function sendLicenseGeneratedSMS(phoneNumber, licenseNumber, fullName, expiryDate) {
+  const message = `BRTA License Generated!\n` +
+                 `Congratulations ${fullName}!\n` +
+                 `Your driving license has been successfully generated.\n` +
+                 `License #: ${licenseNumber}\n` +
+                 `Valid until: ${expiryDate}\n` +
+                 `Download from: https://brta-extended.vercel.app\n` +
+                 `- Bangladesh Road Transport Authority`;
+  
+  return await sendSMS(phoneNumber, message);
+}
+
+/**
+ * Send vehicle registration completion SMS notification
+ * @param {string} phoneNumber - User phone number
+ * @param {string} registrationNumber - Vehicle registration number
+ * @param {string} registrationPlate - Vehicle plate number
+ * @param {string} vehicleName - Vehicle name and model
+ * @param {string} validUntil - Registration validity date
+ * @returns {Promise<Object>} - SMS response
+ */
+export async function sendVehicleRegistrationSMS(phoneNumber, registrationNumber, registrationPlate, vehicleName, validUntil) {
+  const message = `BRTA Vehicle Registration Complete!\n` +
+                 `Your vehicle registration is successful.\n` +
+                 `Vehicle: ${vehicleName}\n` +
+                 `Reg #: ${registrationNumber}\n` +
+                 `Plate: ${registrationPlate}\n` +
+                 `Valid until: ${validUntil}\n` +
+                 `View details: https://brta-extended.vercel.app\n` +
+                 `- Bangladesh Road Transport Authority`;
+  
+  return await sendSMS(phoneNumber, message);
+}
+
+/**
+ * Send license renewal SMS notification
+ * @param {string} phoneNumber - User phone number
+ * @param {string} licenseNumber - License number
+ * @param {string} newExpiryDate - New expiry date after renewal
+ * @param {number} amount - Renewal fee paid
+ * @returns {Promise<Object>} - SMS response
+ */
+export async function sendLicenseRenewalSMS(phoneNumber, licenseNumber, newExpiryDate, amount) {
+  const message = `BRTA License Renewed!\n` +
+                 `Your driving license has been successfully renewed.\n` +
+                 `License #: ${licenseNumber}\n` +
+                 `New expiry: ${newExpiryDate}\n` +
+                 `Amount paid: BDT ${amount}\n` +
+                 `View license: https://brta-extended.vercel.app\n` +
+                 `- Bangladesh Road Transport Authority`;
+  
+  return await sendSMS(phoneNumber, message);
+}
+
+/**
+ * Send tax token renewal SMS notification
+ * @param {string} phoneNumber - User phone number
+ * @param {string} vehicleInfo - Vehicle name and plate
+ * @param {string} validUntil - Token validity date
+ * @param {number} amount - Renewal amount paid
+ * @returns {Promise<Object>} - SMS response
+ */
+export async function sendTaxTokenRenewalSMS(phoneNumber, vehicleInfo, validUntil, amount) {
+  const message = `BRTA Tax Token Renewed!\n` +
+                 `Your tax token has been successfully renewed.\n` +
+                 `Vehicle: ${vehicleInfo}\n` +
+                 `Valid until: ${validUntil}\n` +
+                 `Amount paid: BDT ${amount}\n` +
+                 `View token: https://brta-extended.vercel.app\n` +
+                 `- Bangladesh Road Transport Authority`;
+  
+  return await sendSMS(phoneNumber, message);
+}
+
+/**
+ * Send ownership transfer SMS - for previous owner
+ * @param {string} phoneNumber - Previous owner's phone
+ * @param {string} vehicleInfo - Vehicle name and registration
+ * @param {string} newOwnerName - New owner's name
+ * @returns {Promise<Object>} - SMS response
+ */
+export async function sendOwnershipTransferPreviousSMS(phoneNumber, vehicleInfo, newOwnerName) {
+  const message = `BRTA Ownership Transfer Complete!\n` +
+                 `Vehicle: ${vehicleInfo}\n` +
+                 `The ownership has been successfully transferred to ${newOwnerName}.\n` +
+                 `This vehicle is no longer registered under your name.\n` +
+                 `View details: https://brta-extended.vercel.app\n` +
+                 `- Bangladesh Road Transport Authority`;
+  
+  return await sendSMS(phoneNumber, message);
+}
+
+/**
+ * Send ownership transfer SMS - for new owner
+ * @param {string} phoneNumber - New owner's phone
+ * @param {string} vehicleInfo - Vehicle name and registration
+ * @param {string} registrationPlate - Vehicle plate number
+ * @param {number} transferFee - Transfer fee paid
+ * @returns {Promise<Object>} - SMS response
+ */
+export async function sendOwnershipTransferNewSMS(phoneNumber, vehicleInfo, registrationPlate, transferFee) {
+  const message = `BRTA Vehicle Ownership Received!\n` +
+                 `Congratulations! You are now the registered owner of:\n` +
+                 `Vehicle: ${vehicleInfo}\n` +
+                 `Plate: ${registrationPlate}\n` +
+                 `Transfer fee: BDT ${transferFee}\n` +
+                 `View vehicle: https://brta-extended.vercel.app\n` +
+                 `- Bangladesh Road Transport Authority`;
+  
+  return await sendSMS(phoneNumber, message);
+}
+
+export default { 
+  sendSMS, 
+  sendViolationSMS, 
+  getUserPhoneNumber,
+  sendLicenseGeneratedSMS,
+  sendVehicleRegistrationSMS,
+  sendLicenseRenewalSMS,
+  sendTaxTokenRenewalSMS,
+  sendOwnershipTransferPreviousSMS,
+  sendOwnershipTransferNewSMS
+};

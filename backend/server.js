@@ -8,7 +8,16 @@ import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import { updatePaymentAndNotify } from './updatePayment.js';
 import { createClient } from '@supabase/supabase-js';
-import { sendViolationSMS, getUserPhoneNumber } from './smsService.js';
+import { 
+  sendViolationSMS, 
+  getUserPhoneNumber,
+  sendLicenseGeneratedSMS,
+  sendVehicleRegistrationSMS,
+  sendLicenseRenewalSMS,
+  sendTaxTokenRenewalSMS,
+  sendOwnershipTransferPreviousSMS,
+  sendOwnershipTransferNewSMS
+} from './smsService.js';
 import { 
   generateOTP, 
   verifyOTP, 
@@ -406,6 +415,32 @@ app.post('/api/licenses/generate', async (req, res) => {
       console.log('⚠️ No admins found or error fetching admins:', adminError);
     }
 
+    // Send SMS notification to user
+    try {
+      const phoneNumber = await getUserPhoneNumber(supabase, user_id);
+      
+      if (phoneNumber) {
+        console.log('📱 Sending license generation SMS...');
+        const smsResult = await sendLicenseGeneratedSMS(
+          phoneNumber,
+          licenseNumber,
+          application.full_name_en,
+          expiryDateStr
+        );
+        
+        if (smsResult.success) {
+          console.log('✅ License generation SMS sent successfully');
+        } else {
+          console.error('⚠️ SMS sending failed, but continuing:', smsResult.message);
+        }
+      } else {
+        console.log('⚠️ No phone number found for SMS notification');
+      }
+    } catch (smsError) {
+      // SMS failure should not block license generation
+      console.error('⚠️ SMS Error (non-blocking):', smsError.message);
+    }
+
     res.json({ 
       success: true, 
       license: newLicense,
@@ -618,6 +653,39 @@ app.post('/api/licenses/renewal/process', async (req, res) => {
         success: false, 
         error: 'Failed to process license renewal' 
       });
+    }
+
+    // Send SMS notification to user
+    try {
+      // Get updated license details
+      const { data: license } = await supabase
+        .from('licenses')
+        .select('license_number, expiry_date')
+        .eq('id', license_id)
+        .single();
+      
+      const phoneNumber = await getUserPhoneNumber(supabase, user_id);
+      
+      if (phoneNumber && license) {
+        console.log('📱 Sending license renewal SMS...');
+        const smsResult = await sendLicenseRenewalSMS(
+          phoneNumber,
+          license.license_number,
+          license.expiry_date,
+          payment.amount
+        );
+        
+        if (smsResult.success) {
+          console.log('✅ License renewal SMS sent successfully');
+        } else {
+          console.error('⚠️ SMS sending failed, but continuing:', smsResult.message);
+        }
+      } else {
+        console.log('⚠️ No phone number or license found for SMS notification');
+      }
+    } catch (smsError) {
+      // SMS failure should not block renewal
+      console.error('⚠️ SMS Error (non-blocking):', smsError.message);
     }
 
     res.json({
@@ -1098,6 +1166,34 @@ app.post('/api/vehicles/registration/process', async (req, res) => {
         type: 'vehicle_registration_complete'
       }]);
 
+    // Send SMS notification to user
+    try {
+      const phoneNumber = await getUserPhoneNumber(supabase, user_id);
+      
+      if (phoneNumber) {
+        console.log('📱 Sending vehicle registration SMS...');
+        const vehicleFullName = `${application.vehicles.vehicle_name} ${application.vehicles.model}`;
+        const smsResult = await sendVehicleRegistrationSMS(
+          phoneNumber,
+          regNumber,
+          plateData.en,
+          vehicleFullName,
+          validUntil.toISOString().split('T')[0]
+        );
+        
+        if (smsResult.success) {
+          console.log('✅ Vehicle registration SMS sent successfully');
+        } else {
+          console.error('⚠️ SMS sending failed, but continuing:', smsResult.message);
+        }
+      } else {
+        console.log('⚠️ No phone number found for SMS notification');
+      }
+    } catch (smsError) {
+      // SMS failure should not block registration
+      console.error('⚠️ SMS Error (non-blocking):', smsError.message);
+    }
+
     res.json({
       success: true,
       registration: registeredVehicle,
@@ -1260,6 +1356,44 @@ app.post('/api/tax-tokens/renewal/process', async (req, res) => {
       p_admin_message_bn: `যানবাহন ${vehicle.registration_number} - ট্যাক্স টোকেন নবায়ন সফল। পরিমাণ: ৳${payment.amount}। ব্যবহারকারী: ${vehicle.owner_name_bn}`
     });
 
+    // Send SMS notification to user
+    try {
+      const phoneNumber = await getUserPhoneNumber(supabase, user_id);
+      
+      if (phoneNumber && vehicle) {
+        console.log('📱 Sending tax token renewal SMS...');
+        
+        // Get updated tax token to find valid_until date
+        const { data: taxToken } = await supabase
+          .from('tax_tokens')
+          .select('valid_until')
+          .eq('registered_vehicle_id', vehicle_id)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        
+        const vehicleInfo = `${vehicle.vehicle_name} ${vehicle.model} (${vehicle.registration_plate.en})`;
+        const smsResult = await sendTaxTokenRenewalSMS(
+          phoneNumber,
+          vehicleInfo,
+          taxToken?.valid_until || 'N/A',
+          payment.amount
+        );
+        
+        if (smsResult.success) {
+          console.log('✅ Tax token renewal SMS sent successfully');
+        } else {
+          console.error('⚠️ SMS sending failed, but continuing:', smsResult.message);
+        }
+      } else {
+        console.log('⚠️ No phone number or vehicle found for SMS notification');
+      }
+    } catch (smsError) {
+      // SMS failure should not block renewal
+      console.error('⚠️ SMS Error (non-blocking):', smsError.message);
+    }
+
     res.json({
       success: true,
       renewal: renewalResult,
@@ -1403,6 +1537,49 @@ app.post('/api/ownership-transfer/process', async (req, res) => {
         recipient_type: 'admin'
       }
     ]);
+
+    // Send SMS notifications to both previous and new owner
+    try {
+      const vehicleInfo = `${application.vehicle_name} (${application.vehicle_registration_number})`;
+      
+      // SMS to previous owner
+      const previousOwnerPhone = await getUserPhoneNumber(supabase, application.current_owner_user_id);
+      if (previousOwnerPhone) {
+        console.log('📱 Sending ownership transfer SMS to previous owner...');
+        const prevSmsResult = await sendOwnershipTransferPreviousSMS(
+          previousOwnerPhone,
+          vehicleInfo,
+          application.new_owner_name_en
+        );
+        
+        if (prevSmsResult.success) {
+          console.log('✅ Previous owner SMS sent successfully');
+        } else {
+          console.error('⚠️ Previous owner SMS failed:', prevSmsResult.message);
+        }
+      }
+      
+      // SMS to new owner
+      const newOwnerPhone = await getUserPhoneNumber(supabase, application.new_owner_user_id);
+      if (newOwnerPhone) {
+        console.log('📱 Sending ownership transfer SMS to new owner...');
+        const newSmsResult = await sendOwnershipTransferNewSMS(
+          newOwnerPhone,
+          vehicleInfo,
+          application.vehicle_registration_plate || 'N/A',
+          application.transfer_fee
+        );
+        
+        if (newSmsResult.success) {
+          console.log('✅ New owner SMS sent successfully');
+        } else {
+          console.error('⚠️ New owner SMS failed:', newSmsResult.message);
+        }
+      }
+    } catch (smsError) {
+      // SMS failure should not block transfer
+      console.error('⚠️ SMS Error (non-blocking):', smsError.message);
+    }
 
     res.json({
       success: true,

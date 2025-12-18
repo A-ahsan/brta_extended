@@ -237,18 +237,6 @@ export default function RoutePermitApplicationModalImproved({ isOpen, onClose, u
     }
   };
 
-  const handleSubmit = async () => {
-    // Validation
-    if (routePoints.length < 2) {
-      toast.error(isEnglish ? 'Please draw a route with at least 2 points' : 'অন্তত ২টি পয়েন্ট সহ একটি রুট আঁকুন');
-      return;
-    }
-
-    if (!formData.reason_document) {
-      toast.error(isEnglish ? 'Please upload a supporting document' : 'একটি সহায়ক নথি আপলোড করুন');
-      return;
-    }
-
   // Search location using Nominatim (free OpenStreetMap geocoding)
   const searchLocation = async (query) => {
     if (!query || query.length < 3) {
@@ -295,6 +283,18 @@ export default function RoutePermitApplicationModalImproved({ isOpen, onClose, u
       }
     );
   };
+
+  const handleSubmit = async () => {
+    // Validation
+    if (routePoints.length < 2) {
+      toast.error(isEnglish ? 'Please draw a route with at least 2 points' : 'অন্তত ২টি পয়েন্ট সহ একটি রুট আঁকুন');
+      return;
+    }
+
+    if (!formData.reason_document) {
+      toast.error(isEnglish ? 'Please upload a supporting document' : 'একটি সহায়ক নথি আপলোড করুন');
+      return;
+    }
 
     if (!formData.reason_description_en || !formData.reason_description_bn) {
       toast.error(isEnglish ? 'Please provide reason in both languages' : 'উভয় ভাষায় কারণ প্রদান করুন');

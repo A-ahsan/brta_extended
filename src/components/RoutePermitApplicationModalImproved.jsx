@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, Upload, Car, Calendar, FileText, Info, Trash, Plus, CheckCircle } from 'phosphor-react';
+import { X, MapPin, Upload, Car, Calendar, FileText, Info, Trash, Plus, CheckCircle, MagnifyingGlass, NavigationArrow } from 'phosphor-react';
 import { useLanguage } from '../contexts/AppContext';
 import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
-import { MapContainer, TileLayer, Polyline, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -56,6 +56,17 @@ function RouteDrawer({ routePoints, setRoutePoints, isDrawing }) {
   return null;
 }
 
+// Map component to handle centering
+function MapController({ center }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center) {
+      map.setView(center, 15);
+    }
+  }, [center, map]);
+  return null;
+}
+
 export default function RoutePermitApplicationModalImproved({ isOpen, onClose, user, onSuccess }) {
   const { language } = useLanguage();
   const isEnglish = language === 'en';
@@ -78,6 +89,13 @@ export default function RoutePermitApplicationModalImproved({ isOpen, onClose, u
   const [isDrawing, setIsDrawing] = useState(false);
   const [uploadingDocument, setUploadingDocument] = useState(false);
   const [estimatedFee, setEstimatedFee] = useState(null);
+  
+  // New states for search and location
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [mapCenter, setMapCenter] = useState([23.8103, 90.4125]); // Dhaka center
+  const [userLocation, setUserLocation] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -230,6 +248,53 @@ export default function RoutePermitApplicationModalImproved({ isOpen, onClose, u
       toast.error(isEnglish ? 'Please upload a supporting document' : 'একটি সহায়ক নথি আপলোড করুন');
       return;
     }
+
+  // Search location using Nominatim (free OpenStreetMap geocoding)
+  const searchLocation = async (query) => {
+    if (!query || query.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)},Bangladesh&limit=5`
+      );
+      const data = await response.json();
+      setSearchResults(data);
+    } catch (error) {
+      console.error('Search error:', error);
+      toast.error(isEnglish ? 'Search failed' : 'অনুসন্ধান ব্যর্থ');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Get user's current location
+  const getUserLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error(isEnglish ? 'Geolocation not supported' : 'জিওলোকেশন সমর্থিত নয়');
+      return;
+    }
+
+    toast.loading(isEnglish ? 'Getting your location...' : 'আপনার অবস্থান নির্ধারণ করা হচ্ছে...');
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        toast.dismiss();
+        const location = [position.coords.latitude, position.coords.longitude];
+        setUserLocation(location);
+        setMapCenter(location);
+        toast.success(isEnglish ? 'Location found!' : 'অবস্থান পাওয়া গেছে!');
+      },
+      (error) => {
+        toast.dismiss();
+        console.error('Location error:', error);
+        toast.error(isEnglish ? 'Could not get your location' : 'আপনার অবস্থান পাওয়া যায়নি');
+      }
+    );
+  };
 
     if (!formData.reason_description_en || !formData.reason_description_bn) {
       toast.error(isEnglish ? 'Please provide reason in both languages' : 'উভয় ভাষায় কারণ প্রদান করুন');
@@ -461,18 +526,69 @@ export default function RoutePermitApplicationModalImproved({ isOpen, onClose, u
               {/* Step 2: Draw Route */}
               {step === 2 && (
                 <div className="space-y-4">
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                  {/* Info Box - Improved styling */}
+                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 border border-gray-300 dark:border-gray-600 rounded-xl p-4 shadow-sm">
                     <div className="flex items-start gap-3">
-                      <Info size={24} className="text-blue-600 flex-shrink-0 mt-0.5" weight="duotone" />
-                      <div className="text-sm text-blue-800 dark:text-blue-200">
-                        <p className="font-semibold mb-1">{text.drawRoute}</p>
-                        <p className="opacity-80">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Info size={20} className="text-primary flex-shrink-0" weight="bold" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-gray-800 dark:text-gray-100 mb-2">{text.drawRoute}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
                           {isEnglish 
                             ? 'Click "Start Drawing", then click multiple points on the map to create your route. The more accurate, the better!'
                             : 'Start Drawing ক্লিক করুন, তারপর আপনার রুট তৈরি করতে মানচিত্রে একাধিক পয়েন্ট ক্লিক করুন। যত সঠিক, তত ভাল!'}
                         </p>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Search Box */}
+                  <div className="relative">
+                    <div className="relative">
+                      <MagnifyingGlass size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" weight="bold" />
+                      <input
+                        type="text"
+                        placeholder={isEnglish ? 'Search location or area...' : 'অবস্থান বা এলাকা অনুসন্ধান করুন...'}
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          searchLocation(e.target.value);
+                        }}
+                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                      />
+                      {isSearching && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Search Results Dropdown */}
+                    {searchResults.length > 0 && (
+                      <div className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+                        {searchResults.map((result, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              const lat = parseFloat(result.lat);
+                              const lng = parseFloat(result.lon);
+                              setMapCenter([lat, lng]);
+                              setSearchQuery(result.display_name);
+                              setSearchResults([]);
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-700 last:border-b-0 transition-colors"
+                          >
+                            <p className="text-sm font-semibold text-gray-800 dark:text-white">
+                              {result.display_name.split(',')[0]}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {result.display_name}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex gap-2">
@@ -497,12 +613,13 @@ export default function RoutePermitApplicationModalImproved({ isOpen, onClose, u
                     )}
                   </div>
 
-                  <div className="h-96 rounded-xl overflow-hidden border-2 border-gray-200 dark:border-gray-700">
+                  <div className="relative h-96 rounded-xl overflow-hidden border-2 border-gray-200 dark:border-gray-700">
                     <MapContainer
                       center={[23.8103, 90.4125]}
                       zoom={13}
                       style={{ height: '100%', width: '100%' }}
                     >
+                      <MapController center={mapCenter} />
                       <TileLayer
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -530,7 +647,22 @@ export default function RoutePermitApplicationModalImproved({ isOpen, onClose, u
                           )}
                         </>
                       )}
+                      {/* User location marker */}
+                      {userLocation && (
+                        <Marker position={userLocation}>
+                          <Popup>Your Location</Popup>
+                        </Marker>
+                      )}
                     </MapContainer>
+
+                    {/* My Location Button - Floating overlay */}
+                    <button
+                      onClick={getUserLocation}
+                      className="absolute top-3 right-3 z-[1000] p-3 bg-white dark:bg-gray-800 rounded-xl shadow-lg border-2 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all group"
+                      title={isEnglish ? 'My Location' : 'আমার অবস্থান'}
+                    >
+                      <NavigationArrow size={22} className="text-primary group-hover:scale-110 transition-transform" weight="bold" />
+                    </button>
                   </div>
 
                   {routePoints.length > 0 && (

@@ -108,35 +108,6 @@ setInterval(() => {
   }
 }, 300000); // Clean up every 5 minutes
 
-// Send email via Resend API (HTTP-based, works on Render)
-const sendViaResend = async (to, subject, html) => {
-  try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        from: FROM_EMAIL,
-        to: [to],
-        subject: subject,
-        html: html
-      })
-    });
-
-    const data = await response.json();
-    
-    if (response.ok) {
-      return { success: true, data };
-    } else {
-      return { success: false, error: data.message || 'Failed to send email' };
-    }
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
-
 // Send OTP email
 export const sendOTPEmail = async (email, otp, language = 'en') => {
   try {

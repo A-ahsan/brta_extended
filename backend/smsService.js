@@ -94,7 +94,7 @@ export async function sendViolationSMS(params, message) {
   
   // If called with object (violation style)
   const { phoneNumber, violationNumber, violationName, amount, websiteUrl, dueDate } = params;
-  const smsMessage = `BRTA Fine Alert!\nFine #${violationNumber}\nReason: ${violationName}\nAmount: ${amount} BDT\nDue: ${dueDate}\nVisit ${websiteUrl || 'https://brta-extended.vercel.app'} to pay online.\nPay before due date to avoid penalties.`;
+  const smsMessage = `**TEST MESSAGE**\nBRTA Fine Alert!\nFine #${violationNumber}\nReason: ${violationName}\nAmount: ${amount} BDT\nDue: ${dueDate}\nVisit ${websiteUrl || 'https://brta-extended.vercel.app'} to pay online.\nPay before due date to avoid penalties.`;
   
   return await sendSMS(phoneNumber, smsMessage);
 }
@@ -145,7 +145,8 @@ export async function getUserPhoneNumber(supabase, userId) {
  * @returns {Promise<Object>} - SMS response
  */
 export async function sendLicenseGeneratedSMS(phoneNumber, licenseNumber, fullName, expiryDate) {
-  const message = `BRTA License Generated!\n` +
+  const message = `**TEST MESSAGE**\n` +
+                 `BRTA License Generated!\n` +
                  `Congratulations ${fullName}!\n` +
                  `Your driving license has been successfully generated.\n` +
                  `License #: ${licenseNumber}\n` +
@@ -166,7 +167,8 @@ export async function sendLicenseGeneratedSMS(phoneNumber, licenseNumber, fullNa
  * @returns {Promise<Object>} - SMS response
  */
 export async function sendVehicleRegistrationSMS(phoneNumber, registrationNumber, registrationPlate, vehicleName, validUntil) {
-  const message = `BRTA Vehicle Registration Complete!\n` +
+  const message = `**TEST MESSAGE**\n` +
+                 `BRTA Vehicle Registration Complete!\n` +
                  `Your vehicle registration is successful.\n` +
                  `Vehicle: ${vehicleName}\n` +
                  `Reg #: ${registrationNumber}\n` +
@@ -187,7 +189,8 @@ export async function sendVehicleRegistrationSMS(phoneNumber, registrationNumber
  * @returns {Promise<Object>} - SMS response
  */
 export async function sendLicenseRenewalSMS(phoneNumber, licenseNumber, newExpiryDate, amount) {
-  const message = `BRTA License Renewed!\n` +
+  const message = `**TEST MESSAGE**\n` +
+                 `BRTA License Renewed!\n` +
                  `Your driving license has been successfully renewed.\n` +
                  `License #: ${licenseNumber}\n` +
                  `New expiry: ${newExpiryDate}\n` +
@@ -207,7 +210,8 @@ export async function sendLicenseRenewalSMS(phoneNumber, licenseNumber, newExpir
  * @returns {Promise<Object>} - SMS response
  */
 export async function sendTaxTokenRenewalSMS(phoneNumber, vehicleInfo, validUntil, amount) {
-  const message = `BRTA Tax Token Renewed!\n` +
+  const message = `**TEST MESSAGE**\n` +
+                 `BRTA Tax Token Renewed!\n` +
                  `Your tax token has been successfully renewed.\n` +
                  `Vehicle: ${vehicleInfo}\n` +
                  `Valid until: ${validUntil}\n` +
@@ -226,7 +230,8 @@ export async function sendTaxTokenRenewalSMS(phoneNumber, vehicleInfo, validUnti
  * @returns {Promise<Object>} - SMS response
  */
 export async function sendOwnershipTransferPreviousSMS(phoneNumber, vehicleInfo, newOwnerName) {
-  const message = `BRTA Ownership Transfer Complete!\n` +
+  const message = `**TEST MESSAGE**\n` +
+                 `BRTA Ownership Transfer Complete!\n` +
                  `Vehicle: ${vehicleInfo}\n` +
                  `The ownership has been successfully transferred to ${newOwnerName}.\n` +
                  `This vehicle is no longer registered under your name.\n` +
@@ -245,7 +250,8 @@ export async function sendOwnershipTransferPreviousSMS(phoneNumber, vehicleInfo,
  * @returns {Promise<Object>} - SMS response
  */
 export async function sendOwnershipTransferNewSMS(phoneNumber, vehicleInfo, registrationPlate, transferFee) {
-  const message = `BRTA Vehicle Ownership Received!\n` +
+  const message = `**TEST MESSAGE**\n` +
+                 `BRTA Vehicle Ownership Received!\n` +
                  `Congratulations! You are now the registered owner of:\n` +
                  `Vehicle: ${vehicleInfo}\n` +
                  `Plate: ${registrationPlate}\n` +

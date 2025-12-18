@@ -2245,28 +2245,30 @@ const UserDashboard = () => {
               initial={{ x: -300 }}
               animate={{ x: 0 }}
               exit={{ x: -300 }}
-              className="fixed left-0 top-20 bottom-0 w-64 bg-white dark:bg-gray-900 shadow-xl p-6 overflow-y-auto z-40"
+              className="fixed left-0 top-20 bottom-0 w-64 bg-white dark:bg-gray-900 shadow-xl overflow-hidden z-40 flex flex-col"
             >
-              <nav className="space-y-2 pb-24">
-                {menuItems.map((item) => (
-                  <motion.button
-                    key={item.id}
-                    whileHover={{ x: 10 }}
-                    onClick={() => setActiveTab(item.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                      activeTab === item.id
-                        ? 'bg-primary text-white shadow-lg'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                    }`}
-                  >
-                    {item.icon}
-                    <span className="font-semibold">{item.label}</span>
-                  </motion.button>
-                ))}
+              <nav className="flex-1 overflow-y-auto p-6 pb-2">
+                <div className="space-y-2">
+                  {menuItems.map((item) => (
+                    <motion.button
+                      key={item.id}
+                      whileHover={{ x: 10 }}
+                      onClick={() => setActiveTab(item.id)}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                        activeTab === item.id
+                          ? 'bg-primary text-white shadow-lg'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      {item.icon}
+                      <span className="font-semibold">{item.label}</span>
+                    </motion.button>
+                  ))}
+                </div>
               </nav>
 
               {/* Logout Button */}
-              <div className="absolute bottom-6 left-6 right-6">
+              <div className="p-6 pt-2 border-t border-gray-200 dark:border-gray-700">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}

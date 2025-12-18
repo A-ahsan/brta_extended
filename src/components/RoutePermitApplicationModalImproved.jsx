@@ -543,8 +543,8 @@ export default function RoutePermitApplicationModalImproved({ isOpen, onClose, u
                     </div>
                   </div>
 
-                  {/* Search Box */}
-                  <div className="relative z-30 mb-3">
+                  {/* Search Box - with higher z-index to show above map */}
+                  <div className="relative mb-4" style={{ zIndex: 1000 }}>
                     <div className="relative">
                       <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" weight="bold" />
                       <input
@@ -566,7 +566,7 @@ export default function RoutePermitApplicationModalImproved({ isOpen, onClose, u
                     
                     {/* Search Results Dropdown */}
                     {searchResults.length > 0 && (
-                      <div className="absolute z-[100] w-full mt-1 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl max-h-48 overflow-y-auto">
+                      <div className="absolute w-full mt-1 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl max-h-48 overflow-y-auto" style={{ zIndex: 1001 }}>
                         {searchResults.map((result, idx) => (
                           <button
                             key={idx}

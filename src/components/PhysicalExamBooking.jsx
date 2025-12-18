@@ -533,7 +533,7 @@ const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking })
       </div>
 
       {/* Search Box */}
-      <div className="relative z-30">
+      <div className="relative mb-3" style={{ zIndex: 1000 }}>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
           <input
@@ -555,7 +555,7 @@ const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking })
         
         {/* Search Results Dropdown */}
         {searchResults.length > 0 && (
-          <div className="absolute z-[100] w-full mt-1 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl max-h-48 overflow-y-auto">
+          <div className="absolute w-full mt-1 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl max-h-48 overflow-y-auto" style={{ zIndex: 1001 }}>
             {searchResults.map((result, idx) => (
               <button
                 key={idx}

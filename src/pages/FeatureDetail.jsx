@@ -36,7 +36,7 @@ const FeatureDetail = () => {
   const navigate = useNavigate();
   const languageContext = useLanguage();
   const language = languageContext?.language || 'en';
-  const t = translations[language];
+  const t = translations[language] || translations.en;
 
   const normalizedId = featureId ? featureId.toLowerCase().replace(/\s+/g, '_') : '';
 

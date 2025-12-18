@@ -16,7 +16,7 @@ const nidAnimation = 'https://lottie.host/1f475e39-d513-4873-bf23-35482756e476/A
 const successAnimation = 'https://lottie.host/2e2e2e2e-2e2e-2e2e-2e2e-2e2e2e2e2e2e/success.lottie'; // Placeholder
 
 function NewApplicationModal({ open, onClose, language = 'en' }) {
-    const t = translations[language];
+    const t = translations[language] || translations.en;
   const [step, setStep] = useState(0);
   const [vehicleType, setVehicleType] = useState(null);
   const [licenseType, setLicenseType] = useState(null);

@@ -16,7 +16,7 @@ import { translations } from '../utils/translations';
 const EmbeddedCalculator = () => {
   // Always use English for result section
   const { language } = useLanguage();
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const resultLabels = {
     calculatedFee: 'Calculated Fee',
     totalAmount: 'Total Amount',

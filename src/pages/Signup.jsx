@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, EnvelopeSimple, LockKey, Phone, Eye, EyeSlash, UserPlus, Warning } from 'phosphor-react';
@@ -14,7 +14,7 @@ const Signup = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { signUp } = useAuth();
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -46,19 +46,19 @@ const Signup = () => {
     if (!validatePassword(formData.password)) {
       toast.error(language === 'en' 
         ? 'Password must meet all requirements' 
-        : 'পাসওয়ার্ড সকল প্রয়োজনীয়তা পূরণ করতে হবে'
+        : '?????????? ??? ????????????? ???? ???? ???'
       );
       return;
     }
 
     // Validation
     if (formData.password !== formData.confirmPassword) {
-      toast.error(language === 'en' ? 'Passwords do not match!' : 'পাসওয়ার্ড মিলছে না!');
+      toast.error(language === 'en' ? 'Passwords do not match!' : '?????????? ????? ??!');
       return;
     }
 
     if (!formData.agree) {
-      toast.error(language === 'en' ? 'Please agree to terms and conditions' : 'অনুগ্রহ করে শর্তাবলীতে সম্মত হন');
+      toast.error(language === 'en' ? 'Please agree to terms and conditions' : '??????? ??? ?????????? ????? ??');
       return;
     }
 
@@ -84,23 +84,23 @@ const Signup = () => {
       if (response.ok) {
         toast.success(language === 'en' 
           ? 'OTP sent to your email! Check spam folder if not found.' 
-          : 'আপনার ইমেইলে OTP পাঠানো হয়েছে! না পেলে স্প্যাম ফোল্ডার চেক করুন।'
+          : '????? ?????? OTP ?????? ??????! ?? ???? ??????? ??????? ??? ?????'
         );
         setShowOtpModal(true);
       } else {
-        toast.error(data.message || (language === 'en' ? 'Failed to send OTP. Please try again.' : 'OTP পাঠাতে ব্যর্থ। আবার চেষ্টা করুন।'));
+        toast.error(data.message || (language === 'en' ? 'Failed to send OTP. Please try again.' : 'OTP ?????? ??????? ???? ?????? ?????'));
       }
     } catch (error) {
       console.error('Request OTP error:', error);
       if (error.name === 'AbortError') {
         toast.error(language === 'en' 
           ? 'Request timeout. The server is taking too long to respond. Please try again later.' 
-          : 'অনুরোধ টাইমআউট। সার্ভার সাড়া দিতে অনেক সময় নিচ্ছে। পরে আবার চেষ্টা করুন।'
+          : '?????? ???????? ??????? ????? ???? ???? ???? ??????? ??? ???? ?????? ?????'
         );
       } else {
         toast.error(language === 'en' 
           ? 'Network error. Please check your connection and try again.' 
-          : 'নেটওয়ার্ক ত্রুটি। আপনার সংযোগ চেক করুন এবং আবার চেষ্টা করুন।'
+          : '?????????? ??????? ????? ????? ??? ???? ??? ???? ?????? ?????'
         );
       }
     } finally {
@@ -128,7 +128,7 @@ const Signup = () => {
   const handleOtpSubmit = async () => {
     const otp = otpCode.join('');
     if (otp.length !== 6) {
-      toast.error(language === 'en' ? 'Please enter complete OTP' : 'সম্পূর্ণ OTP লিখুন');
+      toast.error(language === 'en' ? 'Please enter complete OTP' : '???????? OTP ?????');
       return;
     }
 
@@ -155,7 +155,7 @@ const Signup = () => {
           const userName = result.userName || formData.fullName;
           toast.success(language === 'en' 
             ? `Welcome to BRTA, ${userName}` 
-            : `BRTA তে স্বাগতম, ${userName}`
+            : `BRTA ?? ???????, ${userName}`
           );
           
           // Wait for auth state to settle before navigation
@@ -164,14 +164,14 @@ const Signup = () => {
           // Navigate to dashboard
           navigate('/dashboard', { replace: true });
         } else {
-          toast.error(result.error?.message || (language === 'en' ? 'Signup failed' : 'সাইনআপ ব্যর্থ'));
+          toast.error(result.error?.message || (language === 'en' ? 'Signup failed' : '?????? ??????'));
         }
       } else {
-        toast.error(verifyData.message || (language === 'en' ? 'Invalid OTP' : 'ভুল OTP'));
+        toast.error(verifyData.message || (language === 'en' ? 'Invalid OTP' : '??? OTP'));
       }
     } catch (error) {
       console.error('OTP verification error:', error);
-      toast.error(language === 'en' ? 'Verification failed' : 'যাচাই ব্যর্থ');
+      toast.error(language === 'en' ? 'Verification failed' : '????? ??????');
     } finally {
       setOtpLoading(false);
     }
@@ -222,10 +222,10 @@ const Signup = () => {
 
       if (response.ok) {
         setOtpCode(['', '', '', '', '', '']);
-        toast.success(language === 'en' ? 'New OTP sent!' : 'নতুন OTP পাঠানো হয়েছে!');
+        toast.success(language === 'en' ? 'New OTP sent!' : '???? OTP ?????? ??????!');
       }
     } catch (error) {
-      toast.error(language === 'en' ? 'Failed to resend OTP' : 'OTP পুনরায় পাঠাতে ব্যর্থ');
+      toast.error(language === 'en' ? 'Failed to resend OTP' : 'OTP ??????? ?????? ??????');
     } finally {
       setOtpLoading(false);
     }
@@ -259,7 +259,7 @@ const Signup = () => {
             <img src="/brta.png" alt="BRTA Logo" className="h-16 w-16 bg-white rounded-2xl p-2 shadow-lg" />
             <div>
               <h1 className="text-3xl font-extrabold text-primary dark:text-green-400">BRTA 2.0</h1>
-              <p className="text-sm text-gray-600 dark:text-gray-300">{language === 'en' ? 'Smart Transport Portal' : 'স্মার্ট ট্রান্সপোর্ট পোর্টাল'}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">{language === 'en' ? 'Smart Transport Portal' : '??????? ???????????? ???????'}</p>
             </div>
           </div>
           
@@ -281,15 +281,15 @@ const Signup = () => {
             <p className="text-lg font-bold mb-3 text-danger">{t.noDalalNoDelay}</p>
             <ul className="space-y-2">
               <li className="flex items-center gap-2">
-                <span className="text-success">✓</span>
+                <span className="text-success">?</span>
                 <span className="text-gray-700 dark:text-gray-200">{t.authBenefit1}</span>
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-success">✓</span>
+                <span className="text-success">?</span>
                 <span className="text-gray-700 dark:text-gray-200">{t.authBenefit2}</span>
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-success">✓</span>
+                <span className="text-success">?</span>
                 <span className="text-gray-700 dark:text-gray-200">{t.authBenefit3}</span>
               </li>
             </ul>
@@ -310,7 +310,7 @@ const Signup = () => {
               transition={{ delay: 0.2 }}
               className="text-2xl font-bold text-gray-800 dark:text-white mb-2"
             >
-              {language === 'en' ? 'Create Account' : 'অ্যাকাউন্ট তৈরি করুন'}
+              {language === 'en' ? 'Create Account' : '?????????? ???? ????'}
             </motion.h2>
             <motion.p
               initial={{ opacity: 0 }}
@@ -318,7 +318,7 @@ const Signup = () => {
               transition={{ delay: 0.3 }}
               className="text-sm text-gray-600 dark:text-gray-400"
             >
-              {language === 'en' ? 'Join BRTA 2.0 today' : 'আজই BRTA 2.0 এ যোগ দিন'}
+              {language === 'en' ? 'Join BRTA 2.0 today' : '??? BRTA 2.0 ? ??? ???'}
             </motion.p>
           </div>
 
@@ -364,7 +364,7 @@ const Signup = () => {
                   type="email"
                   value={formData.email}
                   onChange={handleEmailChange}
-                  placeholder={language === 'en' ? 'your@email.com' : 'আপনার@ইমেইল.com'}
+                  placeholder={language === 'en' ? 'your@email.com' : '?????@?????.com'}
                   className={`w-full pl-11 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-2 ${
                     !emailValidation.isValid && formData.email.length >= 3
                       ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
@@ -427,7 +427,7 @@ const Signup = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="••••••••"
+                  placeholder="��������"
                   className="w-full pl-11 pr-12 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none focus:bg-white dark:focus:bg-gray-700 dark:text-white placeholder-gray-400 transition-all text-base"
                   required
                 />
@@ -459,7 +459,7 @@ const Signup = () => {
               transition={{ delay: 0.75 }}
             >
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                {language === 'en' ? 'Confirm Password' : 'পাসওয়ার্ড নিশ্চিত করুন'}
+                {language === 'en' ? 'Confirm Password' : '?????????? ??????? ????'}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -469,7 +469,7 @@ const Signup = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  placeholder="••••••••"
+                  placeholder="��������"
                   className="w-full pl-11 pr-12 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none focus:bg-white dark:focus:bg-gray-700 dark:text-white placeholder-gray-400 transition-all text-base"
                   required
                 />
@@ -491,13 +491,13 @@ const Signup = () => {
                 required
               />
               <span className="text-sm text-gray-700 dark:text-gray-300">
-                {language === 'en' ? 'I agree to the' : 'আমি সম্মত'}{' '}
+                {language === 'en' ? 'I agree to the' : '??? ?????'}{' '}
                 <button
                   type="button"
                   onClick={() => setShowTermsModal(true)}
                   className="text-primary hover:text-primary-dark font-medium underline"
                 >
-                  {language === 'en' ? 'Terms & Conditions' : 'শর্তাবলী'}
+                  {language === 'en' ? 'Terms & Conditions' : '????????'}
                 </button>
               </span>
             </motion.div>
@@ -516,7 +516,7 @@ const Signup = () => {
               {isLoading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  {language === 'en' ? 'Creating account...' : 'অ্যাকাউন্ট তৈরি হচ্ছে...'}
+                  {language === 'en' ? 'Creating account...' : '?????????? ???? ?????...'}
                 </>
               ) : (
                 <>
@@ -535,7 +535,7 @@ const Signup = () => {
             className="mt-4 text-center"
           >
             <p className="text-gray-600 dark:text-gray-400">
-              {language === 'en' ? 'Already have an account?' : 'ইতিমধ্যে অ্যাকাউন্ট আছে?'}{' '}
+              {language === 'en' ? 'Already have an account?' : '???????? ?????????? ????'}{' '}
               <Link to="/login" className="text-primary hover:text-primary-dark font-bold transition-colors">
                 {t.login}
               </Link>
@@ -550,7 +550,7 @@ const Signup = () => {
             className="mt-3 text-center"
           >
             <Link to="/" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-green-400 transition-colors">
-              ← {language === 'en' ? 'Back to Home' : 'হোম এ ফিরে যান'}
+              ? {language === 'en' ? 'Back to Home' : '??? ? ???? ???'}
             </Link>
           </motion.div>
         </motion.div>
@@ -578,12 +578,12 @@ const Signup = () => {
                 <EnvelopeSimple size={32} weight="duotone" className="text-primary" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                {language === 'en' ? 'Verify Your Email' : 'আপনার ইমেইল যাচাই করুন'}
+                {language === 'en' ? 'Verify Your Email' : '????? ????? ????? ????'}
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
                 {language === 'en' 
                   ? `Enter the 6-digit code sent to ${formData.email}` 
-                  : `${formData.email} এ পাঠানো ৬-সংখ্যার কোড লিখুন`
+                  : `${formData.email} ? ?????? ?-??????? ??? ?????`
                 }
               </p>
             </div>
@@ -616,10 +616,10 @@ const Signup = () => {
                 {otpLoading ? (
                   <div className="flex items-center justify-center gap-2">
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    {language === 'en' ? 'Verifying...' : 'যাচাই করা হচ্ছে...'}
+                    {language === 'en' ? 'Verifying...' : '????? ??? ?????...'}
                   </div>
                 ) : (
-                  language === 'en' ? 'Verify & Sign Up' : 'যাচাই করুন এবং নিবন্ধন করুন'
+                  language === 'en' ? 'Verify & Sign Up' : '????? ???? ??? ??????? ????'
                 )}
               </motion.button>
 
@@ -628,7 +628,7 @@ const Signup = () => {
                 disabled={otpLoading}
                 className="w-full text-primary hover:text-primary-dark font-semibold py-2 disabled:opacity-50"
               >
-                {language === 'en' ? 'Resend OTP' : 'পুনরায় OTP পাঠান'}
+                {language === 'en' ? 'Resend OTP' : '??????? OTP ?????'}
               </button>
 
               <button
@@ -638,7 +638,7 @@ const Signup = () => {
                 }}
                 className="w-full text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 py-2"
               >
-                {language === 'en' ? 'Cancel' : 'বাতিল'}
+                {language === 'en' ? 'Cancel' : '?????'}
               </button>
             </div>
           </motion.div>

@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { EnvelopeSimple, LockKey, Eye, EyeSlash, SignIn } from 'phosphor-react';
@@ -11,7 +11,7 @@ const Login = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { signIn } = useAuth();
-  const t = translations[language];
+  const t = translations[language] || translations.en; // Fallback to English if language not set
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -61,7 +61,7 @@ const Login = () => {
             <img src="/brta.png" alt="BRTA Logo" className="h-16 w-16 bg-white rounded-2xl p-2 shadow-lg" />
             <div>
               <h1 className="text-3xl font-extrabold text-primary dark:text-green-400">BRTA 2.0</h1>
-              <p className="text-sm text-gray-600 dark:text-gray-300">{language === 'en' ? 'Smart Transport Portal' : 'স্মার্ট ট্রান্সপোর্ট পোর্টাল'}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">{language === 'en' ? 'Smart Transport Portal' : '??????? ???????????? ???????'}</p>
             </div>
           </div>
           
@@ -83,15 +83,15 @@ const Login = () => {
             <p className="text-lg font-bold mb-3 text-danger">{t.noDalalNoDelay}</p>
             <ul className="space-y-2">
               <li className="flex items-center gap-2">
-                <span className="text-success">✓</span>
+                <span className="text-success">?</span>
                 <span className="text-gray-700 dark:text-gray-200">{t.authBenefit1}</span>
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-success">✓</span>
+                <span className="text-success">?</span>
                 <span className="text-gray-700 dark:text-gray-200">{t.authBenefit2}</span>
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-success">✓</span>
+                <span className="text-success">?</span>
                 <span className="text-gray-700 dark:text-gray-200">{t.authBenefit3}</span>
               </li>
             </ul>
@@ -112,7 +112,7 @@ const Login = () => {
               transition={{ delay: 0.2 }}
               className="text-2xl font-bold text-gray-800 dark:text-white mb-2"
             >
-              {language === 'en' ? 'Welcome Back!' : 'আবার স্বাগতম!'}
+              {language === 'en' ? 'Welcome Back!' : '???? ???????!'}
             </motion.h2>
             <motion.p
               initial={{ opacity: 0 }}
@@ -120,7 +120,7 @@ const Login = () => {
               transition={{ delay: 0.3 }}
               className="text-sm text-gray-600 dark:text-gray-400"
             >
-              {language === 'en' ? 'Login to access your account' : 'আপনার অ্যাকাউন্ট অ্যাক্সেস করতে লগইন করুন'}
+              {language === 'en' ? 'Login to access your account' : '????? ?????????? ????????? ???? ???? ????'}
             </motion.p>
           </div>
 
@@ -141,7 +141,7 @@ const Login = () => {
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder={language === 'en' ? 'your@email.com' : 'আপনার@ইমেইল.com'}
+                  placeholder={language === 'en' ? 'your@email.com' : '?????@?????.com'}
                   className="w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none focus:bg-white dark:focus:bg-gray-700 dark:text-white placeholder-gray-400 transition-all text-base"
                   autoFocus
                   required
@@ -166,7 +166,7 @@ const Login = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="••••••••"
+                  placeholder="��������"
                   className="w-full pl-11 pr-12 py-3 bg-gray-50 dark:bg-gray-700/50 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none focus:bg-white dark:focus:bg-gray-700 dark:text-white placeholder-gray-400 transition-all text-base"
                   required
                 />
@@ -215,7 +215,7 @@ const Login = () => {
               {isLoading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  {language === 'en' ? 'Signing in...' : 'লগইন হচ্ছে...'}
+                  {language === 'en' ? 'Signing in...' : '???? ?????...'}
                 </>
               ) : (
                 <>
@@ -249,7 +249,7 @@ const Login = () => {
             className="mt-3 text-center"
           >
             <Link to="/" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-green-400 transition-colors">
-              ← {language === 'en' ? 'Back to Home' : 'হোম এ ফিরে যান'}
+              ? {language === 'en' ? 'Back to Home' : '??? ? ???? ???'}
             </Link>
           </motion.div>
         </motion.div>

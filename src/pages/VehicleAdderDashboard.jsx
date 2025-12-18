@@ -27,7 +27,7 @@ const VehicleAdderDashboard = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { signOut, user } = useAuth();
-  const t = translations[language];
+  const t = translations[language] || translations.en;
 
   const [activeTab, setActiveTab] = useState('add');
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);

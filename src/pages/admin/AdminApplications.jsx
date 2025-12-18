@@ -30,7 +30,7 @@ import toast from 'react-hot-toast';
 
 const AdminApplications = () => {
   const { language } = useLanguage();
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const [filterType, setFilterType] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [applications, setApplications] = useState([]);

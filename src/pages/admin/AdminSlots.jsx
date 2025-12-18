@@ -19,7 +19,7 @@ import toast from 'react-hot-toast';
 
 const AdminSlots = () => {
   const { language } = useLanguage();
-  const t = translations[language];
+  const t = translations[language] || translations.en;
 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [testCenters, setTestCenters] = useState([]);

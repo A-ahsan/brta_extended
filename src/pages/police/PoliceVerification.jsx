@@ -28,7 +28,7 @@ import ImpoundVehicleModal from '../../components/ImpoundVehicleModal';
 const PoliceVerification = () => {
   const { language } = useLanguage();
   const { user } = useAuth();
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [loadingVehicle, setLoadingVehicle] = useState(false);

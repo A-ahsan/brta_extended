@@ -16,7 +16,7 @@ import toast from 'react-hot-toast';
 
 const AdminOverview = () => {
   const { language } = useLanguage();
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const [stats, setStats] = useState({
     totalUsers: 0,
     pendingApplications: 0,

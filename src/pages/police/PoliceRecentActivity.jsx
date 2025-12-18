@@ -15,7 +15,7 @@ import toast from 'react-hot-toast';
 
 const PoliceRecentActivity = () => {
   const { language } = useLanguage();
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const [recentChecks, setRecentChecks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [displayCount, setDisplayCount] = useState(10);

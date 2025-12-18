@@ -32,7 +32,7 @@ const PoliceDashboard = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { signOut, user } = useAuth();
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const [showNotifications, setShowNotifications] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
   const [notifications, setNotifications] = useState([]);

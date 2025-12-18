@@ -16,7 +16,7 @@ const Navbar = () => {
   const { language, toggleLanguage } = useLanguage();
   const { user, profile } = useAuth();
   const navigate = useNavigate();
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const [showPanel, setShowPanel] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [notifications, setNotifications] = useState([]);

@@ -21,7 +21,7 @@ const FeeCalculator = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { language } = useLanguage();
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const resultsRef = useRef(null);
   
   // Check if embedded (coming from dashboard)

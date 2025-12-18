@@ -17,7 +17,7 @@ import toast from 'react-hot-toast';
 
 const PoliceRecords = () => {
   const { language } = useLanguage();
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [vehicleRecords, setVehicleRecords] = useState([]);

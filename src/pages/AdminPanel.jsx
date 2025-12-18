@@ -34,7 +34,7 @@ const AdminPanel = () => {
   const { language } = useLanguage();
   const { theme } = useTheme();
   const { signOut, user, userProfile } = useAuth();
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [notifications, setNotifications] = useState([]);

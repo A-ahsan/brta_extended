@@ -44,7 +44,7 @@ const AnimatedLine = ({ children, delay = 0 }) => {
 const Homepage = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const lottieRef = useRef(null);
 
   // Split tagline by period (works for both languages)

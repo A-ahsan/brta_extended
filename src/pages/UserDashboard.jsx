@@ -28,6 +28,7 @@ import {
 import { useLanguage, useDownload } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { translations } from '../utils/translations';
+import PasswordStrengthMeter, { validatePassword } from '../components/PasswordStrengthMeter';
 import NewApplicationModal from '../components/NewApplicationModalEnhanced';
 import ThemeLanguageToggler from '../components/ThemeLanguageToggler';
 import EmbeddedCalculator from '../components/EmbeddedCalculator';
@@ -538,33 +539,12 @@ const UserDashboard = () => {
       return;
     }
     
-    // Apply same password validation as signup
-    if (passwordData.new.length < 8) {
-      toast.error(language === 'en' ? 'Password must be at least 8 characters long' : 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে');
-      return;
-    }
-    
-    // Check for uppercase letter
-    if (!/[A-Z]/.test(passwordData.new)) {
-      toast.error(language === 'en' ? 'Password must contain at least one uppercase letter' : 'পাসওয়ার্ডে কমপক্ষে একটি বড় হাতের অক্ষর থাকতে হবে');
-      return;
-    }
-    
-    // Check for lowercase letter
-    if (!/[a-z]/.test(passwordData.new)) {
-      toast.error(language === 'en' ? 'Password must contain at least one lowercase letter' : 'পাসওয়ার্ডে কমপক্ষে একটি ছোট হাতের অক্ষর থাকতে হবে');
-      return;
-    }
-    
-    // Check for number
-    if (!/[0-9]/.test(passwordData.new)) {
-      toast.error(language === 'en' ? 'Password must contain at least one number' : 'পাসওয়ার্ডে কমপক্ষে একটি সংখ্যা থাকতে হবে');
-      return;
-    }
-    
-    // Check for special character
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(passwordData.new)) {
-      toast.error(language === 'en' ? 'Password must contain at least one special character (!@#$%^&*...)' : 'পাসওয়ার্ডে কমপক্ষে একটি বিশেষ অক্ষর থাকতে হবে');
+    // Use the same validation as signup
+    if (!validatePassword(passwordData.new)) {
+      toast.error(language === 'en' 
+        ? 'Password must meet all requirements shown below' 
+        : 'পাসওয়ার্ড নিচে দেখানো সমস্ত প্রয়োজনীয়তা পূরণ করতে হবে'
+      );
       return;
     }
     
@@ -2396,6 +2376,12 @@ const UserDashboard = () => {
                     className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary dark:text-white outline-none"
                     required
                   />
+                  {/* Password Strength Meter */}
+                  {passwordData.new && (
+                    <div className="mt-2">
+                      <PasswordStrengthMeter password={passwordData.new} language={language} />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">

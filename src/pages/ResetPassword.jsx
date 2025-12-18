@@ -108,7 +108,8 @@ const ResetPassword = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/auth/verify-otp`, {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
+      const response = await fetch(`${backendUrl}/api/auth/verify-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -181,8 +182,9 @@ const ResetPassword = () => {
 
     try {
       const otpCode = otp.join('');
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
       
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/auth/reset-password`, {
+      const response = await fetch(`${backendUrl}/api/auth/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -221,7 +223,8 @@ const ResetPassword = () => {
     setIsLoading(true);
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/auth/request-otp`, {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
+      const response = await fetch(`${backendUrl}/api/auth/request-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

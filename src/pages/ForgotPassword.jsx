@@ -37,14 +37,22 @@ const ForgotPassword = () => {
     setEmailError('');
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/auth/request-otp`, {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
+      console.log('Requesting OTP from:', backendUrl);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
+      
+      const response = await fetch(`${backendUrl}/api/auth/request-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, language }),
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
 
       if (data.success) {
@@ -55,11 +63,18 @@ const ForgotPassword = () => {
           window.location.href = `/reset-password?email=${encodeURIComponent(email)}`;
         }, 2000);
       } else {
-        toast.error(data.error || (language === 'en' ? 'Failed to send OTP' : 'OTP পাঠাতে ব্যর্থ'));
+        toast.error(data.error || (language === 'en' ? 'Failed to send OTP. Please try again.' : 'OTP পাঠাতে ব্যর্থ। আবার চেষ্টা করুন।'));
       }
     } catch (error) {
       console.error('Request OTP error:', error);
-      toast.error(language === 'en' ? 'Network error. Please try again' : 'নেটওয়ার্ক ত্রুটি। আবার চেষ্টা করুন');
+      if (error.name === 'AbortError') {
+        toast.error(language === 'en' 
+          ? 'Request timeout. The server is taking too long to respond. Please try again later.' 
+          : 'অনুরোধ টাইমআউট। সার্ভার সাড়া দিতে অনেক সময় নিচ্ছে। পরে আবার চেষ্টা করুন।'
+        );
+      } else {
+        toast.error(language === 'en' ? 'Network error. Please try again' : 'নেটওয়ার্ক ত্রুটি। আবার চেষ্টা করুন');
+      }
     } finally {
       setIsLoading(false);
     }

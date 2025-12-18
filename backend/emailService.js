@@ -1,15 +1,50 @@
-import { createTransport } from 'nodemailer';
 import crypto from 'crypto';
 
-// Create reusable transporter using Gmail SMTP
-const createTransporter = () => {
+// Resend API configuration (works with Render - no SMTP port blocking)
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const FROM_EMAIL = 'BRTA 2.0 <onboarding@resend.dev>'; // Use verified domain in production
+
+// Fallback to Gmail SMTP for local development
+import { createTransport } from 'nodemailer';
+const createGmailTransporter = () => {
   return createTransport({
     service: 'gmail',
     auth: {
-      user: process.env.GMAIL_USER, // Your Gmail address
-      pass: process.env.GMAIL_APP_PASSWORD, // Gmail App Password (not regular password)
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
     },
   });
+};
+
+// Send email via Resend API (works on Render - no SMTP blocking)
+const sendViaResend = async (to, subject, html) => {
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'BRTA 2.0 <onboarding@resend.dev>', // Use resend.dev domain or your verified domain
+        to: [to],
+        subject: subject,
+        html: html,
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (response.ok) {
+      return { success: true, messageId: data.id };
+    } else {
+      console.error('Resend API error:', data);
+      return { success: false, error: data.message || 'Failed to send email' };
+    }
+  } catch (error) {
+    console.error('Resend fetch error:', error);
+    return { success: false, error: error.message };
+  }
 };
 
 // Store for OTP codes (in production, use Redis or database)
@@ -73,10 +108,40 @@ setInterval(() => {
   }
 }, 300000); // Clean up every 5 minutes
 
+// Send email via Resend API (HTTP-based, works on Render)
+const sendViaResend = async (to, subject, html) => {
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: FROM_EMAIL,
+        to: [to],
+        subject: subject,
+        html: html
+      })
+    });
+
+    const data = await response.json();
+    
+    if (response.ok) {
+      return { success: true, data };
+    } else {
+      return { success: false, error: data.message || 'Failed to send email' };
+    }
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
 // Send OTP email
 export const sendOTPEmail = async (email, otp, language = 'en') => {
   try {
-    const transporter = createTransporter();
+    // Try Resend first (works on Render), fallback to Gmail SMTP
+    const useResend = process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.length > 0;
     
     // Email content based on language
     const emailContent = language === 'bn' ? {
@@ -189,6 +254,22 @@ export const sendOTPEmail = async (email, otp, language = 'en') => {
       `
     };
     
+    // Use Resend if API key is available, otherwise use Gmail SMTP
+    if (useResend) {
+      console.log('Sending OTP via Resend API...');
+      const result = await sendViaResend(email, emailContent.subject, emailContent.html);
+      if (result.success) {
+        console.log('OTP sent successfully via Resend');
+        return { success: true, message: 'OTP sent successfully' };
+      } else {
+        console.error('Resend failed, falling back to SMTP:', result.error);
+        // Fallback to SMTP if Resend fails
+      }
+    }
+    
+    // Fallback to Gmail SMTP (will fail on Render but works locally)
+    console.log('Sending OTP via Gmail SMTP...');
+    const transporter = createGmailTransporter();
     const mailOptions = {
       from: `"BRTA 2.0" <${process.env.GMAIL_USER}>`,
       to: email,
@@ -207,7 +288,7 @@ export const sendOTPEmail = async (email, otp, language = 'en') => {
 // Send welcome email (optional)
 export const sendWelcomeEmail = async (email, name, language = 'en') => {
   try {
-    const transporter = createTransporter();
+    const transporter = createGmailTransporter();
     
     const emailContent = language === 'bn' ? {
       subject: 'BRTA 2.0 তে স্বাগতম!',

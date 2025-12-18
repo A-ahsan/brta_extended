@@ -456,7 +456,7 @@ export default function RoutePermitApplicationModalImproved({ isOpen, onClose, u
             </div>
 
             {/* Content */}
-            <div className="p-6">
+            <div className="p-6 max-h-[calc(100vh-200px)] overflow-y-auto">
               {/* Step 1: Select Vehicle */}
               {step === 1 && (
                 <div className="space-y-4">
@@ -527,14 +527,14 @@ export default function RoutePermitApplicationModalImproved({ isOpen, onClose, u
               {step === 2 && (
                 <div className="space-y-4">
                   {/* Info Box - Improved styling */}
-                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 border border-gray-300 dark:border-gray-600 rounded-xl p-4 shadow-sm">
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <Info size={20} className="text-primary flex-shrink-0" weight="bold" />
+                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-800/30 border border-gray-300 dark:border-gray-600 rounded-xl p-3 shadow-sm mb-3">
+                    <div className="flex items-start gap-2">
+                      <div className="p-1.5 bg-primary/10 rounded-lg">
+                        <Info size={18} className="text-primary flex-shrink-0" weight="bold" />
                       </div>
                       <div className="flex-1">
-                        <p className="font-bold text-gray-800 dark:text-gray-100 mb-2">{text.drawRoute}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                        <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-1">{text.drawRoute}</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
                           {isEnglish 
                             ? 'Click "Start Drawing", then click multiple points on the map to create your route. The more accurate, the better!'
                             : 'Start Drawing ক্লিক করুন, তারপর আপনার রুট তৈরি করতে মানচিত্রে একাধিক পয়েন্ট ক্লিক করুন। যত সঠিক, তত ভাল!'}
@@ -544,9 +544,9 @@ export default function RoutePermitApplicationModalImproved({ isOpen, onClose, u
                   </div>
 
                   {/* Search Box */}
-                  <div className="relative">
+                  <div className="relative z-30 mb-3">
                     <div className="relative">
-                      <MagnifyingGlass size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" weight="bold" />
+                      <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" weight="bold" />
                       <input
                         type="text"
                         placeholder={isEnglish ? 'Search location or area...' : 'অবস্থান বা এলাকা অনুসন্ধান করুন...'}
@@ -555,18 +555,18 @@ export default function RoutePermitApplicationModalImproved({ isOpen, onClose, u
                           setSearchQuery(e.target.value);
                           searchLocation(e.target.value);
                         }}
-                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                        className="w-full pl-9 pr-10 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-white text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                       />
                       {isSearching && (
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
                         </div>
                       )}
                     </div>
                     
                     {/* Search Results Dropdown */}
                     {searchResults.length > 0 && (
-                      <div className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+                      <div className="absolute z-[100] w-full mt-1 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl max-h-48 overflow-y-auto">
                         {searchResults.map((result, idx) => (
                           <button
                             key={idx}
@@ -574,15 +574,15 @@ export default function RoutePermitApplicationModalImproved({ isOpen, onClose, u
                               const lat = parseFloat(result.lat);
                               const lng = parseFloat(result.lon);
                               setMapCenter([lat, lng]);
-                              setSearchQuery(result.display_name);
+                              setSearchQuery(result.display_name.split(',')[0]);
                               setSearchResults([]);
                             }}
-                            className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-700 last:border-b-0 transition-colors"
+                            className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-700 last:border-b-0 transition-colors"
                           >
-                            <p className="text-sm font-semibold text-gray-800 dark:text-white">
+                            <p className="text-xs font-semibold text-gray-800 dark:text-white truncate">
                               {result.display_name.split(',')[0]}
                             </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">
                               {result.display_name}
                             </p>
                           </button>

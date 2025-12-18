@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../lib/supabaseClient';
@@ -15,6 +15,17 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
+
+// Map component to handle centering
+function MapController({ center }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center) {
+      map.setView(center, 12);
+    }
+  }, [center, map]);
+  return null;
+}
 
 const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking }) => {
   const { language } = useApp();
@@ -36,6 +47,10 @@ const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking })
     '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
     '14:00', '14:30', '15:00', '15:30', '16:00', '16:30'
   ]);
+  // Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -79,6 +94,28 @@ const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking })
       }
     }
     setAvailableDates(dates);
+  };
+
+  // Search location using Nominatim (free OpenStreetMap geocoding)
+  const searchLocation = async (query) => {
+    if (!query || query.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)},Bangladesh&limit=5`
+      );
+      const data = await response.json();
+      setSearchResults(data);
+    } catch (error) {
+      console.error('Search error:', error);
+      toast.error('Search failed');
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const getUserLocation = () => {
@@ -495,9 +532,58 @@ const PhysicalExamBooking = ({ isOpen, onClose, applicationId, currentBooking })
         </button>
       </div>
 
+      {/* Search Box */}
+      <div className="relative z-30">
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+          <input
+            type="text"
+            placeholder="Search location or area..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              searchLocation(e.target.value);
+            }}
+            className="w-full pl-9 pr-10 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-white text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+          />
+          {isSearching && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
+            </div>
+          )}
+        </div>
+        
+        {/* Search Results Dropdown */}
+        {searchResults.length > 0 && (
+          <div className="absolute z-[100] w-full mt-1 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow-2xl max-h-48 overflow-y-auto">
+            {searchResults.map((result, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  const lat = parseFloat(result.lat);
+                  const lng = parseFloat(result.lon);
+                  setMapCenter([lat, lng]);
+                  setSearchQuery(result.display_name.split(',')[0]);
+                  setSearchResults([]);
+                }}
+                className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-700 last:border-b-0 transition-colors"
+              >
+                <p className="text-xs font-semibold text-gray-800 dark:text-white truncate">
+                  {result.display_name.split(',')[0]}
+                </p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                  {result.display_name}
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Map */}
       <div className="h-64 rounded-lg overflow-hidden border-2 border-gray-200">
         <MapContainer center={mapCenter} zoom={userLocation ? 10 : 7} style={{ height: '100%', width: '100%' }}>
+          <MapController center={mapCenter} />
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           {userLocation && (
             <>

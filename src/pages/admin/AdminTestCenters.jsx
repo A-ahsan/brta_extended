@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabaseClient';
@@ -34,6 +34,17 @@ const MapClickHandler = ({ onMapClick }) => {
   return null;
 };
 
+// Map component to handle centering
+const MapController = ({ center }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (center) {
+      map.setView(center, map.getZoom());
+    }
+  }, [center, map]);
+  return null;
+};
+
 const AdminTestCenters = () => {
   const { language } = useApp();
   const [centers, setCenters] = useState([]);
@@ -45,6 +56,11 @@ const AdminTestCenters = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDivision, setFilterDivision] = useState('all');
   const [userLocation, setUserLocation] = useState(null); // For Near Me feature
+  
+  // Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -85,6 +101,27 @@ const AdminTestCenters = () => {
       setError('Failed to load test centers');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Search location using Nominatim (free OpenStreetMap geocoding)
+  const searchLocation = async (query) => {
+    if (!query || query.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)},Bangladesh&limit=5`
+      );
+      const data = await response.json();
+      setSearchResults(data);
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -301,12 +338,62 @@ const AdminTestCenters = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Map */}
           <div className="lg:col-span-2 bg-white rounded-lg shadow-lg overflow-hidden" style={{ height: '600px' }}>
-            <MapContainer
-              key="main-map"
-              center={mapCenter}
-              zoom={7}
-              style={{ height: '100%', width: '100%' }}
-            >
+            {/* Search Box for Map */}
+            <div className="p-3 border-b border-gray-200 relative z-30">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+                <input
+                  type="text"
+                  placeholder="Search location on map..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    searchLocation(e.target.value);
+                  }}
+                  className="w-full pl-9 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                />
+                {isSearching && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Search Results Dropdown */}
+              {searchResults.length > 0 && (
+                <div className="absolute z-[100] w-[calc(100%-24px)] mt-1 bg-white border border-gray-300 rounded-lg shadow-2xl max-h-48 overflow-y-auto">
+                  {searchResults.map((result, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        const lat = parseFloat(result.lat);
+                        const lng = parseFloat(result.lon);
+                        setMapCenter([lat, lng]);
+                        setSearchQuery(result.display_name.split(',')[0]);
+                        setSearchResults([]);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-100 border-b border-gray-200 last:border-b-0"
+                    >
+                      <p className="text-xs font-semibold text-gray-800 truncate">
+                        {result.display_name.split(',')[0]}
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-0.5 truncate">
+                        {result.display_name}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div style={{ height: 'calc(100% - 62px)' }}>
+              <MapContainer
+                key="main-map"
+                center={mapCenter}
+                zoom={7}
+                style={{ height: '100%', width: '100%' }}
+              >
+                <MapController center={mapCenter} />
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -346,6 +433,7 @@ const AdminTestCenters = () => {
                 </Marker>
               ))}
             </MapContainer>
+            </div>
           </div>
 
           {/* Centers List */}

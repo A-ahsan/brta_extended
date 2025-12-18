@@ -2247,7 +2247,7 @@ const UserDashboard = () => {
               exit={{ x: -300 }}
               className="fixed left-0 top-20 bottom-0 w-64 bg-white dark:bg-gray-900 shadow-xl p-6 overflow-y-auto z-40"
             >
-              <nav className="space-y-2">
+              <nav className="space-y-2 pb-24">
                 {menuItems.map((item) => (
                   <motion.button
                     key={item.id}

@@ -83,7 +83,8 @@ app.post('/api/payment/initiate', async (req, res) => {
   }
   
   // Get dynamic base URL from request
-  const protocol = req.protocol || 'http';
+  // Force HTTPS on Render (behind proxy, req.protocol returns 'http')
+  const protocol = (req.get('host') || '').includes('onrender.com') ? 'https' : (req.protocol || 'http');
   const host = req.get('host') || `localhost:${PORT}`;
   const baseUrl = `${protocol}://${host}`;
   

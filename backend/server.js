@@ -695,8 +695,9 @@ app.post('/api/payment/vehicle-registration', async (req, res) => {
       frontendUrls.set(payment.tran_id, frontend_url);
     }
 
-    // Get dynamic base URL
-    const protocol = req.protocol || 'https';
+    // Get dynamic base URL from request
+    // Force HTTPS on Render (behind proxy, req.protocol returns 'http')
+    const protocol = (req.get('host') || '').includes('onrender.com') ? 'https' : (req.protocol || 'http');
     const host = req.get('host') || `localhost:${PORT}`;
     const baseUrl = `${protocol}://${host}`;
 
@@ -773,7 +774,9 @@ app.post('/api/payment/route-permit', async (req, res) => {
       frontendUrls.set(payment.tran_id, frontend_url);
     }
 
-    const protocol = req.protocol || 'https';
+    // Get dynamic base URL from request
+    // Force HTTPS on Render (behind proxy, req.protocol returns 'http')
+    const protocol = (req.get('host') || '').includes('onrender.com') ? 'https' : (req.protocol || 'http');
     const host = req.get('host') || `localhost:${PORT}`;
     const baseUrl = `${protocol}://${host}`;
 
@@ -850,7 +853,9 @@ app.post('/api/payment/ownership-transfer', async (req, res) => {
       frontendUrls.set(payment.tran_id, frontend_url);
     }
 
-    const protocol = req.protocol || 'https';
+    // Get dynamic base URL from request
+    // Force HTTPS on Render (behind proxy, req.protocol returns 'http')
+    const protocol = (req.get('host') || '').includes('onrender.com') ? 'https' : (req.protocol || 'http');
     const host = req.get('host') || `localhost:${PORT}`;
     const baseUrl = `${protocol}://${host}`;
 

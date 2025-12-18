@@ -9,6 +9,11 @@ const httpsAgent = new https.Agent({
   rejectUnauthorized: false
 });
 
+// Get backend URL for internal API calls
+const BACKEND_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://brta-extended.onrender.com'
+  : 'https://localhost:5000';
+
 async function updatePaymentAndNotify({ status, sslczData }) {
   const tran_id = sslczData.tran_id;
   // Find payment by tran_id
@@ -163,7 +168,7 @@ async function updatePaymentAndNotify({ status, sslczData }) {
     if (isRenewal) {
       // Process license renewal
       try {
-        const response = await axios.post('https://localhost:5000/api/licenses/renewal/process', {
+        const response = await axios.post(`${BACKEND_URL}/api/licenses/renewal/process`, {
           license_id: payment.license_id,
           user_id: payment.user_id,
           payment_id: payment.id
@@ -177,7 +182,7 @@ async function updatePaymentAndNotify({ status, sslczData }) {
     } else if (isVehicleRegistration) {
       // Process vehicle registration
       try {
-        const response = await axios.post('https://localhost:5000/api/vehicles/registration/process', {
+        const response = await axios.post(`${BACKEND_URL}/api/vehicles/registration/process`, {
           payment_id: payment.id,
           user_id: payment.user_id
         }, {
@@ -190,7 +195,7 @@ async function updatePaymentAndNotify({ status, sslczData }) {
     } else if (isTaxTokenRenewal) {
       // Process tax token renewal
       try {
-        const response = await axios.post('https://localhost:5000/api/tax-tokens/renewal/process', {
+        const response = await axios.post(`${BACKEND_URL}/api/tax-tokens/renewal/process`, {
           vehicle_id: payment.vehicle_id,
           user_id: payment.user_id,
           payment_id: payment.id,
@@ -256,7 +261,7 @@ async function updatePaymentAndNotify({ status, sslczData }) {
           .single();
 
         if (transferApp) {
-          const response = await axios.post('https://localhost:5000/api/ownership-transfer/process', {
+          const response = await axios.post(`${BACKEND_URL}/api/ownership-transfer/process`, {
             payment_id: payment.id,
             application_id: transferApp.id
           }, {

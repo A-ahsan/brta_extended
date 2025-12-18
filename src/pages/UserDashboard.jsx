@@ -2048,6 +2048,20 @@ const UserDashboard = () => {
     }
   };
 
+  // Show loading state while user data is being fetched
+  if (!user || !profile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-green-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-16 h-16 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400 text-lg">
+            {language === 'en' ? 'Loading your dashboard...' : 'আপনার ড্যাশবোর্ড লোড হচ্ছে...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-green-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Animated background elements */}

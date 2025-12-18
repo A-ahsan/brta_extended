@@ -158,9 +158,13 @@ const Signup = () => {
             : `BRTA তে স্বাগতম, ${userName}`
           );
           
-          setTimeout(() => {
-            navigate('/dashboard');
-          }, 1500);
+          // Wait for auth state to settle before navigation
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Navigate to dashboard
+          navigate('/dashboard', { replace: true });
+        } else {
+          toast.error(result.error?.message || (language === 'en' ? 'Signup failed' : 'সাইনআপ ব্যর্থ'));
         }
       } else {
         toast.error(verifyData.message || (language === 'en' ? 'Invalid OTP' : 'ভুল OTP'));

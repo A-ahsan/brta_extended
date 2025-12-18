@@ -364,6 +364,22 @@ export const AuthProvider = ({ children }) => {
     try {
       if (!user?.id) throw new Error('User not authenticated');
       
+      // Check if phone number is already taken by another user
+      const { data: existingUser, error: checkError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('phone', newPhone)
+        .neq('id', user.id)
+        .maybeSingle();
+      
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+      
+      if (existingUser) {
+        throw new Error('This phone number is already registered to another account. Please use a different number.');
+      }
+      
       const { error } = await supabase
         .from('profiles')
         .update({ phone: newPhone })

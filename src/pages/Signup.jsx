@@ -69,7 +69,13 @@ const Signup = () => {
       console.log('Requesting OTP from:', backendUrl);
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for cold starts
+      
+      // Show loading toast for cold starts
+      const loadingToast = toast.loading(language === 'en'
+        ? 'Sending OTP... This may take up to a minute if the server is waking up.'
+        : 'OTP পাঠানো হচ্ছে... সার্ভার চালু হলে এক মিনিট পর্যন্ত সময় লাগতে পারে।'
+      );
       
       const response = await fetch(`${backendUrl}/api/auth/request-otp`, {
         method: 'POST',
@@ -79,28 +85,29 @@ const Signup = () => {
       });
 
       clearTimeout(timeoutId);
+      toast.dismiss(loadingToast);
       const data = await response.json();
       
       if (response.ok) {
         toast.success(language === 'en' 
           ? 'OTP sent to your email! Check spam folder if not found.' 
-          : '????? ?????? OTP ?????? ??????! ?? ???? ??????? ??????? ??? ?????'
+          : 'আপনার ইমেইলে OTP পাঠানো হয়েছে! যদি না পান তাহলে স্প্যাম ফোল্ডার পরীক্ষা করুন'
         );
         setShowOtpModal(true);
       } else {
-        toast.error(data.message || (language === 'en' ? 'Failed to send OTP. Please try again.' : 'OTP ?????? ??????? ???? ?????? ?????'));
+        toast.error(data.message || (language === 'en' ? 'Failed to send OTP. Please try again.' : 'OTP পাঠাতে ব্যর্থ হয়েছে। আবার চেষ্টা করুন।'));
       }
     } catch (error) {
       console.error('Request OTP error:', error);
       if (error.name === 'AbortError') {
         toast.error(language === 'en' 
-          ? 'Request timeout. The server is taking too long to respond. Please try again later.' 
-          : '?????? ???????? ??????? ????? ???? ???? ???? ??????? ??? ???? ?????? ?????'
+          ? 'Request timeout. The server is taking too long to respond. Please try again in a moment.' 
+          : 'অনুরোধ টাইমআউট। সার্ভার সাড়া দিতে অনেক সময় নিচ্ছে। কিছুক্ষণ পর আবার চেষ্টা করুন।'
         );
       } else {
         toast.error(language === 'en' 
           ? 'Network error. Please check your connection and try again.' 
-          : '?????????? ??????? ????? ????? ??? ???? ??? ???? ?????? ?????'
+          : 'নেটওয়ার্ক ত্রুটি। আপনার কনেকশন পরীক্ষা করে আবার চেষ্টা করুন।'
         );
       }
     } finally {
@@ -427,7 +434,7 @@ const Signup = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="��������"
+                  placeholder="��������"
                   className="w-full pl-11 pr-12 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none focus:bg-white dark:focus:bg-gray-700 dark:text-white placeholder-gray-400 transition-all text-base"
                   required
                 />
@@ -469,7 +476,7 @@ const Signup = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  placeholder="��������"
+                  placeholder="��������"
                   className="w-full pl-11 pr-12 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none focus:bg-white dark:focus:bg-gray-700 dark:text-white placeholder-gray-400 transition-all text-base"
                   required
                 />

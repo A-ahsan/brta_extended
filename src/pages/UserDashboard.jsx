@@ -537,8 +537,34 @@ const UserDashboard = () => {
       toast.error(language === 'en' ? 'Passwords do not match' : 'পাসওয়ার্ড মিলছে না');
       return;
     }
-    if (passwordData.new.length < 6) {
-      toast.error(language === 'en' ? 'Password must be at least 6 characters' : 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে');
+    
+    // Apply same password validation as signup
+    if (passwordData.new.length < 8) {
+      toast.error(language === 'en' ? 'Password must be at least 8 characters long' : 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে');
+      return;
+    }
+    
+    // Check for uppercase letter
+    if (!/[A-Z]/.test(passwordData.new)) {
+      toast.error(language === 'en' ? 'Password must contain at least one uppercase letter' : 'পাসওয়ার্ডে কমপক্ষে একটি বড় হাতের অক্ষর থাকতে হবে');
+      return;
+    }
+    
+    // Check for lowercase letter
+    if (!/[a-z]/.test(passwordData.new)) {
+      toast.error(language === 'en' ? 'Password must contain at least one lowercase letter' : 'পাসওয়ার্ডে কমপক্ষে একটি ছোট হাতের অক্ষর থাকতে হবে');
+      return;
+    }
+    
+    // Check for number
+    if (!/[0-9]/.test(passwordData.new)) {
+      toast.error(language === 'en' ? 'Password must contain at least one number' : 'পাসওয়ার্ডে কমপক্ষে একটি সংখ্যা থাকতে হবে');
+      return;
+    }
+    
+    // Check for special character
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(passwordData.new)) {
+      toast.error(language === 'en' ? 'Password must contain at least one special character (!@#$%^&*...)' : 'পাসওয়ার্ডে কমপক্ষে একটি বিশেষ অক্ষর থাকতে হবে');
       return;
     }
     

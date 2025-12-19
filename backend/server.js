@@ -1843,10 +1843,13 @@ app.post('/api/auth/request-otp-sms', async (req, res) => {
       .eq('phone', normalizedPhone)
       .single();
 
+    console.log(`Phone lookup result - Found: ${!!profileData}, Error: ${!!profileError}, SkipCheck: ${skipUserCheck}`);
+
     // For signup: check if phone is already registered
     if (skipUserCheck) {
       // This is signup - phone should NOT exist
       if (profileData) {
+        console.log(`❌ Signup blocked - phone already registered: ${normalizedPhone}`);
         return res.status(400).json({ 
           success: false, 
           error: language === 'en' 
@@ -1854,10 +1857,12 @@ app.post('/api/auth/request-otp-sms', async (req, res) => {
             : 'এই ফোন নম্বর ইতিমধ্যে নিবন্ধিত। দয়া করে লগইন করুন।'
         });
       }
+      console.log(`✅ Signup allowed - new phone number: ${normalizedPhone}`);
     } else {
       // This is password reset - phone MUST exist
       if (profileError || !profileData) {
-        // For security, return success even if user doesn't exist
+        // For security, return success even if user doesn't exist (but don't send SMS)
+        console.log(`⚠️ Password reset - phone not found: ${normalizedPhone} (returning fake success for security)`);
         return res.json({ 
           success: true, 
           message: language === 'en' 
@@ -1865,6 +1870,7 @@ app.post('/api/auth/request-otp-sms', async (req, res) => {
             : 'যদি এই ফোন নম্বরের সাথে কোনো অ্যাকাউন্ট থাকে, আপনি একটি OTP কোড পাবেন'
         });
       }
+      console.log(`✅ Password reset - phone found: ${normalizedPhone}`);
     }
 
     // Send OTP via SMS

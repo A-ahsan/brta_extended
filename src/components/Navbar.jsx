@@ -9,6 +9,7 @@ import { useTheme, useLanguage } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { translations } from '../utils/translations';
 import { supabase } from '../lib/supabaseClient';
+import { playNotificationSound } from '../utils/notificationSound';
 
 const Navbar = () => {
   const location = useLocation();
@@ -55,6 +56,11 @@ const Navbar = () => {
         (payload) => {
           console.log('🔔 Navbar notification received:', payload);
           fetchNotifications();
+          
+          // Play notification sound for new notifications
+          if (payload.eventType === 'INSERT') {
+            playNotificationSound('default');
+          }
         }
       )
       .subscribe((status) => {
@@ -186,6 +192,7 @@ const Navbar = () => {
             {role && user && (
               <>
                 <button
+                  id="bell-icon"
                   className="relative p-2 rounded-full hover:bg-primary/10 transition"
                   onClick={() => setShowPanel((prev) => !prev)}
                   aria-label="Notifications"

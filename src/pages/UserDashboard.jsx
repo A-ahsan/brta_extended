@@ -46,6 +46,9 @@ import RoutePermitsInDashboard from '../components/RoutePermitsInDashboard';
 import OwnershipTransferModal from '../components/OwnershipTransferModal';
 import UserOwnershipTransfers from '../components/UserOwnershipTransfers';
 import ChatbotWidget from '../components/ChatbotWidget';
+import WelcomeTour from '../components/WelcomeTour';
+import { CardSkeleton, LicenseCardSkeleton, ProgressTrackerSkeleton, VehicleCardSkeleton } from '../components/SkeletonLoader';
+import { initializeNotificationSound, playNotificationSound } from '../utils/notificationSound';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -97,6 +100,27 @@ const UserDashboard = () => {
   const [loadingLicenses, setLoadingLicenses] = useState(true);
   const [generatingLicense, setGeneratingLicense] = useState(false);
 
+  // Welcome tour state
+  const [showTour, setShowTour] = useState(false);
+
+  // Check if user should see welcome tour
+  useEffect(() => {
+    const hasSeenTour = localStorage.getItem('brta_tour_completed');
+    if (!hasSeenTour && user) {
+      // Show tour after a brief delay
+      setTimeout(() => setShowTour(true), 1500);
+    }
+    
+    // Initialize notification sounds on first interaction
+    const initSounds = () => {
+      initializeNotificationSound();
+      document.removeEventListener('click', initSounds);
+    };
+    document.addEventListener('click', initSounds);
+    
+    return () => document.removeEventListener('click', initSounds);
+  }, [user]);
+
   // Fetch real license applications
   useEffect(() => {
     if (user) {
@@ -120,6 +144,19 @@ const UserDashboard = () => {
             console.log('Notification change:', payload);
             // Refetch notifications on any change
             fetchNotifications();
+            
+            // Play notification sound for new notifications
+            if (payload.eventType === 'INSERT') {
+              playNotificationSound('default');
+              
+              // Show toast based on notification type
+              const notification = payload.new;
+              if (notification.type === 'application_approved') {
+                toast.success(notification.message_en, { duration: 5000 });
+              } else if (notification.type === 'payment_success') {
+                toast.success(notification.message_en, { duration: 4000 });
+              }
+            }
           }
         )
         .subscribe();
@@ -1370,8 +1407,8 @@ const UserDashboard = () => {
   }, []);
 
   const menuItems = [
-    { id: 'license', icon: <IdentificationCard size={24} weight="duotone" />, label: t.licenseApplication },
-    { id: 'vehicle', icon: <Car size={24} weight="duotone" />, label: t.vehicleRegistration },
+    { id: 'license', icon: <IdentificationCard size={24} weight="duotone" />, label: t.licenseApplication, tourId: 'license-card' },
+    { id: 'vehicle', icon: <Car size={24} weight="duotone" />, label: t.vehicleRegistration, tourId: 'vehicle-card' },
     { id: 'routepermits', icon: <MapPin size={24} weight="duotone" />, label: language === 'en' ? 'Route Permits' : 'রুট পারমিট' },
     { id: 'ownership', icon: <ArrowsDownUp size={24} weight="duotone" />, label: language === 'en' ? 'Ownership Transfer' : 'মালিকানা হস্তান্তর' },
     { id: 'violations', icon: <Warning size={24} weight="duotone" />, label: language === 'en' ? 'My Violations' : 'আমার লঙ্ঘন' },
@@ -1431,11 +1468,9 @@ const UserDashboard = () => {
             </div>
             <div className="grid gap-6">
               {loadingApplications ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
-                  <p className="mt-4 text-gray-600 dark:text-gray-400">
-                    {language === 'en' ? 'Loading applications...' : 'আবেদন লোড হচ্ছে...'}
-                  </p>
+                <div className="space-y-6">
+                  <ProgressTrackerSkeleton />
+                  <ProgressTrackerSkeleton />
                 </div>
               ) : licenseApplications.length === 0 ? (
                 <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
@@ -1503,8 +1538,9 @@ const UserDashboard = () => {
             </div>
 
             {loadingRegisteredVehicles ? (
-              <div className="text-center py-12">
-                <div className="inline-block w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              <div className="grid gap-4">
+                <CardSkeleton />
+                <CardSkeleton />
               </div>
             ) : registeredVehicles.length === 0 ? (
               <div className="text-center py-12">
@@ -1665,11 +1701,8 @@ const UserDashboard = () => {
               
               {/* License Display */}
               {loadingLicenses ? (
-                <div className="bg-white dark:bg-gray-800 p-8 rounded-xl text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                  <p className="mt-4 text-gray-600 dark:text-gray-400">
-                    {language === 'en' ? 'Loading licenses...' : 'লাইসেন্স লোড হচ্ছে...'}
-                  </p>
+                <div className="space-y-6 max-w-4xl mx-auto">
+                  <LicenseCardSkeleton />
                 </div>
               ) : licenses.length > 0 ? (
                 <div className="space-y-6 max-w-4xl mx-auto">
@@ -1740,8 +1773,9 @@ const UserDashboard = () => {
               </h3>
               
               {loadingRegisteredVehicles ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <VehicleCardSkeleton />
+                  <VehicleCardSkeleton />
                 </div>
               ) : registeredVehicles.length === 0 ? (
                 <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -2069,7 +2103,7 @@ const UserDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-green-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-green-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 dashboard-overview">
       {/* Animated background elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ willChange: 'transform' }}>
         <motion.div
@@ -2272,6 +2306,7 @@ const UserDashboard = () => {
                   {menuItems.map((item) => (
                     <motion.button
                       key={item.id}
+                      id={item.tourId}
                       whileHover={{ x: 10 }}
                       onClick={() => setActiveTab(item.id)}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
@@ -2530,6 +2565,24 @@ const UserDashboard = () => {
 
       {/* Chatbot Widget */}
       <ChatbotWidget user={user} userProfile={profile} />
+
+      {/* Welcome Tour */}
+      {showTour && (
+        <WelcomeTour
+          onComplete={() => {
+            setShowTour(false);
+            toast.success(
+              language === 'en'
+                ? '🎉 Tour completed! Start exploring your dashboard.'
+                : '🎉 ট্যুর সম্পূর্ণ! আপনার ড্যাশবোর্ড অন্বেষণ শুরু করুন।',
+              { duration: 4000 }
+            );
+          }}
+          onSkip={() => {
+            setShowTour(false);
+          }}
+        />
+      )}
 
       {/* Notification Panel removed. Now only the notification bell in the header is used. */}
     </div>

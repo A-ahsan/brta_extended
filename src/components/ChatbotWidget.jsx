@@ -19,7 +19,7 @@ export default function ChatbotWidget({ user, userProfile }) {
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-8 right-8 z-50 w-16 h-16 bg-gradient-to-br from-primary to-green-600 rounded-full shadow-2xl flex items-center justify-center overflow-hidden hover:shadow-primary/50 transition-all duration-300"
+            className="fixed bottom-8 right-8 z-50 w-16 h-16 bg-gradient-to-br from-primary to-green-600 rounded-full shadow-2xl flex items-center justify-center overflow-hidden hover:shadow-primary/50 transition-all duration-300 chatbot-button"
             style={{
               boxShadow: '0 8px 32px rgba(0, 106, 78, 0.4)',
             }}

@@ -42,6 +42,59 @@ body.downloading {
   background-color: white !important;
 }
 
+/* Skeleton Shimmer Animation */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.skeleton-shimmer {
+  animation: shimmer 2s infinite linear;
+  background: linear-gradient(
+    to right,
+    #f0f0f0 0%,
+    #e0e0e0 20%,
+    #f0f0f0 40%,
+    #f0f0f0 100%
+  );
+  background-size: 1000px 100%;
+}
+
+.dark .skeleton-shimmer {
+  background: linear-gradient(
+    to right,
+    #374151 0%,
+    #4b5563 20%,
+    #374151 40%,
+    #374151 100%
+  );
+  background-size: 1000px 100%;
+}
+
+/* Tour Highlight Effect - Non-intrusive */
+.tour-highlight {
+  /* DO NOT change position - causes layout shifts */
+  z-index: 9997 !important; /* Below tour modal (9999) but above content */
+  box-shadow: 0 0 0 4px rgba(0, 106, 78, 0.5), 0 0 0 8px rgba(0, 106, 78, 0.3) !important;
+  border-radius: 12px;
+  animation: pulse-highlight 2s ease-in-out infinite;
+  /* Prevent any transforms or position changes */
+  will-change: box-shadow;
+}
+
+@keyframes pulse-highlight {
+  0%, 100% {
+    box-shadow: 0 0 0 4px rgba(0, 106, 78, 0.5), 0 0 0 8px rgba(0, 106, 78, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(0, 106, 78, 0.6), 0 0 0 12px rgba(0, 106, 78, 0.2);
+  }
+}
+
 @layer utilities {
   .text-gradient {
     @apply bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent;

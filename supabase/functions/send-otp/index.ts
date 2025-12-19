@@ -1,5 +1,6 @@
 // Supabase Edge Function for OTP Email Sending
 // Deploy: supabase functions deploy send-otp
+/// <reference types="https://deno.land/x/types/index.d.ts" />
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -146,17 +147,28 @@ serve(async (req) => {
       `
     }
 
-    // Send email using Supabase's built-in email service
-    const { error: emailError } = await supabaseClient.auth.admin.sendEmail({
-      email: email,
-      subject: emailContent.subject,
-      html: emailContent.html
+    // Send email using Resend API
+    const resendApiKey = Deno.env.get('RESEND_API_KEY') ?? ''
+    
+    const emailResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'BRTA 2.0 <onboarding@resend.dev>',
+        to: email,
+        subject: emailContent.subject,
+        html: emailContent.html
+      })
     })
 
-    if (emailError) {
-      console.error('Email error:', emailError)
+    if (!emailResponse.ok) {
+      const errorData = await emailResponse.json()
+      console.error('Resend API error:', errorData)
       return new Response(
-        JSON.stringify({ error: 'Failed to send email', details: emailError.message }),
+        JSON.stringify({ error: 'Failed to send email', details: errorData }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }

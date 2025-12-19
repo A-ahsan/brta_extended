@@ -73,14 +73,14 @@ const Signup = () => {
       
       // Show loading toast for cold starts
       const loadingToast = toast.loading(language === 'en'
-        ? 'Sending OTP... This may take up to a minute if the server is waking up.'
-        : 'OTP পাঠানো হচ্ছে... সার্ভার চালু হলে এক মিনিট পর্যন্ত সময় লাগতে পারে।'
+        ? 'Sending OTP to your phone... This may take up to a minute if the server is waking up.'
+        : 'আপনার ফোনে OTP পাঠানো হচ্ছে... সার্ভার চালু হলে এক মিনিট পর্যন্ত সময় লাগতে পারে।'
       );
       
-      const response = await fetch(`${backendUrl}/api/auth/request-otp`, {
+      const response = await fetch(`${backendUrl}/api/auth/request-otp-sms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email, language, skipUserCheck: true }),
+        body: JSON.stringify({ phone: formData.phone, language, skipUserCheck: true }),
         signal: controller.signal
       });
 
@@ -90,8 +90,8 @@ const Signup = () => {
       
       if (response.ok) {
         toast.success(language === 'en' 
-          ? 'OTP sent to your email! Check spam folder if not found.' 
-          : 'আপনার ইমেইলে OTP পাঠানো হয়েছে! যদি না পান তাহলে স্প্যাম ফোল্ডার পরীক্ষা করুন'
+          ? 'OTP sent to your phone via SMS!' 
+          : 'আপনার ফোনে SMS এর মাধ্যমে OTP পাঠানো হয়েছে!'
         );
         setShowOtpModal(true);
       } else {
@@ -145,10 +145,10 @@ const Signup = () => {
       console.log('Verifying OTP with:', backendUrl);
       
       // Verify OTP
-      const verifyResponse = await fetch(`${backendUrl}/api/auth/verify-otp`, {
+      const verifyResponse = await fetch(`${backendUrl}/api/auth/verify-otp-sms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email, otp }),
+        body: JSON.stringify({ phone: formData.phone, otp, language }),
       });
 
       const verifyData = await verifyResponse.json();
@@ -221,10 +221,10 @@ const Signup = () => {
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
       console.log('Resending OTP from:', backendUrl);
-      const response = await fetch(`${backendUrl}/api/auth/request-otp`, {
+      const response = await fetch(`${backendUrl}/api/auth/request-otp-sms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email, language, skipUserCheck: true }),
+        body: JSON.stringify({ phone: formData.phone, language, skipUserCheck: true }),
       });
 
       if (response.ok) {

@@ -10,7 +10,7 @@ const ResetPassword = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const [searchParams] = useSearchParams();
-  const email = searchParams.get('email');
+  const phone = searchParams.get('phone');
 
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -32,9 +32,9 @@ const ResetPassword = () => {
     confirmPassword: '',
   });
 
-  // Redirect if no email provided
+  // Redirect if no phone provided
   useEffect(() => {
-    if (!email) {
+    if (!phone) {
       toast.error(language === 'en' ? 'Invalid reset request' : 'অবৈধ রিসেট অনুরোধ');
       navigate('/forgot-password');
     } else {
@@ -43,7 +43,7 @@ const ResetPassword = () => {
         otpRefs[0].current?.focus();
       }, 300);
     }
-  }, [email, language, navigate]);
+  }, [phone, language, navigate]);
 
   // Handle OTP input
   const handleOtpChange = (index, value) => {
@@ -109,12 +109,12 @@ const ResetPassword = () => {
 
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
-      const response = await fetch(`${backendUrl}/api/auth/verify-otp`, {
+      const response = await fetch(`${backendUrl}/api/auth/verify-otp-sms`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, otp: otpCode, language }),
+        body: JSON.stringify({ phone, otp: otpCode, language }),
       });
 
       const data = await response.json();
@@ -184,13 +184,13 @@ const ResetPassword = () => {
       const otpCode = otp.join('');
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
       
-      const response = await fetch(`${backendUrl}/api/auth/reset-password`, {
+      const response = await fetch(`${backendUrl}/api/auth/reset-password-sms`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email,
+          phone,
           otp: otpCode,
           newPassword: formData.newPassword,
           language,
@@ -224,12 +224,12 @@ const ResetPassword = () => {
     
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
-      const response = await fetch(`${backendUrl}/api/auth/request-otp`, {
+      const response = await fetch(`${backendUrl}/api/auth/request-otp-sms`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, language }),
+        body: JSON.stringify({ phone, language }),
       });
 
       const data = await response.json();
@@ -326,7 +326,7 @@ const ResetPassword = () => {
                 : 'আপনার ইমেইলে পাঠানো OTP লিখুন'
               }
             </p>
-            <p className="text-xs text-primary font-semibold">{email}</p>
+            <p className="text-xs text-primary font-semibold">{phone}</p>
           </div>
 
           {!otpVerified ? (

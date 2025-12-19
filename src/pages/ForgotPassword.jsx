@@ -1,54 +1,54 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { EnvelopeSimple, PaperPlaneRight, ArrowLeft, CheckCircle } from 'phosphor-react';
+import { Phone, PaperPlaneRight, ArrowLeft, CheckCircle } from 'phosphor-react';
 import { useLanguage } from '../contexts/AppContext';
 import toast from 'react-hot-toast';
-import { validateEmail } from '../utils/emailValidation';
 
 const ForgotPassword = () => {
   const { language } = useLanguage();
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-  const [emailError, setEmailError] = useState('');
+  const [smsSent, setSmsSent] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
 
-  const handleEmailChange = (e) => {
+  const handlePhoneChange = (e) => {
     const value = e.target.value;
-    setEmail(value);
+    setPhone(value);
     
     // Clear error when typing
-    if (emailError) setEmailError('');
+    if (phoneError) setPhoneError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validate email
-    const validation = validateEmail(email, language);
-    
-    if (!validation.isValid) {
-      setEmailError(validation.message);
-      toast.error(validation.message);
+    // Validate phone number (basic validation)
+    if (!phone || phone.length < 11) {
+      const errorMsg = language === 'en' 
+        ? 'Please enter a valid phone number' 
+        : 'দয়া করে একটি বৈধ ফোন নম্বর দিন';
+      setPhoneError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
     setIsLoading(true);
-    setEmailError('');
+    setPhoneError('');
 
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
-      console.log('Requesting OTP from:', backendUrl);
+      console.log('Requesting SMS OTP from:', backendUrl);
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
       
-      const response = await fetch(`${backendUrl}/api/auth/request-otp`, {
+      const response = await fetch(`${backendUrl}/api/auth/request-otp-sms`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, language }),
+        body: JSON.stringify({ phone, language }),
         signal: controller.signal
       });
 
@@ -56,15 +56,14 @@ const ForgotPassword = () => {
       const data = await response.json();
 
       if (data.success) {
-        setEmailSent(true);
+        setSmsSent(true);
         toast.success(data.message);
-        // Navigate to reset password page with email
+        // Navigate to reset password page with phone
         setTimeout(() => {
-          window.location.href = `/reset-password?email=${encodeURIComponent(email)}`;
+          window.location.href = `/reset-password?phone=${encodeURIComponent(phone)}`;
         }, 2000);
       } else {
         toast.error(data.error || (language === 'en' ? 'Failed to send OTP. Please try again.' : 'OTP পাঠাতে ব্যর্থ। আবার চেষ্টা করুন।'));
-      }
     } catch (error) {
       console.error('Request OTP error:', error);
       if (error.name === 'AbortError') {
@@ -105,13 +104,13 @@ const ForgotPassword = () => {
           transition={{ delay: 0.1 }}
           className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-8"
         >
-          {!emailSent ? (
+          {!smsSent ? (
             <>
               {/* Title */}
               <div className="text-center mb-6">
                 <div className="flex justify-center mb-4">
                   <div className="p-4 bg-gradient-to-br from-primary to-green-600 rounded-full">
-                    <EnvelopeSimple size={32} weight="bold" className="text-white" />
+                    <Phone size={32} weight="bold" className="text-white" />
                   </div>
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
@@ -119,8 +118,8 @@ const ForgotPassword = () => {
                 </h2>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {language === 'en' 
-                    ? "No worries! Enter your email and we'll send you a 6-digit OTP code" 
-                    : 'চিন্তা নেই! আপনার ইমেইল লিখুন এবং আমরা আপনাকে একটি ৬-সংখ্যার OTP কোড পাঠাবো'
+                    ? "No worries! Enter your phone number and we'll send you a 6-digit OTP code via SMS" 
+                    : 'চিন্তা নেই! আপনার ফোন নম্বর লিখুন এবং আমরা SMS এর মাধ্যমে আপনাকে একটি ৬-সংখ্যার OTP কোড পাঠাবো'
                   }
                 </p>
               </div>
@@ -129,19 +128,19 @@ const ForgotPassword = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    {language === 'en' ? 'Email Address' : 'ইমেইল ঠিকানা'}
+                    {language === 'en' ? 'Phone Number' : 'ফোন নম্বর'}
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <EnvelopeSimple size={20} className="text-gray-400" />
+                      <Phone size={20} className="text-gray-400" />
                     </div>
                     <input
-                      type="email"
-                      value={email}
-                      onChange={handleEmailChange}
-                      placeholder={language === 'en' ? 'your@email.com' : 'আপনার@ইমেইল.com'}
+                      type="tel"
+                      value={phone}
+                      onChange={handlePhoneChange}
+                      placeholder={language === 'en' ? '+880 1XXX-XXXXXX' : '+৮৮০ ১XXX-XXXXXX'}
                       className={`w-full pl-12 pr-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-2 ${
-                        emailError 
+                        phoneError 
                           ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
                           : 'border-gray-200 dark:border-gray-600 focus:border-primary focus:ring-primary'
                       } rounded-xl focus:ring-2 focus:outline-none focus:bg-white dark:focus:bg-gray-700 dark:text-white placeholder-gray-400 transition-all`}
@@ -149,9 +148,9 @@ const ForgotPassword = () => {
                       required
                     />
                   </div>
-                  {emailError && (
+                  {phoneError && (
                     <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
-                      <span>⚠️</span> {emailError}
+                      <span>⚠️</span> {phoneError}
                     </p>
                   )}
                 </div>

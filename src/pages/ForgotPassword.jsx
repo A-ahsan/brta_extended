@@ -64,6 +64,7 @@ const ForgotPassword = () => {
         }, 2000);
       } else {
         toast.error(data.error || (language === 'en' ? 'Failed to send OTP. Please try again.' : 'OTP পাঠাতে ব্যর্থ। আবার চেষ্টা করুন।'));
+      }
     } catch (error) {
       console.error('Request OTP error:', error);
       if (error.name === 'AbortError') {

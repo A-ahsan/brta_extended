@@ -147,56 +147,6 @@ const sendOTPEmailViaResend = async (email, otp, language = 'en') => {
   }
 };
 
-// Verify OTP (now uses Supabase database)
-export const verifyOTP = async (email, otp) => {
-  try {
-    // Import supabase client
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.VITE_SUPABASE_URL,
-      process.env.VITE_SUPABASE_ANON_KEY
-    );
-
-    // Get OTP from database
-    const { data, error } = await supabase
-      .from('password_reset_otps')
-      .select('*')
-      .eq('email', email.toLowerCase())
-      .single();
-
-    if (error || !data) {
-      return { valid: false, message: 'No OTP found for this email' };
-    }
-
-    // Check if expired
-    if (new Date() > new Date(data.expires_at)) {
-      // Delete expired OTP
-      await supabase.from('password_reset_otps').delete().eq('email', email.toLowerCase());
-      return { valid: false, message: 'OTP has expired. Please request a new one.' };
-    }
-
-    // Check attempts (max 5 attempts)
-    if (data.attempts >= 5) {
-      // Delete after max attempts
-      await supabase.from('password_reset_otps').delete().eq('email', email.toLowerCase());
-      return { valid: false, message: 'Too many failed attempts. Please request a new OTP' };
-    }
-
-    // Verify OTP
-    if (data.otp_code !== otp) {
-      // Increment attempts
-      await supabase
-        .from('password_reset_otps')
-        .update({ attempts: data.attempts + 1 })
-        .eq('email', email.toLowerCase());
-      
-      return { 
-        valid: false, 
-        message: 'Invalid OTP', 
-        attemptsLeft: 5 - (data.attempts + 1) 
-      };
-    }
-
 // ============================================
 // VERIFY OTP
 // ============================================

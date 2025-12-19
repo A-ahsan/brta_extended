@@ -258,6 +258,197 @@ setInterval(() => {
   }
 }, 300000); // Clean up every 5 minutes
 
+// ============================================
+// SEND OTP VIA SMS (Phone-based authentication)
+// ============================================
+export const sendOTPSMS = async (phoneNumber, language = 'en') => {
+  try {
+    // Import SMS service and normalize function
+    const { sendOTPSMS: sendSMSOTP, normalizePhoneNumber } = await import('./smsService.js');
+    
+    // Normalize phone number (+880, 880, 0 handling)
+    const normalizedPhone = normalizePhoneNumber(phoneNumber);
+    console.log(`Sending SMS OTP to ${normalizedPhone} (original: ${phoneNumber})...`);
+
+    // 1. Check rate limiting (max 3 OTPs per hour)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { data: recentOTPs, error: rateLimitError } = await supabase
+      .from('password_reset_otps')
+      .select('id')
+      .eq('email', normalizedPhone) // Using email column to store phone
+      .gte('created_at', oneHourAgo);
+
+    if (rateLimitError) {
+      console.error('Rate limit check error:', rateLimitError);
+    }
+
+    if (recentOTPs && recentOTPs.length >= 3) {
+      return {
+        success: false,
+        message: language === 'en' 
+          ? 'Too many OTP requests. Please try again in an hour.'
+          : 'অনেকবার OTP চাওয়া হয়েছে। এক ঘন্টা পর আবার চেষ্টা করুন।',
+        error: 'RATE_LIMIT_EXCEEDED'
+      };
+    }
+
+    // 2. Generate OTP
+    const otp = generateOTP();
+    const otpHash = hashOTP(otp);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    // 3. Delete old OTPs for this phone
+    await supabase
+      .from('password_reset_otps')
+      .delete()
+      .eq('email', normalizedPhone); // Using email column to store phone
+
+    // 4. Store OTP in database
+    const { error: dbError } = await supabase
+      .from('password_reset_otps')
+      .insert({
+        email: normalizedPhone, // Using email column to store phone number
+        otp_code: otpHash,
+        expires_at: expiresAt.toISOString(),
+        attempts: 0,
+        created_at: new Date().toISOString()
+      });
+
+    if (dbError) {
+      console.error('Database error:', dbError);
+      return { success: false, message: 'Failed to store OTP', error: dbError };
+    }
+
+    // 5. Send SMS
+    const smsResult = await sendSMSOTP(normalizedPhone, otp, language);
+
+    if (!smsResult.success) {
+      console.error('SMS sending failed:', smsResult.message);
+      return {
+        success: false,
+        message: language === 'en' 
+          ? 'Failed to send SMS. Please try again.'
+          : 'SMS পাঠাতে ব্যর্থ। আবার চেষ্টা করুন।',
+        error: smsResult.message
+      };
+    }
+
+    console.log(`SMS OTP sent successfully to ${normalizedPhone}`);
+    return {
+      success: true,
+      message: language === 'en'
+        ? 'OTP sent to your phone. Valid for 5 minutes.'
+        : 'আপনার ফোনে OTP পাঠানো হয়েছে। ৫ মিনিটের জন্য বৈধ।',
+      expiresIn: 300
+    };
+
+  } catch (error) {
+    console.error('Error sending SMS OTP:', error);
+    return {
+      success: false,
+      message: 'Failed to send OTP SMS',
+      error: error.message
+    };
+  }
+};
+
+// ============================================
+// VERIFY OTP BY PHONE
+// ============================================
+export const verifyOTPByPhone = async (phoneNumber, otp) => {
+  try {
+    // Import normalize function
+    const { normalizePhoneNumber } = await import('./smsService.js');
+    const normalizedPhone = normalizePhoneNumber(phoneNumber);
+    
+    const otpHash = hashOTP(otp);
+
+    // Get OTP from database using phone number
+    const { data, error } = await supabase
+      .from('password_reset_otps')
+      .select('*')
+      .eq('email', normalizedPhone) // Using email column to store phone
+      .single();
+
+    if (error || !data) {
+      return {
+        valid: false,
+        success: false,
+        message: 'Invalid or expired OTP',
+        error: 'OTP_NOT_FOUND'
+      };
+    }
+
+    // Check if expired
+    const now = new Date();
+    const expiresAt = new Date(data.expires_at);
+    if (now > expiresAt) {
+      await supabase
+        .from('password_reset_otps')
+        .delete()
+        .eq('email', normalizedPhone);
+
+      return {
+        valid: false,
+        success: false,
+        message: 'OTP has expired',
+        error: 'OTP_EXPIRED'
+      };
+    }
+
+    // Check attempts (max 3)
+    if (data.attempts >= 3) {
+      await supabase
+        .from('password_reset_otps')
+        .delete()
+        .eq('email', normalizedPhone);
+
+      return {
+        valid: false,
+        success: false,
+        message: 'Maximum attempts exceeded',
+        error: 'MAX_ATTEMPTS_EXCEEDED'
+      };
+    }
+
+    // Verify OTP
+    if (data.otp_code !== otpHash) {
+      await supabase
+        .from('password_reset_otps')
+        .update({ attempts: data.attempts + 1 })
+        .eq('email', normalizedPhone);
+
+      return {
+        valid: false,
+        success: false,
+        message: 'Invalid OTP',
+        error: 'INVALID_OTP',
+        attemptsLeft: 3 - (data.attempts + 1)
+      };
+    }
+
+    // OTP is valid - delete it
+    await supabase
+      .from('password_reset_otps')
+      .delete()
+      .eq('email', normalizedPhone);
+    
+    return { 
+      valid: true, 
+      success: true, 
+      phoneNumber: normalizedPhone, 
+      message: 'OTP verified successfully' 
+    };
+  } catch (error) {
+    console.error('Error verifying OTP by phone:', error);
+    return { 
+      valid: false, 
+      success: false, 
+      message: 'Error verifying OTP' 
+    };
+  }
+};
+
 // Send OTP email via Supabase Edge Function
 // ============================================
 // SEND OTP (Main Function)

@@ -16,13 +16,16 @@ import {
   sendLicenseRenewalSMS,
   sendTaxTokenRenewalSMS,
   sendOwnershipTransferPreviousSMS,
-  sendOwnershipTransferNewSMS
+  sendOwnershipTransferNewSMS,
+  normalizePhoneNumber
 } from './smsService.js';
 import { 
   generateOTP, 
   verifyOTP, 
   deleteOTP, 
-  sendOTPEmail 
+  sendOTPEmail,
+  sendOTPSMS,
+  verifyOTPByPhone
 } from './emailService.js';
 import chatbotRoutes from './chatbotRoutes.js';
 dotenv.config();
@@ -1817,7 +1820,108 @@ app.post('/api/impoundments/send-sms', async (req, res) => {
 // PASSWORD RESET ENDPOINTS (OTP-BASED)
 // ============================================
 
-// Request OTP for password reset
+// Request OTP via SMS (phone-based)
+app.post('/api/auth/request-otp-sms', async (req, res) => {
+  try {
+    const { phone, language = 'en', skipUserCheck = false } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({ 
+        success: false, 
+        error: language === 'en' ? 'Phone number is required' : 'ফোন নম্বর প্রয়োজন' 
+      });
+    }
+
+    // Normalize phone number (+880, 880, 0 handling)
+    const normalizedPhone = normalizePhoneNumber(phone);
+    console.log(`Request OTP SMS: ${normalizedPhone} (original: ${phone})`);
+
+    // Only check if user exists for password reset (not for signup)
+    if (!skipUserCheck) {
+      // Check if user exists by phone in profiles table
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, phone')
+        .eq('phone', normalizedPhone)
+        .single();
+
+      if (profileError || !profileData) {
+        // For security, return success even if user doesn't exist
+        return res.json({ 
+          success: true, 
+          message: language === 'en' 
+            ? 'If an account exists with this phone number, you will receive an OTP code' 
+            : 'যদি এই ফোন নম্বরের সাথে কোনো অ্যাকাউন্ট থাকে, আপনি একটি OTP কোড পাবেন'
+        });
+      }
+    }
+
+    // Send OTP via SMS
+    const smsResult = await sendOTPSMS(normalizedPhone, language);
+
+    if (smsResult.success) {
+      res.json({ 
+        success: true, 
+        message: smsResult.message
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        error: smsResult.message
+      });
+    }
+  } catch (error) {
+    console.error('Request SMS OTP error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// Verify OTP via phone
+app.post('/api/auth/verify-otp-sms', async (req, res) => {
+  try {
+    const { phone, otp, language = 'en' } = req.body;
+
+    if (!phone || !otp) {
+      return res.status(400).json({ 
+        success: false, 
+        error: language === 'en' 
+          ? 'Phone number and OTP are required' 
+          : 'ফোন নম্বর এবং OTP প্রয়োজন'
+      });
+    }
+
+    // Normalize phone number
+    const normalizedPhone = normalizePhoneNumber(phone);
+
+    const verification = await verifyOTPByPhone(normalizedPhone, otp);
+
+    if (verification.valid) {
+      res.json({ 
+        success: true, 
+        message: language === 'en' 
+          ? 'OTP verified successfully' 
+          : 'OTP সফলভাবে যাচাই হয়েছে'
+      });
+    } else {
+      res.status(400).json({ 
+        success: false, 
+        error: verification.message,
+        attemptsLeft: verification.attemptsLeft
+      });
+    }
+  } catch (error) {
+    console.error('Verify SMS OTP error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// Request OTP for password reset (EMAIL - keep for backward compatibility)
 app.post('/api/auth/request-otp', async (req, res) => {
   try {
     const { email, language = 'en', skipUserCheck = false } = req.body;
@@ -1926,7 +2030,91 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   }
 });
 
-// Reset password with OTP
+// Reset password with OTP via phone
+app.post('/api/auth/reset-password-sms', async (req, res) => {
+  try {
+    const { phone, otp, newPassword, language = 'en' } = req.body;
+
+    if (!phone || !otp || !newPassword) {
+      return res.status(400).json({ 
+        success: false, 
+        error: language === 'en' 
+          ? 'Phone number, OTP, and new password are required' 
+          : 'ফোন নম্বর, OTP এবং নতুন পাসওয়ার্ড প্রয়োজন' 
+      });
+    }
+
+    // Normalize phone number
+    const normalizedPhone = normalizePhoneNumber(phone);
+
+    // Validate password strength
+    if (newPassword.length < 8) {
+      return res.status(400).json({ 
+        success: false, 
+        error: language === 'en' 
+          ? 'Password must be at least 8 characters' 
+          : 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে' 
+      });
+    }
+
+    // Verify OTP
+    const verification = await verifyOTPByPhone(normalizedPhone, otp);
+
+    if (!verification.valid) {
+      return res.status(400).json({ 
+        success: false, 
+        error: verification.message
+      });
+    }
+
+    // Find user by phone number
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('phone', normalizedPhone)
+      .single();
+
+    if (profileError || !profileData) {
+      return res.status(404).json({ 
+        success: false, 
+        error: language === 'en' 
+          ? 'User not found' 
+          : 'ব্যবহারকারী পাওয়া যায়নি' 
+      });
+    }
+
+    // Update password in Supabase Auth
+    const { error: updateError } = await supabase.auth.admin.updateUserById(
+      profileData.id,
+      { password: newPassword }
+    );
+
+    if (updateError) {
+      console.error('Password update error:', updateError);
+      return res.status(500).json({ 
+        success: false, 
+        error: language === 'en' 
+          ? 'Failed to update password' 
+          : 'পাসওয়ার্ড আপডেট করতে ব্যর্থ' 
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      message: language === 'en' 
+        ? 'Password reset successfully. You can now login with your new password' 
+        : 'পাসওয়ার্ড সফলভাবে রিসেট হয়েছে। এখন আপনি নতুন পাসওয়ার্ড দিয়ে লগইন করতে পারবেন'
+    });
+  } catch (error) {
+    console.error('Reset password via SMS error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// Reset password with OTP (EMAIL - keep for backward compatibility)
 app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { email, otp, newPassword, language = 'en' } = req.body;

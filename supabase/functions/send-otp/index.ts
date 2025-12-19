@@ -147,26 +147,26 @@ serve(async (req) => {
       `
     }
 
-    // Send email using Resend API
-    const resendApiKey = Deno.env.get('RESEND_API_KEY') ?? ''
+    // Send email using Brevo (FREE 300/day to ANY email, no verification needed!)
+    const brevoApiKey = Deno.env.get('BREVO_API_KEY') ?? ''
     
-    const emailResponse = await fetch('https://api.resend.com/emails', {
+    const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
+        'api-key': brevoApiKey,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: 'BRTA 2.0 <onboarding@resend.dev>',
-        to: email,
+        sender: { name: 'BRTA 2.0', email: 'noreply@brta.com' },
+        to: [{ email: email }],
         subject: emailContent.subject,
-        html: emailContent.html
+        htmlContent: emailContent.html
       })
     })
 
     if (!emailResponse.ok) {
       const errorData = await emailResponse.json()
-      console.error('Resend API error:', errorData)
+      console.error('Brevo API error:', errorData)
       return new Response(
         JSON.stringify({ error: 'Failed to send email', details: errorData }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

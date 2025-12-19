@@ -7,6 +7,35 @@ const SMS_API_KEY = process.env.SMS_API_KEY || 'QvWIhejLvbHoLq9vCj54';
 const SMS_SENDER_ID = process.env.SMS_SENDER_ID || '8809617631284';
 
 /**
+ * Normalize phone number to standard format (8801XXXXXXXXX)
+ * Handles: +8801XXX, 8801XXX, 01XXX, 1XXX
+ * @param {string} phoneNumber - Phone number in any format
+ * @returns {string} - Normalized phone number (8801XXXXXXXXX)
+ */
+export function normalizePhoneNumber(phoneNumber) {
+  let cleanNumber = phoneNumber.toString().trim();
+  
+  // Remove spaces, dashes, parentheses
+  cleanNumber = cleanNumber.replace(/[\s\-()]/g, '');
+  
+  // Handle different formats
+  if (cleanNumber.startsWith('+880')) {
+    cleanNumber = cleanNumber.substring(1); // +8801XXX -> 8801XXX
+  } else if (cleanNumber.startsWith('880')) {
+    // Already correct: 8801XXX -> 8801XXX
+  } else if (cleanNumber.startsWith('0')) {
+    cleanNumber = '880' + cleanNumber.substring(1); // 01XXX -> 8801XXX
+  } else if (cleanNumber.startsWith('1')) {
+    cleanNumber = '880' + cleanNumber; // 1XXX -> 8801XXX
+  } else {
+    // Assume it needs 880 prefix
+    cleanNumber = '880' + cleanNumber;
+  }
+  
+  return cleanNumber;
+}
+
+/**
  * Send SMS using BulkSMSBD API
  * @param {string} phoneNumber - Phone number without country code (e.g., 01712345678)
  * @param {string} message - SMS message text
@@ -14,26 +43,8 @@ const SMS_SENDER_ID = process.env.SMS_SENDER_ID || '8809617631284';
  */
 export async function sendSMS(phoneNumber, message) {
   try {
-    // Clean and validate phone number
-    let cleanNumber = phoneNumber.toString().trim();
-    
-    // Remove any spaces, dashes, or special characters
-    cleanNumber = cleanNumber.replace(/[\s-]/g, '');
-    
-    // If starts with +880 or 880, keep as is (already correct)
-    if (cleanNumber.startsWith('+880')) {
-      cleanNumber = cleanNumber.substring(1); // Remove + sign, keep 880
-    } else if (cleanNumber.startsWith('880')) {
-      // Already correct format, keep as is
-    } else if (cleanNumber.startsWith('0')) {
-      // Remove leading 0 and add 880
-      // 01711337145 -> 1711337145 -> 8801711337145
-      cleanNumber = '880' + cleanNumber.substring(1);
-    } else {
-      // Assume it's just the number without 0 or 880
-      // 1711337145 -> 8801711337145
-      cleanNumber = '880' + cleanNumber;
-    }
+    // Normalize phone number
+    const cleanNumber = normalizePhoneNumber(phoneNumber);
     
     // Validate: should be 13 digits total (880 + 10 digits)
     if (!/^880\d{10}$/.test(cleanNumber)) {
@@ -262,6 +273,29 @@ export async function sendOwnershipTransferNewSMS(phoneNumber, vehicleInfo, regi
   return await sendSMS(phoneNumber, message);
 }
 
+/**
+ * Send OTP SMS for signup/password reset
+ * @param {string} phoneNumber - User phone number
+ * @param {string} otp - 6-digit OTP code
+ * @param {string} language - 'en' or 'bn'
+ * @returns {Promise<Object>} - SMS response
+ */
+export async function sendOTPSMS(phoneNumber, otp, language = 'en') {
+  const message = language === 'bn'
+    ? `**TEST MESSAGE**\n` +
+      `🔐 আপনার BRTA OTP কোড: ${otp}\n` +
+      `এই কোডটি ৫ মিনিটের জন্য বৈধ।\n` +
+      `⚠️ কাউকে শেয়ার করবেন না।\n` +
+      `- Bangladesh Road Transport Authority`
+    : `**TEST MESSAGE**\n` +
+      `🔐 Your BRTA OTP Code: ${otp}\n` +
+      `Valid for 5 minutes.\n` +
+      `⚠️ Never share this code.\n` +
+      `- Bangladesh Road Transport Authority`;
+  
+  return await sendSMS(phoneNumber, message);
+}
+
 export default { 
   sendSMS, 
   sendViolationSMS, 
@@ -271,5 +305,6 @@ export default {
   sendLicenseRenewalSMS,
   sendTaxTokenRenewalSMS,
   sendOwnershipTransferPreviousSMS,
-  sendOwnershipTransferNewSMS
+  sendOwnershipTransferNewSMS,
+  sendOTPSMS
 };

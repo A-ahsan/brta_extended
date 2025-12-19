@@ -95,7 +95,8 @@ const Signup = () => {
         );
         setShowOtpModal(true);
       } else {
-        toast.error(data.message || (language === 'en' ? 'Failed to send OTP. Please try again.' : 'OTP পাঠাতে ব্যর্থ হয়েছে। আবার চেষ্টা করুন।'));
+        // Show error from backend (includes duplicate phone check)
+        toast.error(data.error || data.message || (language === 'en' ? 'Failed to send OTP. Please try again.' : 'OTP পাঠাতে ব্যর্থ হয়েছে। আবার চেষ্টা করুন।'));
       }
     } catch (error) {
       console.error('Request OTP error:', error);
@@ -582,15 +583,15 @@ const Signup = () => {
           >
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <EnvelopeSimple size={32} weight="duotone" className="text-primary" />
+                <Phone size={32} weight="duotone" className="text-primary" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                {language === 'en' ? 'Verify Your Email' : '????? ????? ????? ????'}
+                {language === 'en' ? 'Verify Your Phone' : 'আপনার ফোন যাচাই করুন'}
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
                 {language === 'en' 
-                  ? `Enter the 6-digit code sent to ${formData.email}` 
-                  : `${formData.email} ? ?????? ?-??????? ??? ?????`
+                  ? `Enter the 6-digit code sent via SMS to ${formData.phone}` 
+                  : `${formData.phone} এ SMS এর মাধ্যমে পাঠানো ৬-সংখ্যার কোড লিখুন`
                 }
               </p>
             </div>

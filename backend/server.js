@@ -1837,13 +1837,44 @@ app.post('/api/auth/request-otp-sms', async (req, res) => {
     console.log(`Request OTP SMS: ${normalizedPhone} (original: ${phone})`);
 
     // Check if user exists by phone in profiles table
-    const { data: profileData, error: profileError } = await supabase
+    // Try multiple formats since DB might have different format
+    let profileData = null;
+    let profileError = null;
+    
+    // Try normalized format (8801XXXXXXXXX)
+    const { data: data1, error: error1 } = await supabase
       .from('profiles')
       .select('id, phone')
       .eq('phone', normalizedPhone)
-      .single();
+      .maybeSingle();
+    
+    if (data1) {
+      profileData = data1;
+    } else {
+      // Try with leading zero (01XXXXXXXXX)
+      const phoneWithZero = normalizedPhone.replace(/^880/, '0');
+      const { data: data2, error: error2 } = await supabase
+        .from('profiles')
+        .select('id, phone')
+        .eq('phone', phoneWithZero)
+        .maybeSingle();
+      
+      if (data2) {
+        profileData = data2;
+      } else {
+        // Try with +880
+        const { data: data3, error: error3 } = await supabase
+          .from('profiles')
+          .select('id, phone')
+          .eq('phone', '+' + normalizedPhone)
+          .maybeSingle();
+        
+        profileData = data3;
+        profileError = error3;
+      }
+    }
 
-    console.log(`Phone lookup result - Found: ${!!profileData}, Error: ${!!profileError}, SkipCheck: ${skipUserCheck}`);
+    console.log(`Phone lookup result - Found: ${!!profileData}, Phone in DB: ${profileData?.phone}, SkipCheck: ${skipUserCheck}`);
 
     // For signup: check if phone is already registered
     if (skipUserCheck) {

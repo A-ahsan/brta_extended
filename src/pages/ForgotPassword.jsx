@@ -194,33 +194,33 @@ const ForgotPassword = () => {
                 </motion.div>
                 
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-3">
-                  {language === 'en' ? 'Check Your Email!' : 'আপনার ইমেইল চেক করুন!'}
+                  {language === 'en' ? 'Check Your Phone!' : 'আপনার ফোন চেক করুন!'}
                 </h2>
                 
                 <p className="text-gray-600 dark:text-gray-400 mb-2">
                   {language === 'en' 
-                    ? 'We sent a 6-digit OTP code to:' 
-                    : 'আমরা একটি ৬-সংখ্যার OTP কোড পাঠিয়েছি:'
+                    ? 'We sent a 6-digit OTP code via SMS to:' 
+                    : 'আমরা SMS এর মাধ্যমে একটি ৬-সংখ্যার OTP কোড পাঠিয়েছি:'
                   }
                 </p>
                 
-                <p className="text-primary font-semibold mb-6">{email}</p>
+                <p className="text-primary font-semibold mb-6">{phone}</p>
                 
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-6">
                   <p className="text-sm text-gray-700 dark:text-gray-300">
                     {language === 'en' 
-                      ? '📧 Check your email for the OTP code. Valid for 10 minutes. Redirecting...' 
-                      : '📧 OTP কোডের জন্য আপনার ইমেইল চেক করুন। ১০ মিনিটের জন্য বৈধ। পুনঃনির্দেশিত হচ্ছে...'
+                      ? '📱 Check your phone for the OTP SMS. Valid for 5 minutes. Redirecting...' 
+                      : '📱 OTP SMS এর জন্য আপনার ফোন চেক করুন। ৫ মিনিটের জন্য বৈধ। পুনঃনির্দেশিত হচ্ছে...'
                     }
                   </p>
                 </div>
 
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  {language === 'en' ? "Didn't receive the email?" : 'ইমেইল পাননি?'}
+                  {language === 'en' ? "Didn't receive the SMS?" : 'SMS পাননি?'}
                 </p>
                 
                 <button
-                  onClick={() => setEmailSent(false)}
+                  onClick={() => setSmsSent(false)}
                   className="text-primary hover:text-primary-dark font-semibold transition-colors"
                 >
                   {language === 'en' ? 'Send again' : 'আবার পাঠান'}

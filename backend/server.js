@@ -1836,15 +1836,26 @@ app.post('/api/auth/request-otp-sms', async (req, res) => {
     const normalizedPhone = normalizePhoneNumber(phone);
     console.log(`Request OTP SMS: ${normalizedPhone} (original: ${phone})`);
 
-    // Only check if user exists for password reset (not for signup)
-    if (!skipUserCheck) {
-      // Check if user exists by phone in profiles table
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, phone')
-        .eq('phone', normalizedPhone)
-        .single();
+    // Check if user exists by phone in profiles table
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, phone')
+      .eq('phone', normalizedPhone)
+      .single();
 
+    // For signup: check if phone is already registered
+    if (skipUserCheck) {
+      // This is signup - phone should NOT exist
+      if (profileData) {
+        return res.status(400).json({ 
+          success: false, 
+          error: language === 'en' 
+            ? 'This phone number is already registered. Please login instead.' 
+            : 'এই ফোন নম্বর ইতিমধ্যে নিবন্ধিত। দয়া করে লগইন করুন।'
+        });
+      }
+    } else {
+      // This is password reset - phone MUST exist
       if (profileError || !profileData) {
         // For security, return success even if user doesn't exist
         return res.json({ 

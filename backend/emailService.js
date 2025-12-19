@@ -248,15 +248,8 @@ export const deleteOTP = async (email) => {
   }
 };
 
-// Clean up expired OTPs periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [email, data] of otpStore.entries()) {
-    if (now > data.expires) {
-      otpStore.delete(email);
-    }
-  }
-}, 300000); // Clean up every 5 minutes
+// OTPs are now stored in database, cleanup handled by Supabase auto-delete
+// No need for in-memory cleanup
 
 // ============================================
 // SEND OTP VIA SMS (Phone-based authentication)

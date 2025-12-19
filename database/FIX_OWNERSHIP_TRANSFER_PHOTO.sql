@@ -113,6 +113,17 @@ BEGIN
     updated_at = NOW()
   WHERE id = v_application.registered_vehicle_id;
   
+  -- Update vehicles table with new owner (FIX: ensures old owner doesn't see transferred vehicle)
+  UPDATE vehicles
+  SET 
+    owner_id = v_application.new_owner_user_id,
+    updated_at = NOW()
+  WHERE id IN (
+    SELECT vehicle_id 
+    FROM registered_vehicles 
+    WHERE id = v_application.registered_vehicle_id
+  );
+  
   -- Update tax tokens to new owner
   UPDATE tax_tokens
   SET user_id = v_application.new_owner_user_id

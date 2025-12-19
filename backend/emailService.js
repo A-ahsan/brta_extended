@@ -1,46 +1,150 @@
 import crypto from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 
-// Supabase Edge Function for OTP sending (FREE unlimited)
-const SUPABASE_FUNCTION_URL = process.env.VITE_SUPABASE_FUNCTION_URL;
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+// ============================================
+// DIRECT RESEND API INTEGRATION (NO EDGE FUNCTIONS!)
+// Free tier: 100 emails/day to ANY email using onboarding@resend.dev
+// ============================================
 
-// Send OTP via Supabase Edge Function
-const sendViaSupabaseFunction = async (email, language = 'en') => {
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const supabase = createClient(
+  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
+);
+
+// ============================================
+// GENERATE 6-DIGIT OTP
+// ============================================
+export const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// ============================================
+// HASH OTP (for secure storage)
+// ============================================
+const hashOTP = (otp) => {
+  return crypto.createHash('sha256').update(otp).digest('hex');
+};
+
+// ============================================
+// SEND OTP EMAIL VIA RESEND (DIRECT API CALL)
+// ============================================
+const sendOTPEmailViaResend = async (email, otp, language = 'en') => {
+  const emailContent = language === 'bn' ? {
+    subject: 'আপনার OTP কোড - BRTA 2.0',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-radius: 0 0 10px 10px; }
+          .otp-box { background: white; border: 3px dashed #059669; padding: 20px; margin: 25px 0; border-radius: 10px; text-align: center; }
+          .otp-code { font-size: 42px; font-weight: bold; color: #059669; letter-spacing: 8px; font-family: monospace; }
+          .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🔐 আপনার OTP কোড</h1>
+            <p>BRTA 2.0 - স্মার্ট ট্রান্সপোর্ট পোর্টাল</p>
+          </div>
+          <div class="content">
+            <h2>হ্যালো,</h2>
+            <p>আপনার BRTA অ্যাকাউন্ট যাচাইয়ের জন্য OTP কোড:</p>
+            <div class="otp-box">
+              <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">আপনার OTP কোড</p>
+              <div class="otp-code">${otp}</div>
+              <p style="margin: 10px 0 0 0; color: #6b7280; font-size: 12px;">এই কোডটি <strong>৫ মিনিটের</strong> জন্য বৈধ</p>
+            </div>
+            <div class="warning">
+              <strong>⚠️ নিরাপত্তা সতর্কতা:</strong>
+              <ul style="margin: 10px 0 0 0;">
+                <li>এই OTP কোডটি কারো সাথে শেয়ার করবেন না</li>
+                <li>BRTA কখনই ফোন বা ইমেইলে OTP চাইবে না</li>
+                <li>যদি আপনি এই অনুরোধ না করে থাকেন, তাহলে এই ইমেইলটি উপেক্ষা করুন</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  } : {
+    subject: 'Your OTP Code - BRTA 2.0',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-radius: 0 0 10px 10px; }
+          .otp-box { background: white; border: 3px dashed #059669; padding: 20px; margin: 25px 0; border-radius: 10px; text-align: center; }
+          .otp-code { font-size: 42px; font-weight: bold; color: #059669; letter-spacing: 8px; font-family: monospace; }
+          .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🔐 Your OTP Code</h1>
+            <p>BRTA 2.0 - Smart Transport Portal</p>
+          </div>
+          <div class="content">
+            <h2>Hello,</h2>
+            <p>Your OTP code to verify your BRTA account:</p>
+            <div class="otp-box">
+              <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">Your OTP Code</p>
+              <div class="otp-code">${otp}</div>
+              <p style="margin: 10px 0 0 0; color: #6b7280; font-size: 12px;">This code is valid for <strong>5 minutes</strong></p>
+            </div>
+            <div class="warning">
+              <strong>⚠️ Security Warning:</strong>
+              <ul style="margin: 10px 0 0 0;">
+                <li>Never share this OTP code with anyone</li>
+                <li>BRTA will never ask for your OTP via phone or email</li>
+                <li>If you didn't request this, please ignore this email</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  };
+
   try {
-    const response = await fetch(SUPABASE_FUNCTION_URL, {
+    const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        email: email,
-        language: language,
-      }),
+        from: 'onboarding@resend.dev',
+        to: [email],
+        subject: emailContent.subject,
+        html: emailContent.html
+      })
     });
 
     const data = await response.json();
-    
-    if (response.ok) {
-      return { success: true, data };
-    } else {
-      console.error('Supabase Function error:', data);
-      return { success: false, error: data.error || 'Failed to send OTP' };
+
+    if (!response.ok) {
+      console.error('Resend API Error:', data);
+      throw new Error(data.message || 'Failed to send email');
     }
+
+    return { success: true, messageId: data.id };
   } catch (error) {
-    console.error('Supabase Function fetch error:', error);
-    return { success: false, error: error.message };
+    console.error('Email sending error:', error);
+    throw error;
   }
-};
-
-// Store for OTP codes (now handled by Supabase database)
-const otpStore = new Map();
-
-// Generate 6-digit OTP (still needed for backend, but Edge Function also generates)
-export const generateOTP = (email) => {
-  const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
-  return otp;
-  // Note: OTP is now stored in Supabase database by the Edge Function
 };
 
 // Verify OTP (now uses Supabase database)
@@ -93,13 +197,87 @@ export const verifyOTP = async (email, otp) => {
       };
     }
 
-    // OTP is valid - DELETE IT from database (one-time use)
+// ============================================
+// VERIFY OTP
+// ============================================
+export const verifyOTP = async (email, otp) => {
+  try {
+    const otpHash = hashOTP(otp);
+
+    // 1. Get OTP from database
+    const { data, error } = await supabase
+      .from('password_reset_otps')
+      .select('*')
+      .eq('email', email.toLowerCase())
+      .single();
+
+    if (error || !data) {
+      return {
+        valid: false,
+        success: false,
+        message: 'Invalid or expired OTP',
+        error: 'OTP_NOT_FOUND'
+      };
+    }
+
+    // 2. Check if expired
+    const now = new Date();
+    const expiresAt = new Date(data.expires_at);
+    if (now > expiresAt) {
+      // Delete expired OTP
+      await supabase
+        .from('password_reset_otps')
+        .delete()
+        .eq('email', email.toLowerCase());
+
+      return {
+        valid: false,
+        success: false,
+        message: 'OTP has expired',
+        error: 'OTP_EXPIRED'
+      };
+    }
+
+    // 3. Check attempts (max 3)
+    if (data.attempts >= 3) {
+      // Delete after max attempts
+      await supabase
+        .from('password_reset_otps')
+        .delete()
+        .eq('email', email.toLowerCase());
+
+      return {
+        valid: false,
+        success: false,
+        message: 'Maximum attempts exceeded',
+        error: 'MAX_ATTEMPTS_EXCEEDED'
+      };
+    }
+
+    // 4. Verify OTP
+    if (data.otp_code !== otpHash) {
+      // Increment attempts
+      await supabase
+        .from('password_reset_otps')
+        .update({ attempts: data.attempts + 1 })
+        .eq('email', email.toLowerCase());
+
+      return {
+        valid: false,
+        success: false,
+        message: 'Invalid OTP',
+        error: 'INVALID_OTP',
+        attemptsLeft: 3 - (data.attempts + 1)
+      };
+    }
+
+    // 5. OTP is valid - DELETE IT from database (one-time use)
     await supabase.from('password_reset_otps').delete().eq('email', email.toLowerCase());
     
-    return { valid: true, email };
+    return { valid: true, success: true, email, message: 'OTP verified successfully' };
   } catch (error) {
     console.error('Error verifying OTP:', error);
-    return { valid: false, message: 'Error verifying OTP' };
+    return { valid: false, success: false, message: 'Error verifying OTP' };
   }
 };
 
@@ -131,23 +309,78 @@ setInterval(() => {
 }, 300000); // Clean up every 5 minutes
 
 // Send OTP email via Supabase Edge Function
-export const sendOTPEmail = async (email, otp, language = 'en') => {
+// ============================================
+// SEND OTP (Main Function)
+// Purpose: signup, login, password-reset
+// ============================================
+export const sendOTPEmail = async (email, purpose = 'verification', language = 'en') => {
   try {
-    console.log(`Sending OTP to ${email} via Supabase Edge Function...`);
-    
-    // Call Supabase Edge Function
-    const result = await sendViaSupabaseFunction(email, language);
-    
-    if (result.success) {
-      console.log('OTP sent successfully via Supabase');
-      return { success: true, message: 'OTP sent successfully' };
-    } else {
-      console.error('Supabase Function failed:', result.error);
-      return { success: false, message: 'Failed to send OTP email', error: result.error };
+    console.log(`Sending OTP to ${email} for ${purpose}...`);
+
+    // 1. Check rate limiting (max 3 OTPs per hour)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { data: recentOTPs, error: rateLimitError } = await supabase
+      .from('password_reset_otps')
+      .select('id')
+      .eq('email', email.toLowerCase())
+      .gte('created_at', oneHourAgo);
+
+    if (rateLimitError) {
+      console.error('Rate limit check error:', rateLimitError);
     }
+
+    if (recentOTPs && recentOTPs.length >= 3) {
+      return {
+        success: false,
+        message: 'Too many OTP requests. Please try again in an hour.',
+        error: 'RATE_LIMIT_EXCEEDED'
+      };
+    }
+
+    // 2. Generate OTP
+    const otp = generateOTP();
+    const otpHash = hashOTP(otp);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    // 3. Delete old OTPs for this email
+    await supabase
+      .from('password_reset_otps')
+      .delete()
+      .eq('email', email.toLowerCase());
+
+    // 4. Store OTP in database
+    const { error: dbError } = await supabase
+      .from('password_reset_otps')
+      .insert({
+        email: email.toLowerCase(),
+        otp_code: otpHash, // Store hashed OTP
+        expires_at: expiresAt.toISOString(),
+        attempts: 0,
+        created_at: new Date().toISOString()
+      });
+
+    if (dbError) {
+      console.error('Database error:', dbError);
+      return { success: false, message: 'Failed to store OTP', error: dbError };
+    }
+
+    // 5. Send email via Resend (DIRECT API CALL)
+    await sendOTPEmailViaResend(email, otp, language);
+
+    console.log(`OTP sent successfully to ${email}`);
+    return {
+      success: true,
+      message: 'OTP sent successfully',
+      expiresIn: 300 // 5 minutes in seconds
+    };
+
   } catch (error) {
-    console.error('Error sending OTP email:', error);
-    return { success: false, message: 'Failed to send OTP email', error: error.message };
+    console.error('Error sending OTP:', error);
+    return {
+      success: false,
+      message: 'Failed to send OTP email',
+      error: error.message
+    };
   }
 };
 

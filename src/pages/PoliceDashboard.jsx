@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, Routes, Route, NavLink } from 'react-router-dom';
+import { useNavigate, Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import {
   QrCode,
   CheckCircle,
@@ -30,6 +30,7 @@ import PoliceRecentActivity from './police/PoliceRecentActivity';
 
 const PoliceDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { language } = useLanguage();
   const { signOut, user } = useAuth();
   const t = translations[language] || translations.en;
@@ -43,6 +44,11 @@ const PoliceDashboard = () => {
     totalInspections: 0
   });
   const [violationTypeData, setViolationTypeData] = useState([]);
+  
+  // Check if we should show the graph (main dashboard + verification, but NOT records or activity)
+  const shouldShowGraph = location.pathname === '/police-dashboard' || 
+                          location.pathname === '/police-dashboard/' || 
+                          location.pathname === '/police-dashboard/verification';
 
   useEffect(() => {
     fetchNotifications();
@@ -503,75 +509,77 @@ const PoliceDashboard = () => {
             />
           </motion.div>
 
-          {/* Violation Types Chart */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-6 sm:mb-8"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 bg-gradient-to-br from-primary to-green-600 rounded-xl">
-                <ChartBar size={28} weight="bold" className="text-white" />
+          {/* Violation Types Chart - Show on main dashboard and verification page only */}
+          {shouldShowGraph && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-6 sm:mb-8"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-gradient-to-br from-primary to-green-600 rounded-xl">
+                  <ChartBar size={28} weight="bold" className="text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800 dark:text-white">
+                    {language === 'en' ? 'Violation Types Distribution' : 'লঙ্ঘনের ধরন বিতরণ'}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {language === 'en' ? 'Most common violations and impoundments' : 'সবচেয়ে সাধারণ লঙ্ঘন এবং আটক'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-800 dark:text-white">
-                  {language === 'en' ? 'Violation Types Distribution' : 'লঙ্ঘনের ধরন বিতরণ'}
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {language === 'en' ? 'Most common violations and impoundments' : 'সবচেয়ে সাধারণ লঙ্ঘন এবং আটক'}
-                </p>
-              </div>
-            </div>
-            
-            {violationTypeData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart 
-                  data={violationTypeData}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis 
-                    dataKey="name" 
-                    angle={-45}
-                    textAnchor="end"
-                    height={100}
-                    interval={0}
-                    tick={{ fontSize: 12, fill: '#6B7280' }}
-                  />
-                  <YAxis 
-                    tick={{ fontSize: 12, fill: '#6B7280' }}
-                    label={{ 
-                      value: language === 'en' ? 'Number of Cases' : 'মামলার সংখ্যা', 
-                      angle: -90, 
-                      position: 'insideLeft',
-                      style: { fontSize: 14, fill: '#374151' }
-                    }}
-                  />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: '#fff',
-                      border: '1px solid #E9ECEF',
-                      borderRadius: '8px',
-                    }}
-                    cursor={{ fill: 'rgba(220, 38, 38, 0.1)' }}
-                  />
-                  <Bar 
-                    dataKey="value" 
-                    fill="#DC2626" 
-                    radius={[8, 8, 0, 0]}
-                    maxBarSize={80}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[400px]">
-                <p className="text-gray-500 dark:text-gray-400">
-                  {language === 'en' ? 'No violation data available' : 'কোনো লঙ্ঘনের তথ্য নেই'}
-                </p>
-              </div>
-            )}
-          </motion.div>
+              
+              {violationTypeData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={400}>
+                  <BarChart 
+                    data={violationTypeData}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis 
+                      dataKey="name" 
+                      angle={-45}
+                      textAnchor="end"
+                      height={100}
+                      interval={0}
+                      tick={{ fontSize: 12, fill: '#6B7280' }}
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 12, fill: '#6B7280' }}
+                      label={{ 
+                        value: language === 'en' ? 'Number of Cases' : 'মামলার সংখ্যা', 
+                        angle: -90, 
+                        position: 'insideLeft',
+                        style: { fontSize: 14, fill: '#374151' }
+                      }}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: '#fff',
+                        border: '1px solid #E9ECEF',
+                        borderRadius: '8px',
+                      }}
+                      cursor={{ fill: 'rgba(220, 38, 38, 0.1)' }}
+                    />
+                    <Bar 
+                      dataKey="value" 
+                      fill="#DC2626" 
+                      radius={[8, 8, 0, 0]}
+                      maxBarSize={80}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[400px]">
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {language === 'en' ? 'No violation data available' : 'কোনো লঙ্ঘনের তথ্য নেই'}
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          )}
 
           {/* Sub Routes */}
           <Routes>

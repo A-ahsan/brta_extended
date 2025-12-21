@@ -327,7 +327,7 @@ const PublicLicenseView = () => {
                       <p className="text-xs opacity-75 uppercase tracking-wider mb-0.5">
                         Address
                       </p>
-                      <p className="text-xs sm:text-sm leading-relaxed">{license.address}</p>
+                      <p className="text-xs leading-relaxed break-words overflow-wrap-anywhere max-w-full">{license.address}</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 border-t border-white/30 pt-2">

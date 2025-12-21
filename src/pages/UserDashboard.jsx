@@ -771,6 +771,11 @@ const UserDashboard = () => {
           .value {
             font-size: 16px;
             font-weight: bold;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            max-width: 100%;
+            white-space: normal;
           }
           .qr-section {
             margin-top: 30px;
@@ -845,12 +850,16 @@ const UserDashboard = () => {
               <div class="content" style="flex: 1;">
                 ${Object.entries(cardData)
                   .filter(([key]) => !['photo_url', 'Photo URL'].includes(key))
-                  .map(([key, value]) => `
-                  <div class="field ${key.includes('Plate') || key.includes('Model') || key.includes('Name') ? 'full' : ''}">
+                  .map(([key, value]) => {
+                    const isLongField = key.toLowerCase().includes('address') || key.includes('Plate') || key.includes('Model') || key.includes('Name');
+                    const isAddress = key.toLowerCase().includes('address');
+                    return `
+                  <div class="field ${isLongField ? 'full' : ''}">
                     <div class="label">${key.replace(/_/g, ' ').toUpperCase()}</div>
-                    <div class="value">${value}</div>
+                    <div class="value" style="${isAddress ? 'font-size: 12px; line-height: 1.4;' : ''}">${value}</div>
                   </div>
-                `).join('')}
+                `;
+                  }).join('')}
               </div>
             </div>
           </div>
@@ -877,7 +886,7 @@ const UserDashboard = () => {
                 </div>
                 <div class="field" style="margin-bottom: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.3);">
                   <div class="label">Address</div>
-                  <div class="value" style="font-size: 12px; line-height: 1.4;">${cardData.address || cardData['Address'] || 'N/A'}</div>
+                  <div class="value" style="font-size: 11px; line-height: 1.3; word-wrap: break-word; overflow-wrap: break-word; max-width: 100%; white-space: normal;">${cardData.address || cardData['Address'] || 'N/A'}</div>
                 </div>
                 <div class="field" style="padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.3);">
                   <div class="label">Issue & Expiry</div>

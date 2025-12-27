@@ -185,18 +185,6 @@ const CommunityReports = () => {
                   : `${reports.length}টি দালাল রিপোর্ট নাগরিকদের দ্বারা প্রকাশিত`}
               </p>
             </div>
-            
-            {user && (
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => navigate('/dashboard')}
-                className="flex items-center gap-2 bg-primary dark:bg-green-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
-              >
-                <Eye size={20} weight="fill" />
-                {language === 'en' ? 'My Reports' : 'আমার রিপোর্ট'}
-              </motion.button>
-            )}
           </div>
 
           {/* Reports Grid - Premium Design */}

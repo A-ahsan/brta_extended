@@ -13,7 +13,8 @@ import {
   MapPin,
   Image as ImageIcon,
   X,
-  PencilSimple
+  PencilSimple,
+  Check
 } from 'phosphor-react';
 import { useLanguage } from '../../contexts/AppContext';
 import { translations } from '../../utils/translations';
@@ -33,6 +34,7 @@ const AdminCommunityModeration = () => {
   const [selectedReport, setSelectedReport] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null); // { type: 'approve'|'reject'|'delete', report, reason? }
 
   useEffect(() => {
     fetchReports();
@@ -88,16 +90,18 @@ const AdminCommunityModeration = () => {
   };
 
   const handleApprove = async (report) => {
-    if (!window.confirm(tc.confirmApprove)) return;
-
+    setConfirmAction(null);
     setActionLoading(true);
     try {
+      // Only publish dalal reports, suggestions stay admin-only
+      const shouldPublish = report.report_type === 'dalal';
+      
       const { error } = await supabase
         .from('community_reports')
         .update({
           status: 'approved',
-          is_published: true,
-          published_at: new Date().toISOString(),
+          is_published: shouldPublish,
+          published_at: shouldPublish ? new Date().toISOString() : null,
           reviewed_by: user.id,
           reviewed_at: new Date().toISOString()
         })
@@ -106,13 +110,14 @@ const AdminCommunityModeration = () => {
       if (error) throw error;
 
       // Send notification to user
+      const isPublic = report.report_type === 'dalal';
       await supabase.from('notifications').insert({
         user_id: report.user_id,
         recipient_type: 'user',
         title_en: `Your ${report.report_type === 'dalal' ? 'Dalal Report' : 'Suggestion'} Approved`,
         title_bn: `আপনার ${report.report_type === 'dalal' ? 'দালাল রিপোর্ট' : 'পরামর্শ'} অনুমোদিত হয়েছে`,
-        message_en: `Your report "${language === 'en' ? report.title_en : report.title_bn}" has been reviewed and approved. It is now visible to the public.`,
-        message_bn: `আপনার রিপোর্ট "${language === 'en' ? report.title_en : report.title_bn}" পর্যালোচনা করা হয়েছে এবং অনুমোদিত হয়েছে। এটি এখন সর্বজনীনভাবে দৃশ্যমান।`,
+        message_en: `Your report "${language === 'en' ? report.title_en : report.title_bn}" has been reviewed and approved.${isPublic ? ' It is now visible to the public.' : ''}`,
+        message_bn: `আপনার রিপোর্ট "${language === 'en' ? report.title_en : report.title_bn}" পর্যালোচনা করা হয়েছে এবং অনুমোদিত হয়েছে।${isPublic ? ' এটি এখন সর্বজনীনভাবে দৃশ্যমান।' : ''}`,
         notification_type: 'general',
         priority: 'normal'
       });
@@ -128,8 +133,14 @@ const AdminCommunityModeration = () => {
     }
   };
 
-  const handleReject = async (report, reason) => {
-    if (!window.confirm(tc.confirmReject)) return;
+  const handleReject = async (report) => {
+    const reason = confirmAction?.reason;
+    setConfirmAction(null);
+    
+    if (!reason || reason.trim() === '') {
+      toast.error(language === 'en' ? 'Rejection reason is required' : 'প্রত্যাখ্যানের কারণ প্রয়োজন');
+      return;
+    }
 
     setActionLoading(true);
     try {
@@ -170,8 +181,7 @@ const AdminCommunityModeration = () => {
   };
 
   const handleDelete = async (report) => {
-    if (!window.confirm(tc.confirmDelete)) return;
-
+    setConfirmAction(null);
     setActionLoading(true);
     try {
       // Delete attachments first
@@ -370,6 +380,23 @@ const AdminCommunityModeration = () => {
             formatDate={formatDate}
             getStatusBadge={getStatusBadge}
             actionLoading={actionLoading}
+            setConfirmAction={setConfirmAction}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Confirmation Modal */}
+      <AnimatePresence>
+        {confirmAction && (
+          <ConfirmationModal
+            action={confirmAction}
+            onConfirm={(action) => {
+              if (action.type === 'approve') handleApprove(action.report);
+              else if (action.type === 'reject') handleReject(action.report);
+              else if (action.type === 'delete') handleDelete(action.report);
+            }}
+            onCancel={() => setConfirmAction(null)}
+            language={language}
           />
         )}
       </AnimatePresence>
@@ -430,7 +457,7 @@ const AdminReportCard = ({ report, language, tc, onViewDetails, formatDate, getS
 // Admin Report Detail Modal with Actions
 const AdminReportDetailModal = ({ 
   report, language, tc, onClose, onApprove, onReject, onDelete, onAddResponse, 
-  formatDate, getStatusBadge, actionLoading 
+  formatDate, getStatusBadge, actionLoading, setConfirmAction
 }) => {
   const isDalal = report.report_type === 'dalal';
   const title = language === 'en' ? report.title_en : report.title_bn;
@@ -554,7 +581,10 @@ const AdminReportDetailModal = ({
           {report.status === 'pending' && (
             <div className="flex gap-4">
               <button
-                onClick={() => onApprove(report)}
+                onClick={() => {
+                  onClose();
+                  setTimeout(() => setConfirmAction({ type: 'approve', report }), 100);
+                }}
                 disabled={actionLoading}
                 className="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
@@ -562,7 +592,10 @@ const AdminReportDetailModal = ({
                 {tc.approveReport}
               </button>
               <button
-                onClick={() => setShowRejectForm(true)}
+                onClick={() => {
+                  onClose();
+                  setTimeout(() => setConfirmAction({ type: 'reject', report }), 100);
+                }}
                 disabled={actionLoading}
                 className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
@@ -600,13 +633,138 @@ const AdminReportDetailModal = ({
           )}
 
           <button
-            onClick={() => onDelete(report)}
+            onClick={() => {
+              onClose();
+              setTimeout(() => setConfirmAction({ type: 'delete', report }), 100);
+            }}
             disabled={actionLoading}
             className="w-full bg-red-100 dark:bg-red-900/20 text-danger py-3 rounded-xl font-bold hover:bg-red-200 dark:hover:bg-red-900/40 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <Trash size={20} weight="fill" />
             {tc.deleteReport}
           </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+// Confirmation Modal Component
+const ConfirmationModal = ({ action, onConfirm, onCancel, language }) => {
+  const [rejectionReason, setRejectionReason] = useState('');
+  
+  if (!action) return null;
+  
+  const { type, report } = action;
+  const isReject = type === 'reject';
+  
+  const titles = {
+    approve: language === 'en' ? 'Approve Report' : 'রিপোর্ট অনুমোদন করুন',
+    reject: language === 'en' ? 'Reject Report' : 'রিপোর্ট প্রত্যাখ্যান করুন',
+    delete: language === 'en' ? 'Delete Report' : 'রিপোর্ট মুছুন'
+  };
+  
+  const messages = {
+    approve: language === 'en' 
+      ? `Are you sure you want to approve this ${report.report_type === 'dalal' ? 'dalal report' : 'suggestion'}?${report.report_type === 'dalal' ? ' It will be published to the public community page.' : ' It will remain admin-only.'}` 
+      : `আপনি কি নিশ্চিত যে আপনি এই ${report.report_type === 'dalal' ? 'দালাল রিপোর্ট' : 'পরামর্শ'} অনুমোদন করতে চান?${report.report_type === 'dalal' ? ' এটি সর্বজনীন কমিউনিটি পৃষ্ঠায় প্রকাশিত হবে।' : ' এটি শুধুমাত্র অ্যাডমিনদের জন্য থাকবে।'}`,
+    reject: language === 'en' 
+      ? 'Please provide a reason for rejecting this report:' 
+      : 'এই রিপোর্ট প্রত্যাখ্যান করার একটি কারণ প্রদান করুন:',
+    delete: language === 'en' 
+      ? 'Are you sure you want to permanently delete this report? This action cannot be undone.' 
+      : 'আপনি কি নিশ্চিত যে আপনি এই রিপোর্টটি স্থায়ীভাবে মুছে ফেলতে চান? এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।'
+  };
+  
+  const icons = {
+    approve: <CheckCircle size={24} weight="duotone" className="text-green-600" />,
+    reject: <XCircle size={24} weight="duotone" className="text-yellow-600" />,
+    delete: <Trash size={24} weight="duotone" className="text-red-600" />
+  };
+  
+  const buttonColors = {
+    approve: 'from-green-500 to-green-600',
+    reject: 'from-yellow-500 to-yellow-600',
+    delete: 'from-red-500 to-red-600'
+  };
+  
+  const handleConfirm = () => {
+    if (isReject) {
+      if (!rejectionReason.trim()) {
+        toast.error(language === 'en' ? 'Please provide a rejection reason' : 'প্রত্যাখ্যানের কারণ প্রদান করুন');
+        return;
+      }
+      onConfirm({ ...action, reason: rejectionReason });
+    } else {
+      onConfirm(action);
+    }
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onCancel}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <div className={`p-3 rounded-full ${
+            type === 'approve' ? 'bg-green-100 dark:bg-green-900/20' :
+            type === 'reject' ? 'bg-yellow-100 dark:bg-yellow-900/20' :
+            'bg-red-100 dark:bg-red-900/20'
+          }`}>
+            {icons[type]}
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">{titles[type]}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {type === 'delete' ? (language === 'en' ? 'This action cannot be undone' : 'এটি পূর্বাবস্থায় ফেরানো যাবে না') : ''}
+            </p>
+          </div>
+        </div>
+        
+        {isReject ? (
+          <div className="mb-6">
+            <p className="text-gray-700 dark:text-gray-300 mb-3">{messages[type]}</p>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder={language === 'en' ? 'Enter rejection reason...' : 'প্রত্যাখ্যানের কারণ লিখুন...'}
+              rows={3}
+              className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:border-yellow-500"
+              autoFocus
+            />
+          </div>
+        ) : (
+          <p className="text-gray-700 dark:text-gray-300 mb-6">{messages[type]}</p>
+        )}
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+          >
+            {language === 'en' ? 'Cancel' : 'বাতিল'}
+          </button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleConfirm}
+            className={`flex-1 px-4 py-3 bg-gradient-to-r ${buttonColors[type]} text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition flex items-center justify-center gap-2`}
+          >
+            {icons[type]}
+            {language === 'en' ? type.charAt(0).toUpperCase() + type.slice(1) : 
+              type === 'approve' ? 'অনুমোদন' : 
+              type === 'reject' ? 'প্রত্যাখ্যান' : 'মুছুন'}
+          </motion.button>
         </div>
       </motion.div>
     </motion.div>

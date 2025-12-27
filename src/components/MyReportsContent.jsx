@@ -31,6 +31,8 @@ const MyReportsContent = () => {
   const [selectedReport, setSelectedReport] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showTypeSelector, setShowTypeSelector] = useState(false);
+  const [selectedReportType, setSelectedReportType] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -121,7 +123,7 @@ const MyReportsContent = () => {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => setShowSubmitModal(true)}
+          onClick={() => setShowTypeSelector(true)}
           className="bg-primary text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
         >
           <Plus size={20} weight="bold" />
@@ -221,7 +223,7 @@ const MyReportsContent = () => {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setShowSubmitModal(true)}
+            onClick={() => setShowTypeSelector(true)}
             className="bg-primary text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
           >
             {language === 'en' ? 'Submit Your First Report' : 'আপনার প্রথম রিপোর্ট জমা দিন'}
@@ -321,14 +323,102 @@ const MyReportsContent = () => {
         </div>
       )}
 
+      {/* Report Type Selector Modal */}
+      <AnimatePresence>
+        {showTypeSelector && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowTypeSelector(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md w-full shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2 text-center">
+                {language === 'en' ? 'Choose Report Type' : 'রিপোর্ট টাইপ নির্বাচন করুন'}
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
+                {language === 'en' ? 'What would you like to report?' : 'আপনি কি রিপোর্ট করতে চান?'}
+              </p>
+
+              <div className="space-y-3">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setSelectedReportType('dalal');
+                    setShowTypeSelector(false);
+                    setShowSubmitModal(true);
+                  }}
+                  className="w-full flex items-center gap-4 p-4 bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-700 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/30 transition-all"
+                >
+                  <div className="p-3 bg-red-100 dark:bg-red-900/40 rounded-lg">
+                    <Warning size={28} weight="duotone" className="text-red-600" />
+                  </div>
+                  <div className="text-left flex-1">
+                    <h4 className="font-bold text-gray-800 dark:text-white">
+                      {language === 'en' ? 'Report a Dalal' : 'দালাল রিপোর্ট করুন'}
+                    </h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {language === 'en' ? 'Report middlemen/brokers with evidence' : 'প্রমাণসহ মধ্যস্থতাকারীদের রিপোর্ট করুন'}
+                    </p>
+                  </div>
+                </motion.button>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setSelectedReportType('suggestion');
+                    setShowTypeSelector(false);
+                    setShowSubmitModal(true);
+                  }}
+                  className="w-full flex items-center gap-4 p-4 bg-green-50 dark:bg-green-900/20 border-2 border-green-200 dark:border-green-700 rounded-xl hover:bg-green-100 dark:hover:bg-green-900/30 transition-all"
+                >
+                  <div className="p-3 bg-green-100 dark:bg-green-900/40 rounded-lg">
+                    <Lightbulb size={28} weight="duotone" className="text-green-600" />
+                  </div>
+                  <div className="text-left flex-1">
+                    <h4 className="font-bold text-gray-800 dark:text-white">
+                      {language === 'en' ? 'Submit Suggestion' : 'সাজেশন জমা দিন'}
+                    </h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {language === 'en' ? 'Share your ideas to improve BRTA' : 'BRTA উন্নত করতে আপনার আইডিয়া শেয়ার করুন'}
+                    </p>
+                  </div>
+                </motion.button>
+              </div>
+
+              <button
+                onClick={() => setShowTypeSelector(false)}
+                className="mt-6 w-full px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-semibold transition-colors"
+              >
+                {language === 'en' ? 'Cancel' : 'বাতিল'}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Submit Report Modal */}
       <AnimatePresence>
-        {showSubmitModal && (
+        {showSubmitModal && selectedReportType && (
           <SubmitReportModal
+            reportType={selectedReportType}
             isOpen={showSubmitModal}
-            onClose={() => setShowSubmitModal(false)}
+            onClose={() => {
+              setShowSubmitModal(false);
+              setSelectedReportType(null);
+            }}
             onSuccess={() => {
               setShowSubmitModal(false);
+              setSelectedReportType(null);
               fetchMyReports();
             }}
           />

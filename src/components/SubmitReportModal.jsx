@@ -230,17 +230,16 @@ const SubmitReportModal = ({ reportType, onClose, onSubmitted }) => {
     setSubmitting(true);
 
     try {
-      // Get user name from profile
-      const reporterName = formData.isAnonymous 
-        ? 'Anonymous' 
-        : (profile?.full_name || profile?.email || 'User');
+      // Always save real user name for admin, even if anonymous
+      const realUserName = profile?.full_name || profile?.email || user.email || 'User';
+      const displayName = formData.isAnonymous ? 'Anonymous' : realUserName;
 
       // Insert report
       const { data: reportData, error: reportError } = await supabase
         .from('community_reports')
         .insert({
           user_id: user.id,
-          reporter_name: reporterName,
+          reporter_name: realUserName, // Real name for admin
           is_anonymous: formData.isAnonymous,
           report_type: reportType,
           title_en: formData.titleEn,
@@ -251,7 +250,7 @@ const SubmitReportModal = ({ reportType, onClose, onSubmitted }) => {
           location_bn: formData.locationBn || null,
           incident_date: formData.incidentDate || null,
           status: 'pending',
-          is_published: false
+          is_published: false // Never publish automatically
         })
         .select()
         .single();
@@ -278,20 +277,27 @@ const SubmitReportModal = ({ reportType, onClose, onSubmitted }) => {
         }
       }
 
-      // Create notification for admin
+      // Create notification for admin (show real name in notification)
       await supabase.from('notifications').insert({
         user_id: user.id,
         recipient_type: 'admin',
         title_en: `New ${isDalal ? 'Dalal Report' : 'Suggestion'} Submitted`,
         title_bn: `নতুন ${isDalal ? 'দালাল রিপোর্ট' : 'পরামর্শ'} জমা দেওয়া হয়েছে`,
-        message_en: `${reporterName} submitted a new ${isDalal ? 'dalal report' : 'improvement suggestion'}: "${formData.titleEn}"`,
-        message_bn: `${reporterName} একটি নতুন ${isDalal ? 'দালাল রিপোর্ট' : 'উন্নতির পরামর্শ'} জমা দিয়েছেন: "${formData.titleBn}"`,
+        message_en: `${realUserName} submitted a new ${isDalal ? 'dalal report' : 'improvement suggestion'}: "${formData.titleEn}"`,
+        message_bn: `${realUserName} একটি নতুন ${isDalal ? 'দালাল রিপোর্ট' : 'উন্নতির পরামর্শ'} জমা দিয়েছেন: "${formData.titleBn}"`,
         notification_type: 'general',
         priority: isDalal ? 'high' : 'normal'
       });
 
       toast.success(tc.submitSuccess);
-      onSubmitted();
+      
+      // Close modal and refresh
+      if (onSubmitted) {
+        onSubmitted();
+      }
+      if (onClose) {
+        onClose();
+      }
     } catch (error) {
       console.error('Error submitting report:', error);
       toast.error(tc.submitError);

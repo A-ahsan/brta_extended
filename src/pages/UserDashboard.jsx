@@ -313,6 +313,24 @@ const UserDashboard = () => {
         )
         .subscribe();
 
+      // Subscribe to community reports updates (for user's own reports)
+      const communityReportsSubscription = supabase
+        .channel('user-community-reports')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'community_reports',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Community report change:', payload);
+            // Component will handle its own refetch
+          }
+        )
+        .subscribe();
+
       return () => {
         notificationSubscription.unsubscribe();
         applicationSubscription.unsubscribe();
@@ -322,6 +340,7 @@ const UserDashboard = () => {
         paymentSubscription.unsubscribe();
         routePermitSubscription.unsubscribe();
         ownershipTransferSubscription.unsubscribe();
+        communityReportsSubscription.unsubscribe();
       };
     }
   }, [user]);

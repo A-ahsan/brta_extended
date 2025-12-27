@@ -36,6 +36,28 @@ const AdminCommunityModeration = () => {
 
   useEffect(() => {
     fetchReports();
+
+    // Subscribe to real-time updates for all community reports
+    const subscription = supabase
+      .channel('admin-community-reports')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'community_reports'
+        },
+        (payload) => {
+          console.log('Admin - Report change:', payload);
+          // Refetch reports when any change occurs
+          fetchReports();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [filterStatus]);
 
   const fetchReports = async () => {

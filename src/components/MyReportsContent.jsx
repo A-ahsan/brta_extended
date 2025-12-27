@@ -37,6 +37,29 @@ const MyReportsContent = () => {
   useEffect(() => {
     if (user) {
       fetchMyReports();
+
+      // Subscribe to real-time updates for user's reports
+      const subscription = supabase
+        .channel('my-community-reports')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'community_reports',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Report change:', payload);
+            // Refetch reports when any change occurs
+            fetchMyReports();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        subscription.unsubscribe();
+      };
     }
   }, [user]);
 

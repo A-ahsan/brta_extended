@@ -28,6 +28,7 @@ import AdminTestCenters from './admin/AdminTestCenters';
 import AdminNoticesManagement from './admin/AdminNoticesManagement';
 import AdminRoutePermits from './admin/AdminRoutePermits';
 import AdminOwnershipTransfers from './admin/AdminOwnershipTransfers';
+import AdminCommunityModeration from './admin/AdminCommunityModeration';
 
 const AdminPanel = () => {
   const navigate = useNavigate();
@@ -210,6 +211,11 @@ const AdminPanel = () => {
       path: '/admin/ownership-transfers', 
       label: language === 'en' ? 'Ownership Transfers' : 'মালিকানা হস্তান্তর',
       icon: ArrowsDownUp 
+    },
+    { 
+      path: '/admin/community', 
+      label: language === 'en' ? 'Community Reports' : 'জনগণের রিপোর্ট',
+      icon: Eye 
     },
   ];
 
@@ -496,6 +502,7 @@ const AdminPanel = () => {
               <Route path="/notices" element={<AdminNoticesManagement />} />
               <Route path="/route-permits" element={<AdminRoutePermits />} />
               <Route path="/ownership-transfers" element={<AdminOwnershipTransfers />} />
+              <Route path="/community" element={<AdminCommunityModeration />} />
               <Route path="/" element={<AdminOverview />} />
             </Routes>
           </div>

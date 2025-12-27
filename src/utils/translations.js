@@ -176,6 +176,96 @@ export const translations = {
       helpline: 'Helpline',
       hours: 'Working Hours',
       workingHours: 'Saturday - Thursday: 9:00 AM - 5:00 PM'
+    },
+    
+    // Community Reports
+    community: {
+      title: 'Community Reports',
+      subtitle: 'Help us build a corruption-free BRTA together',
+      dalalReports: 'Dalal Reports',
+      suggestions: 'Improvement Suggestions',
+      reportDalal: 'Report a Dalal',
+      submitSuggestion: 'Submit Suggestion',
+      viewAllReports: 'View All Reports',
+      
+      // Form Labels
+      reportType: 'Report Type',
+      title: 'Title',
+      description: 'Description',
+      location: 'Location (Optional)',
+      incidentDate: 'Incident Date',
+      uploadImages: 'Upload Images (Max 5)',
+      anonymous: 'Report Anonymously',
+      submit: 'Submit Report',
+      cancel: 'Cancel',
+      
+      // Report Types
+      types: {
+        dalal: 'Dalal Report',
+        suggestion: 'Improvement Suggestion'
+      },
+      
+      // Status
+      status: {
+        pending: 'Pending Review',
+        approved: 'Approved',
+        rejected: 'Rejected',
+        published: 'Published'
+      },
+      
+      // Messages
+      submitSuccess: 'Report submitted successfully! It will be reviewed by our team.',
+      submitError: 'Failed to submit report. Please try again.',
+      noReports: 'No reports found',
+      loadMore: 'Load More',
+      
+      // Details
+      reportedBy: 'Reported by',
+      reportedOn: 'Reported on',
+      publishedOn: 'Published on',
+      incidentOn: 'Incident on',
+      adminResponse: 'Admin Response',
+      viewDetails: 'View Details',
+      images: 'Images',
+      
+      // Filters
+      filterBy: 'Filter By',
+      all: 'All Reports',
+      dalalsOnly: 'Dalals Only',
+      suggestionsOnly: 'Suggestions Only',
+      sortBy: 'Sort By',
+      newest: 'Newest First',
+      oldest: 'Oldest First',
+      
+      // My Reports
+      myReports: 'My Reports',
+      noMyReports: 'You haven\'t submitted any reports yet',
+      rejectionReason: 'Rejection Reason',
+      
+      // Admin
+      adminPanel: 'Community Moderation',
+      pendingReviews: 'Pending Reviews',
+      approveReport: 'Approve & Publish',
+      rejectReport: 'Reject',
+      deleteReport: 'Delete',
+      addResponse: 'Add Response',
+      confirmApprove: 'Are you sure you want to approve and publish this report?',
+      confirmReject: 'Are you sure you want to reject this report?',
+      confirmDelete: 'Are you sure you want to delete this report? This action cannot be undone.',
+      
+      // Placeholders
+      titlePlaceholder: 'Enter a clear, descriptive title',
+      descriptionPlaceholder: 'Provide detailed information about the incident or suggestion',
+      locationPlaceholder: 'e.g., Near Mirpur BRTA Office',
+      responsePlaceholder: 'Write your response to this suggestion (optional)',
+      rejectionReasonPlaceholder: 'Explain why this report is being rejected',
+      
+      // Validation
+      titleRequired: 'Title is required',
+      descriptionRequired: 'Description is required',
+      maxImages: 'Maximum 5 images allowed',
+      fileTooBig: 'File size must be less than 5MB',
+      invalidFileType: 'Only images (JPG, PNG) are allowed'
     }
   },
   bn: {
@@ -355,6 +445,96 @@ export const translations = {
       helpline: 'হেল্পলাইন',
       hours: 'কর্মঘণ্টা',
       workingHours: 'শনিবার - বৃহস্পতিবার: সকাল ৯:০০ - বিকাল ৫:০০'
+    },
+    
+    // Community Reports
+    community: {
+      title: 'জনগণের রিপোর্ট',
+      subtitle: 'আমাদের সাথে একটি দুর্নীতিমুক্ত BRTA গড়তে সাহায্য করুন',
+      dalalReports: 'দালাল রিপোর্ট',
+      suggestions: 'উন্নতির পরামর্শ',
+      reportDalal: 'দালাল রিপোর্ট করুন',
+      submitSuggestion: 'পরামর্শ জমা দিন',
+      viewAllReports: 'সব রিপোর্ট দেখুন',
+      
+      // Form Labels
+      reportType: 'রিপোর্টের ধরন',
+      title: 'শিরোনাম',
+      description: 'বিবরণ',
+      location: 'অবস্থান (ঐচ্ছিক)',
+      incidentDate: 'ঘটনার তারিখ',
+      uploadImages: 'ছবি আপলোড করুন (সর্বোচ্চ ৫টি)',
+      anonymous: 'বেনামে রিপোর্ট করুন',
+      submit: 'রিপোর্ট জমা দিন',
+      cancel: 'বাতিল',
+      
+      // Report Types
+      types: {
+        dalal: 'দালাল রিপোর্ট',
+        suggestion: 'উন্নতির পরামর্শ'
+      },
+      
+      // Status
+      status: {
+        pending: 'পর্যালোচনার অপেক্ষায়',
+        approved: 'অনুমোদিত',
+        rejected: 'প্রত্যাখ্যাত',
+        published: 'প্রকাশিত'
+      },
+      
+      // Messages
+      submitSuccess: 'রিপোর্ট সফলভাবে জমা দেওয়া হয়েছে! আমাদের টিম এটি পর্যালোচনা করবে।',
+      submitError: 'রিপোর্ট জমা দিতে ব্যর্থ হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।',
+      noReports: 'কোন রিপোর্ট পাওয়া যায়নি',
+      loadMore: 'আরও লোড করুন',
+      
+      // Details
+      reportedBy: 'রিপোর্ট করেছেন',
+      reportedOn: 'রিপোর্ট তারিখ',
+      publishedOn: 'প্রকাশিত',
+      incidentOn: 'ঘটনার তারিখ',
+      adminResponse: 'প্রশাসকের প্রতিক্রিয়া',
+      viewDetails: 'বিস্তারিত দেখুন',
+      images: 'ছবি',
+      
+      // Filters
+      filterBy: 'ফিল্টার করুন',
+      all: 'সব রিপোর্ট',
+      dalalsOnly: 'শুধু দালাল',
+      suggestionsOnly: 'শুধু পরামর্শ',
+      sortBy: 'সাজান',
+      newest: 'নতুন আগে',
+      oldest: 'পুরাতন আগে',
+      
+      // My Reports
+      myReports: 'আমার রিপোর্ট',
+      noMyReports: 'আপনি এখনও কোন রিপোর্ট জমা দেননি',
+      rejectionReason: 'প্রত্যাখ্যানের কারণ',
+      
+      // Admin
+      adminPanel: 'জনগণের রিপোর্ট পরিচালনা',
+      pendingReviews: 'পর্যালোচনার অপেক্ষায়',
+      approveReport: 'অনুমোদন ও প্রকাশ করুন',
+      rejectReport: 'প্রত্যাখ্যান করুন',
+      deleteReport: 'মুছে ফেলুন',
+      addResponse: 'প্রতিক্রিয়া যোগ করুন',
+      confirmApprove: 'আপনি কি নিশ্চিত যে এই রিপোর্টটি অনুমোদন এবং প্রকাশ করতে চান?',
+      confirmReject: 'আপনি কি নিশ্চিত যে এই রিপোর্টটি প্রত্যাখ্যান করতে চান?',
+      confirmDelete: 'আপনি কি নিশ্চিত যে এই রিপোর্টটি মুছে ফেলতে চান? এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।',
+      
+      // Placeholders
+      titlePlaceholder: 'একটি স্পষ্ট, বর্ণনামূলক শিরোনাম লিখুন',
+      descriptionPlaceholder: 'ঘটনা বা পরামর্শ সম্পর্কে বিস্তারিত তথ্য দিন',
+      locationPlaceholder: 'যেমন: মিরপুর BRTA অফিসের কাছে',
+      responsePlaceholder: 'এই পরামর্শে আপনার প্রতিক্রিয়া লিখুন (ঐচ্ছিক)',
+      rejectionReasonPlaceholder: 'এই রিপোর্টটি কেন প্রত্যাখ্যান করা হচ্ছে তা ব্যাখ্যা করুন',
+      
+      // Validation
+      titleRequired: 'শিরোনাম আবশ্যক',
+      descriptionRequired: 'বিবরণ আবশ্যক',
+      maxImages: 'সর্বোচ্চ ৫টি ছবি অনুমোদিত',
+      fileTooBig: 'ফাইলের আকার অবশ্যই ৫MB এর কম হতে হবে',
+      invalidFileType: 'শুধুমাত্র ছবি (JPG, PNG) অনুমোদিত'
     }
   }
 };

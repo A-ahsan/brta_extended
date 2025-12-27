@@ -168,6 +168,12 @@ const Navbar = () => {
                     className="absolute top-full mt-2 right-0 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-[200px] z-50"
                   >
                     <Link
+                      to="/community"
+                      className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-primary/10 hover:text-primary dark:hover:text-green-400 transition-colors font-semibold"
+                    >
+                      {language === 'en' ? '🌟 Community' : '🌟 জনগণের রিপোর্ট'}
+                    </Link>
+                    <Link
                       to="/fee-calculator"
                       className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-primary/10 hover:text-primary dark:hover:text-green-400 transition-colors"
                     >

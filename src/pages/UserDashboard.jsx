@@ -23,7 +23,8 @@ import {
   BookOpen,
   Sparkle,
   Warning,
-  ArrowsDownUp
+  ArrowsDownUp,
+  Megaphone
 } from 'phosphor-react';
 import { useLanguage, useDownload } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -48,6 +49,7 @@ import UserOwnershipTransfers from '../components/UserOwnershipTransfers';
 import ChatbotWidget from '../components/ChatbotWidget';
 import WelcomeTour from '../components/WelcomeTour';
 import { CardSkeleton, LicenseCardSkeleton, ProgressTrackerSkeleton, VehicleCardSkeleton } from '../components/SkeletonLoader';
+import MyReportsContent from '../components/MyReportsContent';
 import { initializeNotificationSound, playNotificationSound } from '../utils/notificationSound';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
@@ -1420,6 +1422,7 @@ const UserDashboard = () => {
     { id: 'vehicle', icon: <Car size={24} weight="duotone" />, label: t.vehicleRegistration, tourId: 'vehicle-card' },
     { id: 'routepermits', icon: <MapPin size={24} weight="duotone" />, label: language === 'en' ? 'Route Permits' : 'রুট পারমিট' },
     { id: 'ownership', icon: <ArrowsDownUp size={24} weight="duotone" />, label: language === 'en' ? 'Ownership Transfer' : 'মালিকানা হস্তান্তর' },
+    { id: 'myreports', icon: <Megaphone size={24} weight="duotone" />, label: language === 'en' ? 'My Community Reports' : 'আমার কমিউনিটি রিপোর্ট' },
     { id: 'violations', icon: <Warning size={24} weight="duotone" />, label: language === 'en' ? 'My Violations' : 'আমার লঙ্ঘন' },
     { id: 'questionbank', icon: <BookOpen size={24} weight="duotone" />, label: language === 'en' ? 'Question Bank' : 'প্রশ্ন ব্যাংক' },
     { id: 'calculator', icon: <Calculator size={24} weight="duotone" />, label: t.costCalculator },
@@ -2051,6 +2054,9 @@ const UserDashboard = () => {
 
       case 'ownership':
         return <UserOwnershipTransfers user={user} onOpenModal={() => setShowOwnershipTransferModal(true)} />;
+
+      case 'myreports':
+        return <MyReportsContent />;
 
       case 'settings':
         return (

@@ -31,6 +31,7 @@ const PaymentFail = lazy(() => import('./pages/PaymentFail'));
 const PublicLicenseView = lazy(() => import('./pages/PublicLicenseView'));
 const PublicVehicleVerification = lazy(() => import('./pages/PublicVehicleVerification'));
 const PublicRoutePermitVerification = lazy(() => import('./pages/PublicRoutePermitVerification'));
+const CommunityReports = lazy(() => import('./pages/CommunityReports'));
 
 function App() {
   return (
@@ -80,6 +81,7 @@ function App() {
                   <Route path="/fee-calculator" element={<FeeCalculator />} />
                   <Route path="/notices" element={<Notices />} />
                   <Route path="/about" element={<AboutUs />} />
+                  <Route path="/community" element={<CommunityReports />} />
                   <Route path="/payment-success" element={<PaymentSuccess />} />
                   <Route path="/payment-fail" element={<PaymentFail />} />
                   <Route path="/license/:license_number" element={<PublicLicenseView />} />

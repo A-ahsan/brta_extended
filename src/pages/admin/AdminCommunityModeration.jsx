@@ -40,8 +40,13 @@ const AdminCommunityModeration = () => {
     fetchReports();
 
     // Subscribe to real-time updates for all community reports
-    const subscription = supabase
-      .channel('admin-community-reports')
+    const channel = supabase
+      .channel('admin-community-reports', {
+        config: {
+          broadcast: { self: true },
+          presence: { key: 'admin' }
+        }
+      })
       .on(
         'postgres_changes',
         {
@@ -50,15 +55,21 @@ const AdminCommunityModeration = () => {
           table: 'community_reports'
         },
         (payload) => {
-          console.log('Admin - Report change:', payload);
+          console.log('✅ Admin - Report change detected:', payload);
           // Refetch reports when any change occurs
           fetchReports();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Admin Community Reports subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Successfully subscribed to admin community reports');
+        }
+      });
 
     return () => {
-      subscription.unsubscribe();
+      console.log('🔌 Unsubscribing from admin community reports');
+      supabase.removeChannel(channel);
     };
   }, [filterStatus]);
 

@@ -39,8 +39,13 @@ const MyReportsContent = () => {
       fetchMyReports();
 
       // Subscribe to real-time updates for user's reports
-      const subscription = supabase
-        .channel('my-community-reports')
+      const channel = supabase
+        .channel(`user-reports-${user.id}`, {
+          config: {
+            broadcast: { self: true },
+            presence: { key: user.id }
+          }
+        })
         .on(
           'postgres_changes',
           {
@@ -50,15 +55,21 @@ const MyReportsContent = () => {
             filter: `user_id=eq.${user.id}`
           },
           (payload) => {
-            console.log('Report change:', payload);
+            console.log('✅ User - Report change detected:', payload);
             // Refetch reports when any change occurs
             fetchMyReports();
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('📡 My Reports subscription status:', status);
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Successfully subscribed to my reports');
+          }
+        });
 
       return () => {
-        subscription.unsubscribe();
+        console.log('🔌 Unsubscribing from my reports');
+        supabase.removeChannel(channel);
       };
     }
   }, [user]);

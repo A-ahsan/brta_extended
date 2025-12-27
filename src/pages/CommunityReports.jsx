@@ -42,26 +42,36 @@ const CommunityReports = () => {
     fetchReports();
 
     // Subscribe to real-time updates for published reports
-    const subscription = supabase
-      .channel('public-community-reports')
+    const channel = supabase
+      .channel('public-community-reports', {
+        config: {
+          broadcast: { self: true },
+          presence: { key: 'public' }
+        }
+      })
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'community_reports',
-          filter: 'is_published=eq.true'
+          table: 'community_reports'
         },
         (payload) => {
-          console.log('Public - Report change:', payload);
-          // Refetch reports when any published report changes
+          console.log('✅ Public - Report change detected:', payload);
+          // Refetch reports when any change occurs
           fetchReports();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Public Community Reports subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Successfully subscribed to public community reports');
+        }
+      });
 
     return () => {
-      subscription.unsubscribe();
+      console.log('🔌 Unsubscribing from public community reports');
+      supabase.removeChannel(channel);
     };
   }, [activeTab]);
 

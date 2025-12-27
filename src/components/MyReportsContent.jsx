@@ -320,7 +320,7 @@ const MyReportsContent = () => {
                     )}
                   </div>
 
-                  {report.status === 'approved' && !report.is_published && (
+                  {report.status === 'approved' && !report.is_published && report.report_type === 'dalal' && (
                     <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
                       <p className="text-sm text-yellow-800 dark:text-yellow-400 flex items-center gap-2">
                         <Clock size={16} weight="fill" />

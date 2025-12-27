@@ -171,7 +171,7 @@ const Navbar = () => {
                       to="/community"
                       className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-primary/10 hover:text-primary dark:hover:text-green-400 transition-colors font-semibold"
                     >
-                      {language === 'en' ? '🌟 Community' : '🌟 জনগণের রিপোর্ট'}
+                      {language === 'en' ? 'Community' : 'জনগণের রিপোর্ট'}
                     </Link>
                     <Link
                       to="/fee-calculator"

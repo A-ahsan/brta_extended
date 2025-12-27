@@ -46,19 +46,19 @@ const Signup = () => {
     if (!validatePassword(formData.password)) {
       toast.error(language === 'en' 
         ? 'Password must meet all requirements' 
-        : '?????????? ??? ????????????? ???? ???? ???'
+        : 'নিবন্ধন করে আনন্দদায়ক যাত্রা শুরু করুন'
       );
       return;
     }
 
     // Validation
     if (formData.password !== formData.confirmPassword) {
-      toast.error(language === 'en' ? 'Passwords do not match!' : '?????????? ????? ??!');
+      toast.error(language === 'en' ? 'Passwords do not match!' : 'পাসওয়ার্ড মিলছে না!');
       return;
     }
 
     if (!formData.agree) {
-      toast.error(language === 'en' ? 'Please agree to terms and conditions' : '??????? ??? ?????????? ????? ??');
+      toast.error(language === 'en' ? 'Please agree to terms and conditions' : 'শর্তাবলী এবং নিয়মাবলী মেনে নিন');
       return;
     }
 
@@ -136,7 +136,7 @@ const Signup = () => {
   const handleOtpSubmit = async () => {
     const otp = otpCode.join('');
     if (otp.length !== 6) {
-      toast.error(language === 'en' ? 'Please enter complete OTP' : '???????? OTP ?????');
+      toast.error(language === 'en' ? 'Please enter complete OTP' : 'সম্পূর্ণ OTP লিখুন');
       return;
     }
 
@@ -163,7 +163,7 @@ const Signup = () => {
           const userName = result.userName || formData.fullName;
           toast.success(language === 'en' 
             ? `Welcome to BRTA, ${userName}` 
-            : `BRTA ?? ???????, ${userName}`
+            : `BRTA তে স্বাগতম, ${userName}`
           );
           
           // Wait for auth state to settle before navigation
@@ -172,14 +172,14 @@ const Signup = () => {
           // Navigate to dashboard
           navigate('/dashboard', { replace: true });
         } else {
-          toast.error(result.error?.message || (language === 'en' ? 'Signup failed' : '?????? ??????'));
+          toast.error(result.error?.message || (language === 'en' ? 'Signup failed' : 'সাইনআপ ব্যর্থ'));
         }
       } else {
         toast.error(verifyData.message || (language === 'en' ? 'Invalid OTP' : '??? OTP'));
       }
     } catch (error) {
       console.error('OTP verification error:', error);
-      toast.error(language === 'en' ? 'Verification failed' : '????? ??????');
+      toast.error(language === 'en' ? 'Verification failed' : 'যাচাই ব্যর্থ');
     } finally {
       setOtpLoading(false);
     }
@@ -230,10 +230,10 @@ const Signup = () => {
 
       if (response.ok) {
         setOtpCode(['', '', '', '', '', '']);
-        toast.success(language === 'en' ? 'New OTP sent!' : '???? OTP ?????? ??????!');
+        toast.success(language === 'en' ? 'New OTP sent!' : 'নতুন OTP পাঠানো হয়েছে!');
       }
     } catch (error) {
-      toast.error(language === 'en' ? 'Failed to resend OTP' : 'OTP ??????? ?????? ??????');
+      toast.error(language === 'en' ? 'Failed to resend OTP' : 'OTP পুনরায় পাঠাতে ব্যর্থ');
     } finally {
       setOtpLoading(false);
     }
@@ -267,7 +267,7 @@ const Signup = () => {
             <img src="/brta.png" alt="BRTA Logo" className="h-16 w-16 bg-white rounded-2xl p-2 shadow-lg" />
             <div>
               <h1 className="text-3xl font-extrabold text-primary dark:text-green-400">BRTA 2.0</h1>
-              <p className="text-sm text-gray-600 dark:text-gray-300">{language === 'en' ? 'Smart Transport Portal' : '??????? ???????????? ???????'}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">{language === 'en' ? 'Smart Transport Portal' : 'স্মার্ট ট্রান্সপোর্ট পোর্টাল'}</p>
             </div>
           </div>
           
@@ -289,15 +289,15 @@ const Signup = () => {
             <p className="text-lg font-bold mb-3 text-danger">{t.noDalalNoDelay}</p>
             <ul className="space-y-2">
               <li className="flex items-center gap-2">
-                <span className="text-success">?</span>
+                <span className="text-success">✓</span>
                 <span className="text-gray-700 dark:text-gray-200">{t.authBenefit1}</span>
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-success">?</span>
+                <span className="text-success">✓</span>
                 <span className="text-gray-700 dark:text-gray-200">{t.authBenefit2}</span>
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-success">?</span>
+                <span className="text-success">✓</span>
                 <span className="text-gray-700 dark:text-gray-200">{t.authBenefit3}</span>
               </li>
             </ul>
@@ -318,7 +318,7 @@ const Signup = () => {
               transition={{ delay: 0.2 }}
               className="text-2xl font-bold text-gray-800 dark:text-white mb-2"
             >
-              {language === 'en' ? 'Create Account' : '?????????? ???? ????'}
+              {language === 'en' ? 'Create Account' : 'অ্যাকাউন্ট তৈরি করুন'}
             </motion.h2>
             <motion.p
               initial={{ opacity: 0 }}
@@ -326,7 +326,7 @@ const Signup = () => {
               transition={{ delay: 0.3 }}
               className="text-sm text-gray-600 dark:text-gray-400"
             >
-              {language === 'en' ? 'Join BRTA 2.0 today' : '??? BRTA 2.0 ? ??? ???'}
+              {language === 'en' ? 'Join BRTA 2.0 today' : 'আজই BRTA 2.0 এ যোগ দিন'}
             </motion.p>
           </div>
 
@@ -372,7 +372,7 @@ const Signup = () => {
                   type="email"
                   value={formData.email}
                   onChange={handleEmailChange}
-                  placeholder={language === 'en' ? 'your@email.com' : '?????@?????.com'}
+                  placeholder={language === 'en' ? 'your@email.com' : 'আপনার@ইমেইল.com'}
                   className={`w-full pl-11 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-2 ${
                     !emailValidation.isValid && formData.email.length >= 3
                       ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
@@ -467,7 +467,7 @@ const Signup = () => {
               transition={{ delay: 0.75 }}
             >
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                {language === 'en' ? 'Confirm Password' : '?????????? ??????? ????'}
+                {language === 'en' ? 'Confirm Password' : 'পাসওয়ার্ড নিশ্চিত করুন'}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -499,13 +499,13 @@ const Signup = () => {
                 required
               />
               <span className="text-sm text-gray-700 dark:text-gray-300">
-                {language === 'en' ? 'I agree to the' : '??? ?????'}{' '}
+                {language === 'en' ? 'I agree to the' : 'আমি সম্মত'}{' '}
                 <button
                   type="button"
                   onClick={() => setShowTermsModal(true)}
                   className="text-primary hover:text-primary-dark font-medium underline"
                 >
-                  {language === 'en' ? 'Terms & Conditions' : '????????'}
+                  {language === 'en' ? 'Terms & Conditions' : 'শর্তাবলী'}
                 </button>
               </span>
             </motion.div>
@@ -524,7 +524,7 @@ const Signup = () => {
               {isLoading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  {language === 'en' ? 'Creating account...' : '?????????? ???? ?????...'}
+                  {language === 'en' ? 'Creating account...' : 'অ্যাকাউন্ট তৈরি হচ্ছে...'}
                 </>
               ) : (
                 <>
@@ -543,7 +543,7 @@ const Signup = () => {
             className="mt-4 text-center"
           >
             <p className="text-gray-600 dark:text-gray-400">
-              {language === 'en' ? 'Already have an account?' : '???????? ?????????? ????'}{' '}
+              {language === 'en' ? 'Already have an account?' : 'ইতিমধ্যে অ্যাকাউন্ট আছে?'}{' '}
               <Link to="/login" className="text-primary hover:text-primary-dark font-bold transition-colors">
                 {t.login}
               </Link>
@@ -558,7 +558,7 @@ const Signup = () => {
             className="mt-3 text-center"
           >
             <Link to="/" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-green-400 transition-colors">
-              ? {language === 'en' ? 'Back to Home' : '??? ? ???? ???'}
+              {language === 'en' ? 'Back to Home' : 'হোম এ ফিরুন'}
             </Link>
           </motion.div>
         </motion.div>
@@ -624,10 +624,10 @@ const Signup = () => {
                 {otpLoading ? (
                   <div className="flex items-center justify-center gap-2">
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    {language === 'en' ? 'Verifying...' : '????? ??? ?????...'}
+                    {language === 'en' ? 'Verifying...' : 'যাচাই করা হচ্ছে...'}
                   </div>
                 ) : (
-                  language === 'en' ? 'Verify & Sign Up' : '????? ???? ??? ??????? ????'
+                  language === 'en' ? 'Verify & Sign Up' : 'যাচাই করুন ও সাইনআপ করুন'
                 )}
               </motion.button>
 

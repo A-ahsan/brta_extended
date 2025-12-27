@@ -245,7 +245,7 @@ export const translations = {
       // Admin
       adminPanel: 'Community Moderation',
       pendingReviews: 'Pending Reviews',
-      approveReport: 'Approve & Publish',
+      approveReport: 'Approve',
       rejectReport: 'Reject',
       deleteReport: 'Delete',
       addResponse: 'Add Response',
@@ -514,7 +514,7 @@ export const translations = {
       // Admin
       adminPanel: 'জনগণের রিপোর্ট পরিচালনা',
       pendingReviews: 'পর্যালোচনার অপেক্ষায়',
-      approveReport: 'অনুমোদন ও প্রকাশ করুন',
+      approveReport: 'অনুমোদন করুন',
       rejectReport: 'প্রত্যাখ্যান করুন',
       deleteReport: 'মুছে ফেলুন',
       addResponse: 'প্রতিক্রিয়া যোগ করুন',

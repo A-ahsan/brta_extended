@@ -415,13 +415,13 @@ const AdminReportCard = ({ report, language, tc, onViewDetails, formatDate, getS
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -5 }}
-      className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-2xl transition-all overflow-hidden cursor-pointer"
+      className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-2xl transition-all overflow-hidden cursor-pointer border border-gray-100 dark:border-gray-700"
       onClick={() => onViewDetails(report)}
     >
       <div className="p-6">
         <div className="flex items-center justify-between mb-3">
           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold ${
-            isDalal ? 'bg-red-100 dark:bg-red-900/30 text-danger' : 'bg-green-100 dark:bg-green-900/30 text-primary dark:text-green-400'
+            isDalal ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400' : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'
           }`}>
             {isDalal ? <Warning size={16} weight="fill" /> : <Lightbulb size={16} weight="fill" />}
             {tc.types[report.report_type]}
@@ -432,9 +432,9 @@ const AdminReportCard = ({ report, language, tc, onViewDetails, formatDate, getS
           </span>
         </div>
 
-        <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2 line-clamp-2">{title}</h3>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2 line-clamp-2">{title}</h3>
         
-        <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400">
+        <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
           <div className="flex items-center gap-2">
             <Users size={14} weight="fill" />
             <span>{report.reporter_name}</span>
@@ -445,7 +445,7 @@ const AdminReportCard = ({ report, language, tc, onViewDetails, formatDate, getS
           </div>
         </div>
 
-        <button className="mt-4 w-full bg-primary dark:bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-primary-dark transition-colors flex items-center justify-center gap-2">
+        <button className="mt-4 w-full bg-primary dark:bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-primary-dark dark:hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
           <Eye size={18} weight="fill" />
           {tc.viewDetails}
         </button>
@@ -483,10 +483,10 @@ const AdminReportDetailModal = ({
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.9, y: 20 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700"
       >
         {/* Header */}
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-6 flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
             {isDalal ? <Warning size={32} weight="fill" className="text-danger" /> : <Lightbulb size={32} weight="fill" className="text-primary dark:text-green-400" />}
             <span className={`px-3 py-1 rounded-full text-sm font-bold ${statusBadge.className}`}>
@@ -500,17 +500,19 @@ const AdminReportDetailModal = ({
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white">{title}</h2>
+        <div className="p-6 space-y-6 bg-gray-50 dark:bg-gray-800">
+          <div className="bg-white dark:bg-gray-700 rounded-xl p-6 shadow-sm">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">{title}</h2>
+          </div>
 
           {/* Reporter */}
-          <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
-            <div className="flex items-center gap-2 text-sm">
+          <div className="bg-white dark:bg-gray-700 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <Users size={16} weight="fill" />
               <span className="font-semibold">{tc.reportedBy}:</span>
               <span>{report.reporter_name}</span>
             </div>
-            <div className="flex items-center gap-2 text-sm mt-2">
+            <div className="flex items-center gap-2 text-sm mt-2 text-gray-700 dark:text-gray-300">
               <Calendar size={16} weight="fill" />
               <span>{formatDate(report.created_at)}</span>
             </div>
@@ -518,7 +520,7 @@ const AdminReportDetailModal = ({
 
           {/* Images */}
           {report.report_attachments && report.report_attachments.length > 0 && (
-            <div>
+            <div className="bg-white dark:bg-gray-700 rounded-xl p-6 shadow-sm">
               <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
                 <ImageIcon size={20} weight="fill" />
                 {tc.images} ({report.report_attachments.length})
@@ -534,8 +536,8 @@ const AdminReportDetailModal = ({
           )}
 
           {/* Description */}
-          <div>
-            <h3 className="text-lg font-bold mb-3">{tc.description}</h3>
+          <div className="bg-white dark:bg-gray-700 rounded-xl p-6 shadow-sm">
+            <h3 className="text-lg font-bold mb-3 text-gray-900 dark:text-gray-100">{tc.description}</h3>
             <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{description}</p>
           </div>
 
@@ -677,9 +679,9 @@ const ConfirmationModal = ({ action, onConfirm, onCancel, language }) => {
   };
   
   const icons = {
-    approve: <CheckCircle size={24} weight="duotone" className="text-green-600" />,
-    reject: <XCircle size={24} weight="duotone" className="text-yellow-600" />,
-    delete: <Trash size={24} weight="duotone" className="text-red-600" />
+    approve: <CheckCircle size={24} weight="duotone" className="text-green-600 dark:text-green-400" />,
+    reject: <XCircle size={24} weight="duotone" className="text-yellow-600 dark:text-yellow-400" />,
+    delete: <Trash size={24} weight="duotone" className="text-red-600 dark:text-red-400" />
   };
   
   const buttonColors = {
@@ -705,7 +707,7 @@ const ConfirmationModal = ({ action, onConfirm, onCancel, language }) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
       onClick={onCancel}
     >
       <motion.div

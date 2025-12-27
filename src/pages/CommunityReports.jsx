@@ -68,23 +68,16 @@ const CommunityReports = () => {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('community_reports')
         .select(`
           *,
           report_attachments (*)
         `)
+        .eq('report_type', 'dalal')
         .eq('is_published', true)
         .eq('status', 'approved')
         .order('published_at', { ascending: false });
-
-      if (activeTab === 'dalal') {
-        query = query.eq('report_type', 'dalal');
-      } else if (activeTab === 'suggestion') {
-        query = query.eq('report_type', 'suggestion');
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
       setReports(data || []);

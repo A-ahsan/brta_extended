@@ -14,6 +14,28 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('Error caught by boundary:', error, errorInfo);
+    // Log to external service if needed
+    if (window.location.hostname !== 'localhost') {
+      console.error('Production error:', {
+        error: error.toString(),
+        stack: error.stack,
+        componentStack: errorInfo.componentStack
+      });
+    }
+  }
+
+  handleReload = () => {
+    // Clear any corrupted state
+    try {
+      sessionStorage.clear();
+    } catch (e) {
+      console.error('Could not clear session storage:', e);
+    }
+    window.location.href = '/';
+  }
+
+  handleRefresh = () => {
+    window.location.reload();
   }
 
   render() {
@@ -30,14 +52,22 @@ class ErrorBoundary extends React.Component {
               Something went wrong
             </h2>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              The page encountered an error. Please refresh to continue.
+              The page encountered an error. Please try refreshing or go back to home.
             </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition-colors"
-            >
-              Refresh Page
-            </button>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={this.handleRefresh}
+                className="px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition-colors"
+              >
+                Refresh Page
+              </button>
+              <button
+                onClick={this.handleReload}
+                className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                Go to Home
+              </button>
+            </div>
           </motion.div>
         </div>
       );

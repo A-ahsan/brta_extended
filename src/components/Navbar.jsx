@@ -169,19 +169,31 @@ const Navbar = () => {
                   >
                     <Link
                       to="/community"
-                      className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-primary/10 hover:text-primary dark:hover:text-green-400 transition-colors font-semibold"
+                      className={`block px-4 py-2 transition-colors ${
+                        location.pathname === '/community'
+                          ? 'bg-primary/10 text-primary dark:text-green-400 font-semibold'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-primary/10 hover:text-primary dark:hover:text-green-400'
+                      }`}
                     >
                       {language === 'en' ? 'Community' : 'জনগণের রিপোর্ট'}
                     </Link>
                     <Link
                       to="/fee-calculator"
-                      className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-primary/10 hover:text-primary dark:hover:text-green-400 transition-colors"
+                      className={`block px-4 py-2 transition-colors ${
+                        location.pathname === '/fee-calculator'
+                          ? 'bg-primary/10 text-primary dark:text-green-400 font-semibold'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-primary/10 hover:text-primary dark:hover:text-green-400'
+                      }`}
                     >
                       {t.feeCalculator}
                     </Link>
                     <Link
                       to="/about"
-                      className="block px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-primary/10 hover:text-primary dark:hover:text-green-400 transition-colors"
+                      className={`block px-4 py-2 transition-colors ${
+                        location.pathname === '/about'
+                          ? 'bg-primary/10 text-primary dark:text-green-400 font-semibold'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-primary/10 hover:text-primary dark:hover:text-green-400'
+                      }`}
                     >
                       {t.aboutUs}
                     </Link>

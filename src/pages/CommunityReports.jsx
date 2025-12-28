@@ -355,17 +355,10 @@ const PremiumReportCard = ({ report, index, language, onViewDetails, formatDate 
               </>
             )}
             
-            {/* Image Counter & Dots */}
+            {/* Dot Indicators */}
             {imageCount > 1 && (
-              <div className="absolute top-4 right-4 space-y-2">
-                {/* Image Count Badge */}
-                <div className="bg-red-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg flex items-center gap-2">
-                  <ImageIcon size={18} weight="fill" />
-                  {currentImageIndex + 1}/{imageCount}
-                </div>
-                
-                {/* Dot Indicators */}
-                <div className="flex gap-1.5 justify-center">
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+                <div className="flex gap-1.5 justify-center bg-black/30 backdrop-blur-sm px-3 py-2 rounded-full">
                   {report.report_attachments.map((_, idx) => (
                     <button
                       key={idx}

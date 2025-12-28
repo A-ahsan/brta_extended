@@ -135,39 +135,56 @@ const AdminCommunityModeration = () => {
 
       // Post to Telegram channel if it's a dalal report
       if (shouldPublish) {
+        console.log('📱 Attempting to post to Telegram...', {
+          reportType: report.report_type,
+          shouldPublish,
+          hasAttachments: report.report_attachments?.length || 0
+        });
+        
         try {
           const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+          console.log('📡 Backend URL:', backendUrl);
+          
+          const payload = {
+            report: {
+              title_en: report.title_en,
+              title_bn: report.title_bn,
+              description_en: report.description_en,
+              description_bn: report.description_bn,
+              location_en: report.location_en,
+              location_bn: report.location_bn,
+              incident_date: report.incident_date,
+              reporter_name: report.reporter_name,
+              is_anonymous: report.is_anonymous,
+              report_type: report.report_type
+            },
+            attachments: report.report_attachments || []
+          };
+          
+          console.log('📤 Sending to Telegram:', payload);
+          
           const telegramResponse = await fetch(`${backendUrl}/api/telegram/post-report`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              report: {
-                title_en: report.title_en,
-                title_bn: report.title_bn,
-                description_en: report.description_en,
-                description_bn: report.description_bn,
-                location_en: report.location_en,
-                location_bn: report.location_bn,
-                incident_date: report.incident_date,
-                reporter_name: report.reporter_name,
-                is_anonymous: report.is_anonymous,
-                report_type: report.report_type
-              },
-              attachments: report.report_attachments || []
-            })
+            body: JSON.stringify(payload)
           });
+
+          const responseData = await telegramResponse.json();
+          console.log('📥 Telegram response:', responseData);
 
           if (telegramResponse.ok) {
             console.log('✅ Successfully posted to Telegram channel');
           } else {
-            console.warn('⚠️ Failed to post to Telegram channel');
+            console.warn('⚠️ Failed to post to Telegram channel:', responseData);
           }
         } catch (telegramError) {
           console.error('❌ Telegram posting error:', telegramError);
           // Don't fail the approval if Telegram posting fails
         }
+      } else {
+        console.log('⏭️ Skipping Telegram post (not a dalal report or not published)');
       }
 
       toast.success(language === 'en' ? 'Report approved and published!' : 'রিপোর্ট অনুমোদিত এবং প্রকাশিত!');

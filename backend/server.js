@@ -28,6 +28,7 @@ import {
   verifyOTPByPhone
 } from './emailService.js';
 import chatbotRoutes from './chatbotRoutes.js';
+import { postToTelegramChannel, testTelegramConnection } from './telegramService.js';
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -2256,8 +2257,71 @@ app.post('/api/auth/reset-password', async (req, res) => {
 // Chatbot routes
 app.use('/api/chatbot', chatbotRoutes);
 
+// Telegram notification endpoint for community reports
+app.post('/api/telegram/post-report', async (req, res) => {
+  try {
+    const { report, attachments } = req.body;
+    
+    if (!report) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Report data is required' 
+      });
+    }
+
+    // Only post dalal reports (not suggestions)
+    if (report.report_type !== 'dalal') {
+      return res.json({ 
+        success: true, 
+        message: 'Skipped: Only dalal reports are posted to Telegram',
+        skipped: true
+      });
+    }
+
+    // Post to Telegram
+    const posted = await postToTelegramChannel(report, attachments || []);
+    
+    if (posted) {
+      res.json({ 
+        success: true, 
+        message: 'Successfully posted to Telegram channel' 
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to post to Telegram channel' 
+      });
+    }
+  } catch (error) {
+    console.error('Telegram post endpoint error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// Test Telegram connection endpoint
+app.get('/api/telegram/test', async (req, res) => {
+  try {
+    const connected = await testTelegramConnection();
+    res.json({ 
+      success: connected, 
+      message: connected 
+        ? 'Telegram bot connected successfully' 
+        : 'Failed to connect to Telegram bot' 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Backend server running on port ${PORT}`);
   console.log(`🤖 Chatbot API available at /api/chatbot`);
+  console.log(`📱 Telegram API available at /api/telegram`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });

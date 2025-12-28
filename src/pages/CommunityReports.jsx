@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -13,7 +13,9 @@ import {
   FunnelSimple,
   Image as ImageIcon,
   Warning,
-  CheckCircle
+  CheckCircle,
+  CaretLeft,
+  CaretRight
 } from 'phosphor-react';
 import Navbar from '../components/Navbar';
 import SubmitReportModal from '../components/SubmitReportModal';
@@ -274,13 +276,35 @@ const CommunityReports = () => {
   );
 };
 
-// Premium Report Card Component - Magazine/Post Style
+// Premium Report Card Component - Magazine/Post Style with Auto Image Carousel
 const PremiumReportCard = ({ report, index, language, onViewDetails, formatDate }) => {
+  const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
   const title = language === 'en' ? report.title_en : report.title_bn;
   const description = language === 'en' ? report.description_en : report.description_bn;
   const location = language === 'en' ? report.location_en : report.location_bn;
   const hasImages = report.report_attachments && report.report_attachments.length > 0;
+  const imageCount = report.report_attachments?.length || 0;
   const displayName = report.is_anonymous ? (language === 'en' ? 'Anonymous Citizen' : 'বেনামী নাগরিক') : report.reporter_name;
+
+  // Auto-cycle through images every 3 seconds
+  React.useEffect(() => {
+    if (imageCount > 1) {
+      const interval = setInterval(() => {
+        setCurrentImageIndex((prev) => (prev + 1) % imageCount);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [imageCount]);
+
+  const goToNextImage = (e) => {
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => (prev + 1) % imageCount);
+  };
+
+  const goToPrevImage = (e) => {
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => (prev - 1 + imageCount) % imageCount);
+  };
 
   return (
     <motion.article
@@ -290,23 +314,73 @@ const PremiumReportCard = ({ report, index, language, onViewDetails, formatDate 
       className="group bg-white dark:bg-gray-800 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 dark:border-gray-700"
     >
       <div className="md:flex">
-        {/* Image Section - Left Side */}
+        {/* Image Section - Left Side with Auto Carousel */}
         {hasImages && (
-          <div className="md:w-2/5 relative overflow-hidden bg-gray-900">
-            <motion.img
-              whileHover={{ scale: 1.05 }}
-              transition={{ duration: 0.3 }}
-              src={report.report_attachments[0].file_url}
-              alt={title}
-              className="w-full h-64 md:h-full object-cover opacity-90"
-            />
+          <div className="md:w-2/5 relative overflow-hidden bg-gray-900 group/carousel">
+            {/* Image with Smooth Transition */}
+            <AnimatePresence mode="wait">
+              <motion.img
+                key={currentImageIndex}
+                initial={{ opacity: 0, scale: 1.1 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.5 }}
+                src={report.report_attachments[currentImageIndex].file_url}
+                alt={`${title} - Image ${currentImageIndex + 1}`}
+                className="w-full h-64 md:h-full object-cover"
+              />
+            </AnimatePresence>
+            
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
             
-            {/* Image Count Badge */}
-            {report.report_attachments.length > 1 && (
-              <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg flex items-center gap-2">
-                <ImageIcon size={18} weight="fill" />
-                {report.report_attachments.length} {language === 'en' ? 'Photos' : 'ছবি'}
+            {/* Navigation Arrows (show on hover) */}
+            {imageCount > 1 && (
+              <>
+                <motion.button
+                  initial={{ opacity: 0, x: -20 }}
+                  whileHover={{ opacity: 1, x: 0, scale: 1.1 }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 dark:bg-gray-800/90 text-gray-800 dark:text-white p-3 rounded-full shadow-lg opacity-0 group-hover/carousel:opacity-100 transition-all hover:bg-white dark:hover:bg-gray-700"
+                  onClick={goToPrevImage}
+                >
+                  <CaretLeft size={20} weight="bold" />
+                </motion.button>
+                <motion.button
+                  initial={{ opacity: 0, x: 20 }}
+                  whileHover={{ opacity: 1, x: 0, scale: 1.1 }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 dark:bg-gray-800/90 text-gray-800 dark:text-white p-3 rounded-full shadow-lg opacity-0 group-hover/carousel:opacity-100 transition-all hover:bg-white dark:hover:bg-gray-700"
+                  onClick={goToNextImage}
+                >
+                  <CaretRight size={20} weight="bold" />
+                </motion.button>
+              </>
+            )}
+            
+            {/* Image Counter & Dots */}
+            {imageCount > 1 && (
+              <div className="absolute top-4 right-4 space-y-2">
+                {/* Image Count Badge */}
+                <div className="bg-red-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg flex items-center gap-2">
+                  <ImageIcon size={18} weight="fill" />
+                  {currentImageIndex + 1}/{imageCount}
+                </div>
+                
+                {/* Dot Indicators */}
+                <div className="flex gap-1.5 justify-center">
+                  {report.report_attachments.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCurrentImageIndex(idx);
+                      }}
+                      className={`w-2 h-2 rounded-full transition-all ${
+                        idx === currentImageIndex
+                          ? 'bg-red-600 w-6'
+                          : 'bg-white/50 hover:bg-white/80'
+                      }`}
+                    />
+                  ))}
+                </div>
               </div>
             )}
             

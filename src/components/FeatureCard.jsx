@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { ArrowRight } from 'phosphor-react';
 import { useNavigate } from 'react-router-dom';
 
-const FeatureCard = React.memo(({ icon, title, description, delay = 0, featureId = '' }) => {
+const FeatureCard = React.memo(({ icon, title, description, delay = 0, featureId = '', badge = '', badgeColor = 'bg-blue-500' }) => {
   const navigate = useNavigate();
 
   const getFeatureId = () => {
@@ -22,7 +22,7 @@ const FeatureCard = React.memo(({ icon, title, description, delay = 0, featureId
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-50px' }}
       transition={{ duration: 0.4, delay, ease: 'easeOut' }}
-      whileHover={{ y: -8 }}
+      whileHover={{ y: -8, scale: 1.02 }}
       onClick={handleClick}
       className="group relative bg-gradient-to-br from-white via-white to-gray-50/50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-900/50 p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border-2 border-gray-100 dark:border-gray-700 hover:border-primary/30 dark:hover:border-primary/50 overflow-hidden cursor-pointer"
       style={{ transform: 'translateZ(0)' }}
@@ -32,7 +32,19 @@ const FeatureCard = React.memo(({ icon, title, description, delay = 0, featureId
         className="absolute inset-0 bg-gradient-to-br from-primary/5 via-green-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"
       />
       
-        {/* Corner decorative accents removed from feature card */}
+      {/* Badge */}
+      {badge && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: delay + 0.2 }}
+          className="absolute top-4 right-4 z-20"
+        >
+          <span className={`${badgeColor} text-white text-xs font-bold px-3 py-1 rounded-full shadow-md`}>
+            {badge}
+          </span>
+        </motion.div>
+      )}
       
       <div className="relative z-10">
         {/* Icon Container */}
@@ -45,14 +57,26 @@ const FeatureCard = React.memo(({ icon, title, description, delay = 0, featureId
           <div className="absolute inset-0 bg-white/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="text-white text-3xl relative z-10">{icon}</div>
           
-            {/* Floating particle removed to simplify visuals */}
+          {/* Pulse animation on icon */}
+          <motion.div
+            className="absolute inset-0 rounded-2xl bg-primary/20"
+            animate={{
+              scale: [1, 1.2, 1],
+              opacity: [0.5, 0, 0.5],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
         </motion.div>
 
         {/* Content */}
         <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-3 group-hover:text-primary dark:group-hover:text-green-400 transition-colors duration-300">
           {title}
         </h3>
-        <p className="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
+        <p className="text-gray-600 dark:text-gray-300 leading-relaxed mb-4 text-sm">
           {description}
         </p>
         

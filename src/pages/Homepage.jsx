@@ -104,36 +104,72 @@ const Homepage = () => {
       icon: <IdentificationCard size={32} weight="duotone" />,
       title: t.drivingLicense,
       description: t.drivingLicenseDesc,
+      badge: language === 'en' ? 'Essential' : 'প্রয়োজনীয়',
+      badgeColor: 'bg-blue-500',
     },
     {
-      id: 'face_verification',
-      icon: <FaceMask size={32} weight="duotone" />,
-      title: t.faceVerification,
-      description: t.faceVerificationDesc,
+      id: 'vehicle_registration',
+      icon: <Car size={32} weight="duotone" />,
+      title: t.vehicleRegistrationFeature,
+      description: t.vehicleRegistrationFeatureDesc,
+      badge: language === 'en' ? 'Popular' : 'জনপ্রিয়',
+      badgeColor: 'bg-green-500',
     },
     {
-      id: 'slot_booking',
-      icon: <CalendarCheck size={32} weight="duotone" />,
-      title: t.slotBooking,
-      description: t.slotBookingDesc,
+      id: 'route_permits',
+      icon: <Truck size={32} weight="duotone" />,
+      title: t.routePermits,
+      description: t.routePermitsDesc,
+      badge: language === 'en' ? 'New' : 'নতুন',
+      badgeColor: 'bg-purple-500',
     },
     {
-      id: 'payment_system',
+      id: 'tax_token',
       icon: <CreditCard size={32} weight="duotone" />,
-      title: t.paymentSystem,
-      description: t.paymentSystemDesc,
+      title: t.taxToken,
+      description: t.taxTokenDesc,
+      badge: language === 'en' ? 'Renewal' : 'নবায়ন',
+      badgeColor: 'bg-orange-500',
+    },
+    {
+      id: 'ownership_transfer',
+      icon: <Bicycle size={32} weight="duotone" />,
+      title: t.ownershipTransfer,
+      description: t.ownershipTransferDesc,
+      badge: language === 'en' ? 'Secure' : 'নিরাপদ',
+      badgeColor: 'bg-red-500',
+    },
+    {
+      id: 'violations',
+      icon: <Lightning size={32} weight="duotone" />,
+      title: t.violations,
+      description: t.violationsDesc,
+      badge: language === 'en' ? 'Quick Pay' : 'দ্রুত পরিশোধ',
+      badgeColor: 'bg-yellow-500',
     },
     {
       id: 'cost_calculator',
       icon: <Calculator size={32} weight="duotone" />,
       title: t.costCalculator,
       description: t.costCalculatorDesc,
+      badge: language === 'en' ? 'Free Tool' : 'বিনামূল্যে',
+      badgeColor: 'bg-cyan-500',
+    },
+    {
+      id: 'qr_verification',
+      icon: <Shield size={32} weight="duotone" />,
+      title: t.qrVerification,
+      description: t.qrVerificationDesc,
+      badge: language === 'en' ? 'Instant' : 'তাৎক্ষণিক',
+      badgeColor: 'bg-indigo-500',
     },
     {
       id: 'chatbot',
       icon: <Robot size={32} weight="duotone" />,
       title: t.chatbot,
       description: t.chatbotDesc,
+      badge: language === 'en' ? '24/7' : '২৪/৭',
+      badgeColor: 'bg-pink-500',
     },
   ];
 
@@ -374,6 +410,8 @@ const Homepage = () => {
                 title={feature.title}
                 description={feature.description}
                 featureId={feature.id}
+                badge={feature.badge}
+                badgeColor={feature.badgeColor}
                 delay={index * 0.1}
               />
             ))}

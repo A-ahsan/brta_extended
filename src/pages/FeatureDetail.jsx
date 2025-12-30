@@ -13,6 +13,10 @@ import {
   Shield,
   Download,
   ShareNetwork,
+  Car,
+  Truck,
+  Bicycle,
+  Lightning,
 } from 'phosphor-react';
 import Navbar from '../components/Navbar';
 import { useLanguage } from '../contexts/AppContext';
@@ -22,10 +26,13 @@ const getIcon = (type) => {
   const iconProps = { size: 64, weight: "duotone" };
   switch(type) {
     case 'driving_license': return <IdentificationCard {...iconProps} />;
-    case 'face_verification': return <FaceMask {...iconProps} />;
-    case 'slot_booking': return <CalendarCheck {...iconProps} />;
-    case 'payment_system': return <CreditCard {...iconProps} />;
+    case 'vehicle_registration': return <Car {...iconProps} />;
+    case 'route_permits': return <Truck {...iconProps} />;
+    case 'tax_token': return <CreditCard {...iconProps} />;
+    case 'ownership_transfer': return <Bicycle {...iconProps} />;
+    case 'violations': return <Lightning {...iconProps} />;
     case 'cost_calculator': return <Calculator {...iconProps} />;
+    case 'qr_verification': return <Shield {...iconProps} />;
     case 'chatbot': return <Robot {...iconProps} />;
     default: return null;
   }
@@ -44,6 +51,38 @@ const FeatureDetail = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [featureId]);
+
+  // Handle Get Started / Start Now button click
+  const handleGetStarted = () => {
+    // Check if user is logged in (you can check localStorage or context)
+    const user = localStorage.getItem('user');
+    if (user) {
+      navigate('/dashboard');
+    } else {
+      navigate('/signup');
+    }
+  };
+
+  // Handle Share button click
+  const handleShare = async () => {
+    const shareData = {
+      title: feature.title,
+      text: feature.description,
+      url: window.location.href,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        // Fallback: Copy to clipboard
+        await navigator.clipboard.writeText(window.location.href);
+        alert(language === 'en' ? 'Link copied to clipboard!' : 'লিংক ক্লিপবোর্ডে কপি করা হয়েছে!');
+      }
+    } catch (err) {
+      console.error('Share failed:', err);
+    }
+  };
 
   const featureData = {
     driving_license: {
@@ -80,6 +119,48 @@ const FeatureDetail = () => {
       fullDescription: language === 'en' ? 'Calculate all fees and costs associated with licenses and vehicle registrations instantly.' : 'লাইসেন্স এবং যানবাহন নিবন্ধনের সাথে যুক্ত সমস্ত ফি এবং খরচ তাৎক্ষণিকভাবে গণনা করুন।',
       features: language === 'en' ? ['Transparent fee calculation', 'Multiple vehicle types', 'License category breakdown', 'Tax calculation included', 'No hidden charges', 'Export cost summary'] : ['স্বচ্ছ ফি গণনা', 'একাধিক যানবাহন ধরন', 'লাইসেন্স বিভাগ বিভাজন', 'ট্যাক্স গণনা অন্তর্ভুক্ত', 'কোন লুকানো চার্জ নেই', 'খরচ সারসংক্ষেপ রপ্তানি করুন'],
       benefits: language === 'en' ? 'Know exactly how much you need to pay before applying. No surprises, complete transparency.' : 'আবেদনের আগে জানুন আপনাকে ঠিক কত পরিমাণ অর্থ প্রদান করতে হবে। কোন সারপ্রাইজ নেই, সম্পূর্ণ স্বচ্ছতা।',
+    },
+    vehicle_registration: {
+      title: t.vehicleRegistrationFeature,
+      description: t.vehicleRegistrationFeatureDesc,
+      fullDescription: language === 'en' ? 'Register your vehicle online and receive smart card, tax token, and number plate instantly with our streamlined process.' : 'আমাদের সহজ প্রক্রিয়ার মাধ্যমে অনলাইনে আপনার যানবাহন নিবন্ধন করুন এবং তাৎক্ষণিকভাবে স্মার্ট কার্ড, ট্যাক্স টোকেন এবং নম্বর প্লেট পান।',
+      features: language === 'en' ? ['Complete online registration', 'Smart card generation', 'Tax token issuance', 'Bilingual number plate', 'QR code verification', 'Digital document delivery'] : ['সম্পূর্ণ অনলাইন নিবন্ধন', 'স্মার্ট কার্ড তৈরি', 'ট্যাক্স টোকেন প্রদান', 'দ্বিভাষিক নম্বর প্লেট', 'QR কোড যাচাইকরণ', 'ডিজিটাল ডকুমেন্ট ডেলিভারি'],
+      benefits: language === 'en' ? 'Get all vehicle documents instantly. No waiting, no paperwork hassles. Everything delivered digitally with QR verification.' : 'সমস্ত যানবাহন ডকুমেন্ট তাৎক্ষণিকভাবে পান। কোন অপেক্ষা নেই, কোন কাগজপত্র ঝামেলা নেই। QR যাচাইকরণ সহ সবকিছু ডিজিটালভাবে সরবরাহ করা হয়।',
+    },
+    route_permits: {
+      title: t.routePermits,
+      description: t.routePermitsDesc,
+      fullDescription: language === 'en' ? 'Apply for route permits with map-based route selection and instant approvals for commercial and special routes.' : 'বাণিজ্যিক এবং বিশেষ রুটের জন্য মানচিত্র-ভিত্তিক রুট নির্বাচন এবং তাৎক্ষণিক অনুমোদন সহ রুট পারমিটের জন্য আবেদন করুন।',
+      features: language === 'en' ? ['Interactive map route selection', 'Distance calculation', 'Duration-based permits', 'Document upload support', 'Instant admin approval', 'Downloadable permit pass'] : ['ইন্টারেক্টিভ ম্যাপ রুট নির্বাচন', 'দূরত্ব গণনা', 'সময়কাল-ভিত্তিক পারমিট', 'ডকুমেন্ট আপলোড সমর্থন', 'তাৎক্ষণিক প্রশাসক অনুমোদন', 'ডাউনলোডযোগ্য পারমিট পাস'],
+      benefits: language === 'en' ? 'Plan your routes digitally, get instant approvals, and download permits with QR codes for easy verification.' : 'ডিজিটালভাবে আপনার রুট পরিকল্পনা করুন, তাৎক্ষণিক অনুমোদন পান এবং সহজ যাচাইকরণের জন্য QR কোড সহ পারমিট ডাউনলোড করুন।',
+    },
+    tax_token: {
+      title: t.taxToken,
+      description: t.taxTokenDesc,
+      fullDescription: language === 'en' ? 'Renew your vehicle tax tokens online with flexible payment options and automatic reminders for upcoming renewals.' : 'নমনীয় পেমেন্ট বিকল্প এবং আসন্ন নবায়নের জন্য স্বয়ংক্রিয় রিমাইন্ডার সহ অনলাইনে আপনার যানবাহন ট্যাক্স টোকেন নবায়ন করুন।',
+      features: language === 'en' ? ['Annual tax renewal', 'Multi-year payment options', 'Automatic expiry reminders', 'Online payment integration', 'Instant token generation', 'Digital tax token with QR'] : ['বার্ষিক কর নবায়ন', 'বহু-বছরের পেমেন্ট বিকল্প', 'স্বয়ংক্রিয় মেয়াদ শেষ রিমাইন্ডার', 'অনলাইন পেমেন্ট ইন্টিগ্রেশন', 'তাৎক্ষণিক টোকেন তৈরি', 'QR সহ ডিজিটাল ট্যাক্স টোকেন'],
+      benefits: language === 'en' ? 'Never miss renewal deadlines. Pay online securely and get digital tax tokens instantly with verification QR codes.' : 'নবায়ন সময়সীমা কখনও মিস করবেন না। অনলাইনে নিরাপদে অর্থ প্রদান করুন এবং যাচাইকরণ QR কোড সহ তাৎক্ষণিকভাবে ডিজিটাল ট্যাক্স টোকেন পান।',
+    },
+    ownership_transfer: {
+      title: t.ownershipTransfer,
+      description: t.ownershipTransferDesc,
+      fullDescription: language === 'en' ? 'Transfer vehicle ownership securely with automated eligibility checks, deed upload, and instant documentation updates.' : 'স্বয়ংক্রিয় যোগ্যতা পরীক্ষা, দলিল আপলোড এবং তাৎক্ষণিক ডকুমেন্টেশন আপডেট সহ নিরাপদে যানবাহন মালিকানা হস্তান্তর করুন।',
+      features: language === 'en' ? ['Eligibility verification', 'Deed document upload', 'New owner DL validation', 'Automatic document updates', 'Secure transfer process', 'Payment integration'] : ['যোগ্যতা যাচাইকরণ', 'দলিল ডকুমেন্ট আপলোড', 'নতুন মালিক DL বৈধতা', 'স্বয়ংক্রিয় ডকুমেন্ট আপডেট', 'নিরাপদ হস্তান্তর প্রক্রিয়া', 'পেমেন্ট ইন্টিগ্রেশন'],
+      benefits: language === 'en' ? 'Transfer ownership legally and securely. All documents automatically updated with new owner information and QR codes.' : 'আইনিভাবে এবং নিরাপদে মালিকানা হস্তান্তর করুন। নতুন মালিকের তথ্য এবং QR কোড সহ সমস্ত ডকুমেন্ট স্বয়ংক্রিয়ভাবে আপডেট হয়।',
+    },
+    violations: {
+      title: t.violations,
+      description: t.violationsDesc,
+      fullDescription: language === 'en' ? 'View all traffic violations by vehicle, pay fines instantly online, and avoid penalties with deadline reminders.' : 'যানবাহন অনুসারে সমস্ত ট্রাফিক লঙ্ঘন দেখুন, তাৎক্ষণিকভাবে অনলাইনে জরিমানা পরিশোধ করুন এবং সময়সীমা রিমাইন্ডার সহ জরিমানা এড়িয়ে চলুন।',
+      features: language === 'en' ? ['Vehicle-wise violations', 'Instant fine payment', 'Deadline notifications', 'Payment history tracking', 'Multiple payment methods', 'Digital receipt generation'] : ['যানবাহন-ভিত্তিক লঙ্ঘন', 'তাৎক্ষণিক জরিমানা পরিশোধ', 'সময়সীমা বিজ্ঞপ্তি', 'পেমেন্ট ইতিহাস ট্র্যাকিং', 'একাধিক পেমেন্ট পদ্ধতি', 'ডিজিটাল রসিদ তৈরি'],
+      benefits: language === 'en' ? 'Pay fines instantly before deadlines. Avoid penalties and keep your driving record clean with timely payments.' : 'সময়সীমার আগে তাৎক্ষণিকভাবে জরিমানা পরিশোধ করুন। জরিমানা এড়িয়ে চলুন এবং সময়মত পেমেন্টের মাধ্যমে আপনার ড্রাইভিং রেকর্ড পরিষ্কার রাখুন।',
+    },
+    qr_verification: {
+      title: t.qrVerification,
+      description: t.qrVerificationDesc,
+      fullDescription: language === 'en' ? 'Instantly verify all documents using QR code scanning. Supports licenses, smart cards, tax tokens, and route permits.' : 'QR কোড স্ক্যানিং ব্যবহার করে তাৎক্ষণিকভাবে সমস্ত ডকুমেন্ট যাচাই করুন। লাইসেন্স, স্মার্ট কার্ড, ট্যাক্স টোকেন এবং রুট পারমিট সমর্থন করে।',
+      features: language === 'en' ? ['Universal QR scanning', 'Instant verification', 'All document types supported', 'Owner photo display', 'Document status check', 'Public verification access'] : ['সার্বজনীন QR স্ক্যানিং', 'তাৎক্ষণিক যাচাইকরণ', 'সমস্ত ডকুমেন্ট ধরন সমর্থিত', 'মালিকের ফটো প্রদর্শন', 'ডকুমেন্ট স্ট্যাটাস চেক', 'পাবলিক যাচাইকরণ অ্যাক্সেস'],
+      benefits: language === 'en' ? 'Verify any BRTA document instantly. Police, authorities, or anyone can verify authenticity in seconds using QR codes.' : 'যেকোনো BRTA ডকুমেন্ট তাৎক্ষণিকভাবে যাচাই করুন। পুলিশ, কর্তৃপক্ষ বা যে কেউ QR কোড ব্যবহার করে সেকেন্ডে সত্যতা যাচাই করতে পারে।',
     },
     chatbot: {
       title: t.chatbot,
@@ -568,14 +649,24 @@ const FeatureDetail = () => {
             transition={{ delay: 0.3, duration: 0.6 }}
             className="flex flex-col sm:flex-row gap-4 justify-center mb-16"
           >
-            <button className="px-8 py-4 bg-gradient-to-r from-primary to-green-600 text-white rounded-lg font-bold text-lg hover:shadow-lg transition-all flex items-center justify-center gap-2">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleGetStarted}
+              className="px-8 py-4 bg-gradient-to-r from-primary to-green-600 text-white rounded-lg font-bold text-lg hover:shadow-lg transition-all flex items-center justify-center gap-2"
+            >
               <Download size={20} />
               {language === 'en' ? 'Get Started' : 'শুরু করুন'}
-            </button>
-            <button className="px-8 py-4 bg-white dark:bg-gray-800 text-primary dark:text-green-400 rounded-lg font-bold text-lg hover:shadow-lg transition-all flex items-center justify-center gap-2 border-2 border-primary">
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleShare}
+              className="px-8 py-4 bg-white dark:bg-gray-800 text-primary dark:text-green-400 rounded-lg font-bold text-lg hover:shadow-lg transition-all flex items-center justify-center gap-2 border-2 border-primary"
+            >
               <ShareNetwork size={20} />
               {language === 'en' ? 'Share' : 'শেয়ার করুন'}
-            </button>
+            </motion.button>
           </motion.div>
         </div>
       </section>
@@ -707,6 +798,7 @@ const FeatureDetail = () => {
             transition={{ delay: 0.9 }}
             whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(0, 106, 78, 0.3)" }}
             whileTap={{ scale: 0.95 }}
+            onClick={handleGetStarted}
             className="px-10 py-4 bg-gradient-to-r from-primary to-green-600 text-white rounded-lg font-bold text-lg hover:shadow-xl transition-all"
           >
             {language === 'en' ? 'Start Now' : 'এখনই শুরু করুন'}

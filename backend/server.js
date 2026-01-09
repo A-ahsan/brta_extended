@@ -329,6 +329,23 @@ app.post('/api/licenses/generate', async (req, res) => {
     }
     const expiryDateStr = expiryDate.toISOString().split('T')[0];
 
+    // Fetch issuing authority (test center office name) from physical exam booking
+    let issuingAuthority = 'BRTA Head Office'; // Default
+    try {
+      const { data: bookingData, error: bookingError } = await supabase
+        .from('physical_exam_bookings')
+        .select('test_center_id, test_centers(office_name_en)')
+        .eq('application_id', application.id)
+        .eq('status', 'completed')
+        .single();
+      
+      if (!bookingError && bookingData?.test_centers?.office_name_en) {
+        issuingAuthority = bookingData.test_centers.office_name_en;
+      }
+    } catch (err) {
+      console.log('Could not fetch test center, using default:', err.message);
+    }
+
     // Create license
     const { data: newLicense, error: licenseError } = await supabase
       .from('licenses')
@@ -346,6 +363,8 @@ app.post('/api/licenses/generate', async (req, res) => {
         gender: application.gender,
         address: application.address,
         photo_url: application.user_photo_url,
+        father_name: application.father_name || 'N/A',
+        issuing_authority: issuingAuthority,
         issue_date: issueDate,
         expiry_date: expiryDateStr,
         expired: 0, // Not expired initially

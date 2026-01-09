@@ -198,7 +198,7 @@ const PublicLicenseView = () => {
                   </div>
 
                   {/* Details */}
-                  <div className="col-span-1 sm:col-span-2 space-y-2 sm:space-y-3">
+                  <div className="col-span-1 sm:col-span-2 space-y-2">
                     <div>
                       <p className="text-xs opacity-75">License Number</p>
                       <p className="text-base sm:text-lg font-bold">{license.license_number}</p>
@@ -207,33 +207,31 @@ const PublicLicenseView = () => {
                       <p className="text-xs opacity-75">Name</p>
                       <p className="text-sm sm:text-base font-semibold">{license.full_name_en}</p>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-xs opacity-75">Father Name</p>
+                        <p className="text-xs sm:text-sm font-semibold">{license.father_name || 'N/A'}</p>
+                      </div>
                       <div>
                         <p className="text-xs opacity-75">Date of Birth</p>
                         <p className="text-xs sm:text-sm font-semibold">
                           {new Date(license.date_of_birth).toLocaleDateString('en-GB')}
                         </p>
                       </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-xs opacity-75">Gender</p>
+                        <p className="text-xs sm:text-sm font-semibold">{license.gender}</p>
+                      </div>
                       <div>
                         <p className="text-xs opacity-75">Blood Group</p>
                         <p className="text-xs sm:text-sm font-semibold">{license.blood_group}</p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                      <div>
-                        <p className="text-xs opacity-75">Gender</p>
-                        <p className="text-xs sm:text-sm font-semibold">{license.gender}</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                      <div>
-                        <p className="text-xs opacity-75">Type</p>
-                        <p className="text-xs sm:text-sm font-semibold">{license.license_type}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs opacity-75">Category</p>
-                        <p className="text-xs sm:text-sm font-semibold">{license.license_category}</p>
-                      </div>
+                    <div>
+                      <p className="text-xs opacity-75">Issuing Authority</p>
+                      <p className="text-xs sm:text-sm font-semibold">{license.issuing_authority || 'BRTA Head Office'}</p>
                     </div>
                   </div>
                 </div>
@@ -360,6 +358,13 @@ const PublicLicenseView = () => {
                         <p className="text-xs mt-0.5">Please renew your license to continue driving legally.</p>
                       </div>
                     )}
+
+                    {/* Found License Message */}
+                    <div className="mt-3 pt-2 border-t border-white/30">
+                      <p className="text-xs text-center opacity-90 leading-relaxed">
+                        If the license is found, please inform nearest Police Station
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

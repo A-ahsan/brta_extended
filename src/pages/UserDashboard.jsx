@@ -866,18 +866,16 @@ const UserDashboard = () => {
                 <div class="user-photo">
                   ${photoUrl ? `<img src="${photoUrl}" alt="License Holder" crossorigin="anonymous" />` : '<div class="user-photo-placeholder">👤</div>'}
                 </div>
-                <p style="text-align: center; margin-top: 6px; font-size: 10px; opacity: 0.9;">Photo</p>
               </div>
               <div class="content" style="flex: 1;">
                 ${Object.entries(cardData)
-                  .filter(([key]) => !['photo_url', 'Photo URL'].includes(key))
+                  .filter(([key]) => !['photo_url', 'Photo URL', 'address', 'Address'].includes(key))
                   .map(([key, value]) => {
-                    const isLongField = key.toLowerCase().includes('address') || key.includes('Plate') || key.includes('Model') || key.includes('Name');
-                    const isAddress = key.toLowerCase().includes('address');
+                    const isLongField = key.toLowerCase().includes('plate') || key.toLowerCase().includes('model') || key.toLowerCase().includes('name') || key.toLowerCase().includes('authority');
                     return `
                   <div class="field ${isLongField ? 'full' : ''}">
                     <div class="label">${key.replace(/_/g, ' ').toUpperCase()}</div>
-                    <div class="value" style="${isAddress ? 'font-size: 12px; line-height: 1.4;' : ''}">${value}</div>
+                    <div class="value" style="font-size: 14px;">${value}</div>
                   </div>
                 `;
                   }).join('')}
@@ -917,6 +915,7 @@ const UserDashboard = () => {
             </div>
             <div style="text-align: center; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.3); margin-top: auto;">
               <p style="font-size: 10px; opacity: 0.8;">Official document of Bangladesh Road Transport Authority</p>
+              <p style="font-size: 9px; opacity: 0.85; margin-top: 8px;">If the license is found, please inform nearest Police Station</p>
             </div>
           </div>
         </div>
@@ -1751,9 +1750,11 @@ const UserDashboard = () => {
                         onDownload={(lic) => downloadCardAsPDF(`Driving_License_${lic.license_number}`, {
                           'License No': lic.license_number,
                           'Name': lic.full_name_en,
+                          'Father Name': lic.father_name || 'N/A',
                           'Date of Birth': new Date(lic.date_of_birth).toLocaleDateString('en-GB'),
-                          'Blood Group': lic.blood_group,
                           'Gender': lic.gender,
+                          'Blood Group': lic.blood_group,
+                          'Issuing Authority': lic.issuing_authority || 'BRTA Head Office',
                           'Issue Date': new Date(lic.issue_date).toLocaleDateString('en-GB'),
                           'Expiry Date': new Date(lic.expiry_date).toLocaleDateString('en-GB'),
                           'Status': lic.status.toUpperCase(),

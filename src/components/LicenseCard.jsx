@@ -80,54 +80,51 @@ const LicenseCard = ({ license, language, onDownload, onRenew, generateLicenseQR
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-center mt-2 opacity-80">
-                    {language === 'en' ? 'Photo' : 'ছবি'}
-                  </p>
                 </div>
 
                 {/* License Info */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
-                    <p className="text-xs opacity-80 uppercase tracking-wider mb-1.5">
+                    <p className="text-xs opacity-80 uppercase tracking-wider mb-1">
                       {language === 'en' ? 'License No.' : 'লাইসেন্স নং'}
                     </p>
-                    <p className="text-xl font-bold">{license.license_number}</p>
+                    <p className="text-lg font-bold">{license.license_number}</p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-xs opacity-80 uppercase tracking-wider mb-1.5">
+                    <p className="text-xs opacity-80 uppercase tracking-wider mb-1">
                       {language === 'en' ? 'Name' : 'নাম'}
                     </p>
-                    <p className="text-lg font-bold">{license.full_name_en}</p>
+                    <p className="text-base font-bold">{license.full_name_en}</p>
                   </div>
                   <div>
-                    <p className="text-xs opacity-80 uppercase tracking-wider mb-1.5">
+                    <p className="text-xs opacity-80 uppercase tracking-wider mb-1">
+                      {language === 'en' ? 'Father Name' : 'পিতার নাম'}
+                    </p>
+                    <p className="text-sm font-bold">{license.father_name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs opacity-80 uppercase tracking-wider mb-1">
                       {language === 'en' ? 'Date of Birth' : 'জন্ম তারিখ'}
                     </p>
-                    <p className="text-base font-bold">{formatDate(license.date_of_birth)}</p>
+                    <p className="text-sm font-bold">{formatDate(license.date_of_birth)}</p>
                   </div>
                   <div>
-                    <p className="text-xs opacity-80 uppercase tracking-wider mb-1.5">
-                      {language === 'en' ? 'Blood Group' : 'রক্তের গ্রুপ'}
-                    </p>
-                    <p className="text-base font-bold">{license.blood_group}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-xs opacity-80 uppercase tracking-wider mb-1.5">
+                    <p className="text-xs opacity-80 uppercase tracking-wider mb-1">
                       {language === 'en' ? 'Gender' : 'লিঙ্গ'}
                     </p>
-                    <p className="text-base font-bold">{license.gender}</p>
+                    <p className="text-sm font-bold">{license.gender}</p>
                   </div>
                   <div>
-                    <p className="text-xs opacity-80 uppercase tracking-wider mb-1.5">
-                      {language === 'en' ? 'Type' : 'ধরন'}
+                    <p className="text-xs opacity-80 uppercase tracking-wider mb-1">
+                      {language === 'en' ? 'Blood Group' : 'রক্তের গ্রুপ'}
                     </p>
-                    <p className="text-base font-bold">{license.license_type}</p>
+                    <p className="text-sm font-bold">{license.blood_group}</p>
                   </div>
-                  <div>
-                    <p className="text-xs opacity-80 uppercase tracking-wider mb-1.5">
-                      {language === 'en' ? 'Category' : 'শ্রেণী'}
+                  <div className="col-span-2">
+                    <p className="text-xs opacity-80 uppercase tracking-wider mb-1">
+                      {language === 'en' ? 'Issuing Authority' : 'ইস্যুকারী কর্তৃপক্ষ'}
                     </p>
-                    <p className="text-base font-bold">{license.license_category}</p>
+                    <p className="text-sm font-bold">{license.issuing_authority || 'BRTA Head Office'}</p>
                   </div>
                 </div>
               </div>
@@ -287,6 +284,15 @@ const LicenseCard = ({ license, language, onDownload, onRenew, generateLicenseQR
                     </p>
                     <p className="text-sm font-bold uppercase">{license.status}</p>
                   </div>
+                </div>
+
+                {/* Found License Message */}
+                <div className="mt-4 pt-3 border-t border-white/30">
+                  <p className="text-xs text-center opacity-90 leading-relaxed">
+                    {language === 'en' 
+                      ? 'If the license is found, please inform nearest Police Station' 
+                      : 'লাইসেন্স পাওয়া গেলে, অনুগ্রহ করে নিকটস্থ থানায় জানান'}
+                  </p>
                 </div>
               </div>
             </div>

@@ -219,77 +219,77 @@ const LicenseCard = ({ license, language, onDownload, onRenew, generateLicenseQR
                 {language === 'en' ? 'License Details' : 'লাইসেন্সের বিবরণ'}
               </h4>
 
-              <div className="flex flex-col items-center mb-3 flex-1 space-y-4">
+              <div className="flex flex-col items-center flex-1 space-y-2.5">
                 {/* QR Code */}
-                <div className="bg-white p-3 rounded-xl">
+                <div className="bg-white p-2.5 rounded-xl">
                   <img 
                     src={generateLicenseQRCode(license.license_number)} 
                     alt="QR Code" 
-                    className="w-32 h-32"
+                    className="w-28 h-28"
                   />
-                  <p className="text-xs text-center mt-1.5 text-gray-800 font-semibold">
+                  <p className="text-xs text-center mt-1 text-gray-800 font-semibold">
                     {language === 'en' ? 'Scan to Verify' : 'স্ক্যান করুন'}
                   </p>
                 </div>
 
                 {/* Additional Info - Centered */}
-                <div className="space-y-3 text-center max-w-md w-full">
+                <div className="space-y-2 text-center max-w-md w-full">
                   <div>
-                    <p className="text-xs opacity-75 uppercase tracking-wider mb-1.5">
+                    <p className="text-xs opacity-75 uppercase tracking-wider mb-1">
                       {language === 'en' ? 'License Number' : 'লাইসেন্স নম্বর'}
                     </p>
-                    <p className="text-lg font-bold text-yellow-300">{license.license_number}</p>
+                    <p className="text-base font-bold text-yellow-300">{license.license_number}</p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 border-t border-white/30 pt-3">
+                  <div className="grid grid-cols-2 gap-2 border-t border-white/30 pt-2">
                     <div>
-                      <p className="text-xs opacity-75 uppercase tracking-wider mb-1">
+                      <p className="text-xs opacity-75 uppercase tracking-wider mb-0.5">
                         {language === 'en' ? 'Type' : 'ধরন'}
                       </p>
-                      <p className="text-sm font-semibold">{license.license_type}</p>
+                      <p className="text-xs font-semibold">{license.license_type}</p>
                     </div>
                     <div>
-                      <p className="text-xs opacity-75 uppercase tracking-wider mb-1">
+                      <p className="text-xs opacity-75 uppercase tracking-wider mb-0.5">
                         {language === 'en' ? 'Category' : 'শ্রেণী'}
                       </p>
-                      <p className="text-sm font-semibold">{license.license_category}</p>
+                      <p className="text-xs font-semibold">{license.license_category}</p>
                     </div>
                   </div>
 
-                  <div className="border-t border-white/30 pt-3">
-                    <p className="text-xs opacity-75 uppercase tracking-wider mb-1">
+                  <div className="border-t border-white/30 pt-2">
+                    <p className="text-xs opacity-75 uppercase tracking-wider mb-0.5">
                       {language === 'en' ? 'Address' : 'ঠিকানা'}
                     </p>
-                    <p className="text-sm leading-relaxed">{license.address}</p>
+                    <p className="text-xs leading-relaxed">{license.address}</p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 border-t border-white/30 pt-3">
+                  <div className="grid grid-cols-2 gap-2 border-t border-white/30 pt-2">
                     <div>
-                      <p className="text-xs opacity-75 uppercase tracking-wider mb-1">
+                      <p className="text-xs opacity-75 uppercase tracking-wider mb-0.5">
                         {language === 'en' ? 'Issue Date' : 'ইস্যু তারিখ'}
                       </p>
-                      <p className="text-sm font-semibold">{formatDate(license.issue_date)}</p>
+                      <p className="text-xs font-semibold">{formatDate(license.issue_date)}</p>
                     </div>
                     <div>
-                      <p className="text-xs opacity-75 uppercase tracking-wider mb-1">
+                      <p className="text-xs opacity-75 uppercase tracking-wider mb-0.5">
                         {language === 'en' ? 'Expiry Date' : 'মেয়াদ শেষ'}
                       </p>
-                      <p className="text-sm font-semibold">{formatDate(license.expiry_date)}</p>
+                      <p className="text-xs font-semibold">{formatDate(license.expiry_date)}</p>
                     </div>
                   </div>
 
-                  <div className="border-t border-white/30 pt-3">
-                    <p className="text-xs opacity-75 uppercase tracking-wider mb-1">
+                  <div className="border-t border-white/30 pt-2">
+                    <p className="text-xs opacity-75 uppercase tracking-wider mb-0.5">
                       {language === 'en' ? 'Status' : 'অবস্থা'}
                     </p>
-                    <p className="text-sm font-bold uppercase">{license.status}</p>
+                    <p className="text-xs font-bold uppercase">{license.status}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Found/Lost License Message - Positioned at bottom */}
-              <div className="mt-auto pt-4 border-t border-white/30">
-                <p className="text-xs text-center opacity-95 leading-relaxed font-medium px-2">
+              {/* Found/Lost License Message - Always visible at bottom */}
+              <div className="mt-auto pt-3 border-t border-white/30">
+                <p className="text-[11px] text-center opacity-95 leading-snug font-medium px-2">
                   {language === 'en' 
                     ? 'If the license is found or lost, please inform nearest Police Station' 
                     : 'লাইসেন্স পাওয়া গেলে বা হারিয়ে গেলে, অনুগ্রহ করে নিকটস্থ থানায় জানান'}

@@ -915,7 +915,7 @@ const UserDashboard = () => {
             </div>
             <div style="text-align: center; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.3); margin-top: auto;">
               <p style="font-size: 10px; opacity: 0.8;">Official document of Bangladesh Road Transport Authority</p>
-              <p style="font-size: 9px; opacity: 0.85; margin-top: 8px;">If the license is found, please inform nearest Police Station</p>
+              <p style="font-size: 9.5px; opacity: 0.9; margin-top: 8px; font-weight: 500;">If the license is found or lost, please inform nearest Police Station</p>
             </div>
           </div>
         </div>

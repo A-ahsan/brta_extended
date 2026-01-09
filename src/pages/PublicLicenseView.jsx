@@ -359,10 +359,10 @@ const PublicLicenseView = () => {
                       </div>
                     )}
 
-                    {/* Found License Message */}
+                    {/* Found/Lost License Message */}
                     <div className="mt-3 pt-2 border-t border-white/30">
-                      <p className="text-xs text-center opacity-90 leading-relaxed">
-                        If the license is found, please inform nearest Police Station
+                      <p className="text-xs text-center opacity-95 leading-relaxed font-medium">
+                        If the license is found or lost, please inform nearest Police Station
                       </p>
                     </div>
                   </div>

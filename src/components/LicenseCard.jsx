@@ -285,15 +285,15 @@ const LicenseCard = ({ license, language, onDownload, onRenew, generateLicenseQR
                     <p className="text-sm font-bold uppercase">{license.status}</p>
                   </div>
                 </div>
+              </div>
 
-                {/* Found License Message */}
-                <div className="mt-4 pt-3 border-t border-white/30">
-                  <p className="text-xs text-center opacity-90 leading-relaxed">
-                    {language === 'en' 
-                      ? 'If the license is found, please inform nearest Police Station' 
-                      : 'লাইসেন্স পাওয়া গেলে, অনুগ্রহ করে নিকটস্থ থানায় জানান'}
-                  </p>
-                </div>
+              {/* Found/Lost License Message - Positioned at bottom */}
+              <div className="mt-auto pt-4 border-t border-white/30">
+                <p className="text-xs text-center opacity-95 leading-relaxed font-medium px-2">
+                  {language === 'en' 
+                    ? 'If the license is found or lost, please inform nearest Police Station' 
+                    : 'লাইসেন্স পাওয়া গেলে বা হারিয়ে গেলে, অনুগ্রহ করে নিকটস্থ থানায় জানান'}
+                </p>
               </div>
             </div>
           </div>

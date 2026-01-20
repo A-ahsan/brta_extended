@@ -456,6 +456,7 @@ const ResetPassword = () => {
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={formData.confirmPassword}
                     onChange={handleConfirmPasswordChange}
+                    onPaste={(e) => e.preventDefault()}
                     placeholder="••••••••"
                     className={`w-full pl-12 pr-12 py-3 bg-gray-50 dark:bg-gray-700/50 border-2 ${
                       errors.confirmPassword 

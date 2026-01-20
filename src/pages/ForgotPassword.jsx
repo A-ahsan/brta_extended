@@ -23,11 +23,32 @@ const ForgotPassword = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validate phone number (basic validation)
-    if (!phone || phone.length < 11) {
+    // Clean phone number - remove spaces, dashes, and check format
+    const cleanPhone = phone.replace(/[\s\-()]/g, '');
+    
+    // Extract digits only
+    let phoneDigits = cleanPhone.replace(/\D/g, '');
+    
+    // Remove country code if present (880 or +880)
+    if (phoneDigits.startsWith('880')) {
+      phoneDigits = phoneDigits.substring(3);
+    }
+    
+    // Validate: must be exactly 11 digits
+    if (phoneDigits.length !== 11) {
       const errorMsg = language === 'en' 
-        ? 'Please enter a valid phone number' 
-        : 'দয়া করে একটি বৈধ ফোন নম্বর দিন';
+        ? 'Phone number must be 11 digits' 
+        : 'ফোন নম্বর অবশ্যই ১১ সংখ্যার হতে হবে';
+      setPhoneError(errorMsg);
+      toast.error(errorMsg);
+      return;
+    }
+    
+    // Validate: must start with 01
+    if (!phoneDigits.startsWith('01')) {
+      const errorMsg = language === 'en' 
+        ? 'Phone number must start with 01' 
+        : 'ফোন নম্বর ০১ দিয়ে শুরু হতে হবে';
       setPhoneError(errorMsg);
       toast.error(errorMsg);
       return;

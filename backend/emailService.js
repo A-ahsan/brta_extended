@@ -231,16 +231,17 @@ export const verifyOTP = async (email, otp) => {
   }
 };
 
-// Delete OTP after use (now handled automatically in verifyOTP)
-export const deleteOTP = async (email) => {
+// Delete OTP after use
+export const deleteOTP = async (identifier) => {
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.VITE_SUPABASE_URL,
-      process.env.VITE_SUPABASE_ANON_KEY
-    );
+    // identifier can be email or phone number
+    // For emails, lowercase it; for phones, keep as-is
+    const cleanIdentifier = identifier.includes('@') ? identifier.toLowerCase() : identifier;
     
-    await supabase.from('password_reset_otps').delete().eq('email', email.toLowerCase());
+    console.log(`🗑️ Deleting OTP for: ${cleanIdentifier}`);
+    
+    await supabase.from('password_reset_otps').delete().eq('email', cleanIdentifier);
+    console.log(`✅ OTP deleted successfully for: ${cleanIdentifier}`);
     return { success: true };
   } catch (error) {
     console.error('Error deleting OTP:', error);
@@ -290,6 +291,10 @@ export const sendOTPSMS = async (phoneNumber, language = 'en') => {
     const otpHash = hashOTP(otp);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
+    console.log(`📝 Generating OTP for phone: ${normalizedPhone}`);
+    console.log(`🔐 OTP: ${otp}, Hash: ${otpHash}`);
+    console.log(`⏰ Expires at: ${expiresAt.toISOString()}`);
+
     // 3. Delete old OTPs for this phone
     await supabase
       .from('password_reset_otps')
@@ -311,6 +316,8 @@ export const sendOTPSMS = async (phoneNumber, language = 'en') => {
       console.error('Database error:', dbError);
       return { success: false, message: 'Failed to store OTP', error: dbError };
     }
+
+    console.log(`✅ OTP stored in database for phone: ${normalizedPhone}`);
 
     // 5. Send SMS
     const smsResult = await sendSMSOTP(normalizedPhone, otp, language);
@@ -354,7 +361,10 @@ export const verifyOTPByPhone = async (phoneNumber, otp) => {
     const { normalizePhoneNumber } = await import('./smsService.js');
     const normalizedPhone = normalizePhoneNumber(phoneNumber);
     
+    console.log(`🔍 Verifying OTP for phone: ${normalizedPhone} (original: ${phoneNumber}), OTP: ${otp}`);
+    
     const otpHash = hashOTP(otp);
+    console.log(`🔐 OTP Hash: ${otpHash}`);
 
     // Get OTP from database using phone number
     const { data, error } = await supabase
@@ -364,6 +374,7 @@ export const verifyOTPByPhone = async (phoneNumber, otp) => {
       .single();
 
     if (error || !data) {
+      console.log(`❌ OTP not found in database for phone: ${normalizedPhone}`, error);
       return {
         valid: false,
         success: false,
@@ -372,10 +383,13 @@ export const verifyOTPByPhone = async (phoneNumber, otp) => {
       };
     }
 
+    console.log(`✅ OTP record found - Stored hash: ${data.otp_code}, Expires: ${data.expires_at}, Attempts: ${data.attempts}`);
+
     // Check if expired
     const now = new Date();
     const expiresAt = new Date(data.expires_at);
     if (now > expiresAt) {
+      console.log(`⏰ OTP expired - Now: ${now.toISOString()}, Expires: ${expiresAt.toISOString()}`);
       await supabase
         .from('password_reset_otps')
         .delete()
@@ -391,6 +405,7 @@ export const verifyOTPByPhone = async (phoneNumber, otp) => {
 
     // Check attempts (max 3)
     if (data.attempts >= 3) {
+      console.log(`🚫 Maximum attempts exceeded for phone: ${normalizedPhone}`);
       await supabase
         .from('password_reset_otps')
         .delete()
@@ -406,6 +421,7 @@ export const verifyOTPByPhone = async (phoneNumber, otp) => {
 
     // Verify OTP
     if (data.otp_code !== otpHash) {
+      console.log(`❌ OTP mismatch - Expected: ${data.otp_code}, Got: ${otpHash}`);
       await supabase
         .from('password_reset_otps')
         .update({ attempts: data.attempts + 1 })
@@ -420,11 +436,11 @@ export const verifyOTPByPhone = async (phoneNumber, otp) => {
       };
     }
 
-    // OTP is valid - delete it
-    await supabase
-      .from('password_reset_otps')
-      .delete()
-      .eq('email', normalizedPhone);
+    console.log(`✅ OTP verified successfully for phone: ${normalizedPhone}`);
+
+    // OTP is valid - DO NOT delete it yet
+    // It will be deleted after password reset is complete
+    // Mark it as verified by updating a flag if needed, or just return success
     
     return { 
       valid: true, 

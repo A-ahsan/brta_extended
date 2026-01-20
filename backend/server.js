@@ -2167,6 +2167,10 @@ app.post('/api/auth/reset-password-sms', async (req, res) => {
       });
     }
 
+    // Delete the OTP after successful password reset
+    await deleteOTP(normalizedPhone);
+    console.log(`✅ Password reset successful for phone: ${normalizedPhone}, OTP deleted`);
+
     res.json({ 
       success: true, 
       message: language === 'en' 

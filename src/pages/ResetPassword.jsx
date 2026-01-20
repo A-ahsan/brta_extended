@@ -10,7 +10,8 @@ const ResetPassword = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const [searchParams] = useSearchParams();
-  const phone = searchParams.get('phone');
+  // Clean and trim phone number from URL
+  const phone = searchParams.get('phone')?.trim();
 
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -106,6 +107,8 @@ const ResetPassword = () => {
     }
 
     setIsLoading(true);
+    
+    console.log('🔍 Verifying OTP - Phone:', phone, 'OTP:', otpCode);
 
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://brta-extended.onrender.com';
@@ -118,6 +121,8 @@ const ResetPassword = () => {
       });
 
       const data = await response.json();
+      
+      console.log('📥 OTP Verification Response:', data);
 
       if (data.success) {
         setOtpVerified(true);

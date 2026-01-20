@@ -13,7 +13,7 @@ const ForgotPassword = () => {
   const [phoneError, setPhoneError] = useState('');
 
   const handlePhoneChange = (e) => {
-    const value = e.target.value;
+    const value = e.target.value.trim(); // Trim whitespace
     setPhone(value);
     
     // Clear error when typing

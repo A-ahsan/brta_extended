@@ -2135,14 +2135,44 @@ app.post('/api/auth/reset-password-sms', async (req, res) => {
       });
     }
 
-    // Find user by phone number
-    const { data: profileData, error: profileError } = await supabase
+    // Find user by phone number - try multiple formats
+    let profileData = null;
+    
+    // Try normalized format (8801XXXXXXXXX)
+    const { data: data1 } = await supabase
       .from('profiles')
       .select('id')
       .eq('phone', normalizedPhone)
-      .single();
+      .maybeSingle();
+    
+    if (data1) {
+      profileData = data1;
+    } else {
+      // Try with leading zero (01XXXXXXXXX)
+      const phoneWithZero = normalizedPhone.replace(/^880/, '0');
+      const { data: data2 } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('phone', phoneWithZero)
+        .maybeSingle();
+      
+      if (data2) {
+        profileData = data2;
+      } else {
+        // Try with +880
+        const { data: data3 } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('phone', '+' + normalizedPhone)
+          .maybeSingle();
+        
+        profileData = data3;
+      }
+    }
 
-    if (profileError || !profileData) {
+    console.log(`🔍 Phone lookup for password reset - Phone: ${normalizedPhone}, Found: ${!!profileData}`);
+
+    if (!profileData) {
       return res.status(404).json({ 
         success: false, 
         error: language === 'en' 

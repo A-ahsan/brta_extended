@@ -362,11 +362,11 @@ export async function sendMessage(sessionId, message, language = 'en') {
       content: contextualMessage  // Add instructions only for current API call
     }]);
 
-    // Use OpenRouter with OpenAI GPT-OSS-120B (free, powerful model)
+    // Use OpenRouter with Mistral 7B Instruct (free, no config needed)
     const response = await axios.post(
       OPENROUTER_API_URL,
       {
-        model: 'openai/gpt-oss-120b:free',
+        model: 'mistralai/mistral-7b-instruct:free',
         messages: messagesForAPI,  // Send modified messages to API
         temperature: 0.7,
         max_tokens: 1000

@@ -43,6 +43,9 @@ const Login = () => {
       } else {
         navigate('/dashboard');
       }
+    } else {
+      // Clear password field on failed login
+      setFormData({ ...formData, password: '' });
     }
   };
 

@@ -594,6 +594,8 @@ const UserDashboard = () => {
     
     if (passwordData.new !== passwordData.confirm) {
       toast.error(language === 'en' ? 'Passwords do not match' : 'পাসওয়ার্ড মিলছে না');
+      // Clear password fields
+      setPasswordData({ current: passwordData.current, new: '', confirm: '' });
       return;
     }
     

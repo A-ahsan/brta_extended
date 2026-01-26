@@ -45,6 +45,9 @@ const VehicleAdderLogin = () => {
           navigate('/dashboard');
         }
       }
+    } else {
+      // Clear password field on failed login
+      setFormData({ ...formData, password: '' });
     }
 
     setIsLoading(false);

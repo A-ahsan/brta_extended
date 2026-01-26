@@ -54,6 +54,8 @@ const Signup = () => {
     // Validation
     if (formData.password !== formData.confirmPassword) {
       toast.error(language === 'en' ? 'Passwords do not match!' : 'পাসওয়ার্ড মিলছে না!');
+      // Clear password fields
+      setFormData({ ...formData, password: '', confirmPassword: '' });
       return;
     }
 

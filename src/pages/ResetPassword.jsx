@@ -180,6 +180,8 @@ const ResetPassword = () => {
           : 'পাসওয়ার্ড মিলছে না'
       });
       toast.error(language === 'en' ? 'Passwords do not match' : 'পাসওয়ার্ড মিলছে না');
+      // Clear password fields
+      setFormData({ newPassword: '', confirmPassword: '' });
       return;
     }
 

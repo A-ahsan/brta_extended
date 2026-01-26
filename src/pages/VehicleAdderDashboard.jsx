@@ -302,8 +302,11 @@ const VehicleAdderDashboard = () => {
           </div>
         </div>
       </div>
-      </div>
-    ), { duration: Infinity });
+    </div>
+    ), { 
+      duration: Infinity,
+      position: 'top-center'
+    });
   };
 
   const filteredHolders = licenseHolders.filter(holder => 

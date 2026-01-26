@@ -2415,8 +2415,11 @@ const UserDashboard = () => {
                           </div>
                         </div>
                       </div>
-                      </div>
-                    ), { duration: Infinity });
+                    </div>
+                    ), { 
+                      duration: Infinity,
+                      position: 'top-center'
+                    });
                   }}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-900/20 text-danger hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl font-semibold transition-all"
                 >

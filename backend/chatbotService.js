@@ -362,11 +362,11 @@ export async function sendMessage(sessionId, message, language = 'en') {
       content: contextualMessage  // Add instructions only for current API call
     }]);
 
-    // Use OpenRouter with Meta Llama 3.1 8B Instruct (free, reliable)
+    // Use OpenRouter with OpenAI GPT-OSS-120B (free, powerful model)
     const response = await axios.post(
       OPENROUTER_API_URL,
       {
-        model: 'meta-llama/llama-3.1-8b-instruct:free',
+        model: 'openai/gpt-oss-120b:free',
         messages: messagesForAPI,  // Send modified messages to API
         temperature: 0.7,
         max_tokens: 1000

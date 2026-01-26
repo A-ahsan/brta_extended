@@ -361,11 +361,6 @@ export async function sendMessage(sessionId, message, language = 'en') {
       role: 'user',
       content: contextualMessage  // Add instructions only for current API call
     }]);
-    // Build messages for API call with instructions in the current message only
-    const messagesForAPI = session.chatHistory.slice(0, -1).concat([{
-      role: 'user',
-      content: contextualMessage  // Add instructions only for current API call
-    }]);
 
     // Use OpenRouter with LiquidAI LFM2.5-1.2B-Thinking (free model)
     const response = await axios.post(

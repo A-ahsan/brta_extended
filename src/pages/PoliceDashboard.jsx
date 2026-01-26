@@ -37,6 +37,7 @@ const PoliceDashboard = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
   const [notifications, setNotifications] = useState([]);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [stats, setStats] = useState({
     totalFinesPaid: 0,
     violationsToday: 0,
@@ -460,63 +461,7 @@ const PoliceDashboard = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    toast.custom((t) => (
-                      <div className="fixed inset-0 flex items-center justify-center z-50 px-4">
-                        {/* Backdrop */}
-                        <div className="absolute inset-0 bg-black/50" onClick={() => toast.dismiss(t.id)} />
-                        {/* Dialog */}
-                        <div
-                          className={`${
-                            t.visible ? 'animate-enter' : 'animate-leave'
-                          } max-w-md w-full bg-white dark:bg-gray-800 shadow-lg rounded-2xl pointer-events-auto flex flex-col border-2 border-red-500 dark:border-red-600 relative`}
-                      >
-                        <div className="p-6">
-                          <div className="flex items-center gap-4 mb-4">
-                            <div className="flex-shrink-0">
-                              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                                <SignOut size={24} weight="bold" className="text-red-600 dark:text-red-400" />
-                              </div>
-                            </div>
-                            <div className="flex-1">
-                              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                                {language === 'en' ? 'Confirm Logout' : 'লগআউট নিশ্চিত করুন'}
-                              </h3>
-                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                {language === 'en' 
-                                  ? 'Are you sure you want to logout?' 
-                                  : 'আপনি কি নিশ্চিত লগআউট করতে চান?'}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex gap-3">
-                            <button
-                              onClick={() => {
-                                toast.dismiss(t.id);
-                              }}
-                              className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold transition-all"
-                            >
-                              {language === 'en' ? 'Cancel' : 'বাতিল'}
-                            </button>
-                            <button
-                              onClick={async () => {
-                                toast.dismiss(t.id);
-                                await signOut();
-                                navigate('/');
-                              }}
-                              className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-all"
-                            >
-                              {language === 'en' ? 'Logout' : 'লগআউট'}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    ), { 
-                      duration: Infinity,
-                      position: 'top-center'
-                    });
-                  }}
+                  onClick={() => setShowLogoutModal(true)}
                   className="w-full flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 bg-red-50 dark:bg-red-900/20 text-danger hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl font-semibold transition-all text-sm sm:text-base"
                 >
                   <SignOut size={20} className="sm:w-6 sm:h-6" weight="bold" />
@@ -643,6 +588,63 @@ const PoliceDashboard = () => {
           </Routes>
         </main>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      <AnimatePresence>
+        {showLogoutModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowLogoutModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border-2 border-red-500 dark:border-red-600"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                    <SignOut size={24} weight="bold" className="text-red-600 dark:text-red-400" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                    {language === 'en' ? 'Confirm Logout' : 'লগআউট নিশ্চিত করুন'}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    {language === 'en' 
+                      ? 'Are you sure you want to logout?' 
+                      : 'আপনি কি নিশ্চিত লগআউট করতে চান?'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowLogoutModal(false)}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold transition-all"
+                >
+                  {language === 'en' ? 'Cancel' : 'বাতিল'}
+                </button>
+                <button
+                  onClick={async () => {
+                    setShowLogoutModal(false);
+                    await signOut();
+                    navigate('/');
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-all"
+                >
+                  {language === 'en' ? 'Logout' : 'লগআউট'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

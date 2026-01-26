@@ -349,19 +349,30 @@ export async function sendMessage(sessionId, message, language = 'en') {
     ? `${message}\n\n[INSTRUCTION: This is a follow-up question about BRTA data shown previously. Respond in ${language === 'en' ? 'English' : 'Bangla (Bengali)'} language. Refer to the previous conversation context to answer this question. If user mentions they paid something, acknowledge it and explain the data shown.]`
     : `${message}\n\n[CRITICAL INSTRUCTION: You MUST respond in ${language === 'en' ? 'English' : 'Bangla (Bengali)'} language. If this question is NOT about BRTA Extended Portal (licenses, vehicles, payments, violations, route permits, renewals), respond ONLY with: "I can only help with BRTA Extended Portal services. Please ask about licenses, vehicles, payments, violations, route permits, or renewals." - DO NOT answer anything else. NO EXCEPTIONS.]`;
 
-  // Add user message to history
+  // Add user message to history (store original message, not with instructions)
   session.chatHistory.push({
     role: 'user',
-    content: contextualMessage
+    content: message  // Store clean message for context
   });
 
   try {
+    // Build messages for API call with instructions in the current message only
+    const messagesForAPI = session.chatHistory.slice(0, -1).concat([{
+      role: 'user',
+      content: contextualMessage  // Add instructions only for current API call
+    }]);
+    // Build messages for API call with instructions in the current message only
+    const messagesForAPI = session.chatHistory.slice(0, -1).concat([{
+      role: 'user',
+      content: contextualMessage  // Add instructions only for current API call
+    }]);
+
     // Use OpenRouter with LiquidAI LFM2.5-1.2B-Thinking (free model)
     const response = await axios.post(
       OPENROUTER_API_URL,
       {
         model: 'liquid/lfm-2.5-1.2b-thinking:free',
-        messages: session.chatHistory,
+        messages: messagesForAPI,  // Send modified messages to API
         temperature: 0.7,
         max_tokens: 1000
       },

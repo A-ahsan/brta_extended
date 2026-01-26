@@ -462,10 +462,14 @@ const PoliceDashboard = () => {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
                     toast.custom((t) => (
-                      <div
-                        className={`${
-                          t.visible ? 'animate-enter' : 'animate-leave'
-                        } max-w-md w-full bg-white dark:bg-gray-800 shadow-lg rounded-2xl pointer-events-auto flex flex-col border-2 border-red-500 dark:border-red-600 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50`}
+                      <div className="fixed inset-0 flex items-center justify-center z-50 px-4">
+                        {/* Backdrop */}
+                        <div className="absolute inset-0 bg-black/50" onClick={() => toast.dismiss(t.id)} />
+                        {/* Dialog */}
+                        <div
+                          className={`${
+                            t.visible ? 'animate-enter' : 'animate-leave'
+                          } max-w-md w-full bg-white dark:bg-gray-800 shadow-lg rounded-2xl pointer-events-auto flex flex-col border-2 border-red-500 dark:border-red-600 relative`}
                       >
                         <div className="p-6">
                           <div className="flex items-center gap-4 mb-4">

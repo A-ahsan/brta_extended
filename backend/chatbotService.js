@@ -362,11 +362,11 @@ export async function sendMessage(sessionId, message, language = 'en') {
       content: contextualMessage  // Add instructions only for current API call
     }]);
 
-    // Use OpenRouter with LiquidAI LFM2.5-1.2B-Thinking (free model)
+    // Use OpenRouter with Meta Llama 3.1 8B Instruct (free, reliable)
     const response = await axios.post(
       OPENROUTER_API_URL,
       {
-        model: 'liquid/lfm-2.5-1.2b-thinking:free',
+        model: 'meta-llama/llama-3.1-8b-instruct:free',
         messages: messagesForAPI,  // Send modified messages to API
         temperature: 0.7,
         max_tokens: 1000

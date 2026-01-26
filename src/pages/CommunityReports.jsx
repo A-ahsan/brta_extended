@@ -40,6 +40,13 @@ const CommunityReports = () => {
   const [selectedReport, setSelectedReport] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
+  // Search and Pagination States
+  const [searchText, setSearchText] = useState('');
+  const [searchLocation, setSearchLocation] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalReports, setTotalReports] = useState(0);
+  const REPORTS_PER_PAGE = 12;
+
   useEffect(() => {
     fetchReports();
 
@@ -75,24 +82,41 @@ const CommunityReports = () => {
       console.log('🔌 Unsubscribing from public community reports');
       supabase.removeChannel(channel);
     };
-  }, [activeTab]);
+  }, [activeTab, searchText, searchLocation, currentPage]);
 
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('community_reports')
         .select(`
           *,
           report_attachments (*)
-        `)
+        `, { count: 'exact' })
         .eq('report_type', 'dalal')
         .eq('is_published', true)
-        .eq('status', 'approved')
-        .order('published_at', { ascending: false });
+        .eq('status', 'approved');
+
+      // Apply search filters
+      if (searchText.trim()) {
+        query = query.or(`title_en.ilike.%${searchText}%,title_bn.ilike.%${searchText}%,description_en.ilike.%${searchText}%,description_bn.ilike.%${searchText}%`);
+      }
+
+      if (searchLocation.trim()) {
+        query = query.or(`location_en.ilike.%${searchLocation}%,location_bn.ilike.%${searchLocation}%`);
+      }
+
+      // Apply pagination
+      const from = (currentPage - 1) * REPORTS_PER_PAGE;
+      const to = from + REPORTS_PER_PAGE - 1;
+
+      const { data, error, count } = await query
+        .order('published_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
       setReports(data || []);
+      setTotalReports(count || 0);
     } catch (error) {
       console.error('Error fetching community reports:', error);
       toast.error(tc.submitError);
@@ -110,6 +134,31 @@ const CommunityReports = () => {
     setSelectedReportType(reportType);
     setShowSubmitModal(true);
   };
+
+  const handleSearchChange = (text) => {
+    setSearchText(text);
+    setCurrentPage(1); // Reset to page 1 when search changes
+  };
+
+  const handleLocationChange = (location) => {
+    setSearchLocation(location);
+    setCurrentPage(1); // Reset to page 1 when location changes
+  };
+
+  const handleClearFilters = () => {
+    setSearchText('');
+    setSearchLocation('');
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (pageNum) => {
+    setCurrentPage(pageNum);
+    // Scroll to top of reports section smoothly
+    window.scrollTo({ top: 400, behavior: 'smooth' });
+  };
+
+  const totalPages = Math.ceil(totalReports / REPORTS_PER_PAGE);
+  const hasFilters = searchText.trim() || searchLocation.trim();
 
   const handleReportSubmitted = () => {
     setShowSubmitModal(false);
@@ -185,12 +234,67 @@ const CommunityReports = () => {
                 {language === 'en' ? 'Recent Reports' : 'সাম্প্রতিক রিপোর্ট'}
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
-                {language === 'en' 
-                  ? `${reports.length} dalal reports exposed by citizens` 
-                  : `${reports.length}টি দালাল রিপোর্ট নাগরিকদের দ্বারা প্রকাশিত`}
+                {hasFilters 
+                  ? (language === 'en' 
+                      ? `Found ${totalReports} matching report${totalReports !== 1 ? 's' : ''}` 
+                      : `${totalReports}টি মিলানো রিপোর্ট পাওয়া গেছে`)
+                  : (language === 'en' 
+                      ? `${totalReports} dalal reports exposed by citizens` 
+                      : `${totalReports}টি দালাল রিপোর্ট নাগরিকদের দ্বারা প্রকাশিত`)
+                }
               </p>
             </div>
           </div>
+
+          {/* Search and Filter Section */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8 border border-gray-200 dark:border-gray-700"
+          >
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* Search by Incident */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  {language === 'en' ? '🔍 Search by Incident' : '🔍 ঘটনা দ্বারা অনুসন্ধান'}
+                </label>
+                <input
+                  type="text"
+                  value={searchText}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  placeholder={language === 'en' ? 'Search by title, description...' : 'শিরোনাম, বিবরণ দ্বারা অনুসন্ধান...'}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:text-white outline-none transition-all"
+                />
+              </div>
+
+              {/* Search by Location */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  {language === 'en' ? '📍 Search by Location' : '📍 অবস্থান দ্বারা অনুসন্ধান'}
+                </label>
+                <input
+                  type="text"
+                  value={searchLocation}
+                  onChange={(e) => handleLocationChange(e.target.value)}
+                  placeholder={language === 'en' ? 'e.g., Dhaka, Mirpur, Gulshan...' : 'যেমন, ঢাকা, মিরপুর, গুলশান...'}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:text-white outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Clear Filters Button */}
+            {hasFilters && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                onClick={handleClearFilters}
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-semibold transition-all"
+              >
+                <X size={18} weight="bold" />
+                {language === 'en' ? 'Clear Filters' : 'ফিল্টার মুছুন'}
+              </motion.button>
+            )}
+          </motion.div>
 
           {/* Reports Grid - Premium Design */}
           {loading ? (
@@ -210,38 +314,162 @@ const CommunityReports = () => {
               animate={{ opacity: 1, y: 0 }}
               className="text-center py-20 bg-white dark:bg-gray-800 rounded-3xl shadow-xl"
             >
-              <Users size={80} weight="duotone" className="text-gray-400 mx-auto mb-6" />
-              <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-3">
-                {language === 'en' ? 'No Reports Yet' : 'এখনও কোনো রিপোর্ট নেই'}
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
-                {language === 'en' 
-                  ? 'Be the first to report a dalal and help build a corruption-free BRTA!' 
-                  : 'প্রথম দালাল রিপোর্ট করুন এবং দুর্নীতিমুক্ত BRTA গড়তে সাহায্য করুন!'}
-              </p>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleOpenSubmitModal}
-                className="inline-flex items-center gap-2 bg-red-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
-              >
-                <Warning size={24} weight="fill" />
-                {language === 'en' ? 'Submit First Report' : 'প্রথম রিপোর্ট জমা দিন'}
-              </motion.button>
+              {hasFilters ? (
+                <>
+                  <FunnelSimple size={80} weight="duotone" className="text-gray-400 mx-auto mb-6" />
+                  <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-3">
+                    {language === 'en' ? 'No Matching Reports Found' : 'কোনো মিলানো রিপোর্ট পাওয়া যায়নি'}
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
+                    {language === 'en' 
+                      ? 'Try adjusting your search filters or clear them to see all reports.' 
+                      : 'আপনার অনুসন্ধান ফিল্টার সামঞ্জস্য করুন বা সব রিপোর্ট দেখতে মুছুন।'}
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleClearFilters}
+                    className="inline-flex items-center gap-2 bg-red-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
+                  >
+                    <X size={24} weight="bold" />
+                    {language === 'en' ? 'Clear Filters' : 'ফিল্টার মুছুন'}
+                  </motion.button>
+                </>
+              ) : (
+                <>
+                  <Users size={80} weight="duotone" className="text-gray-400 mx-auto mb-6" />
+                  <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-3">
+                    {language === 'en' ? 'No Reports Yet' : 'এখনও কোনো রিপোর্ট নেই'}
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
+                    {language === 'en' 
+                      ? 'Be the first to report a dalal and help build a corruption-free BRTA!' 
+                      : 'প্রথম দালাল রিপোর্ট করুন এবং দুর্নীতিমুক্ত BRTA গড়তে সাহায্য করুন!'}
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleOpenSubmitModal}
+                    className="inline-flex items-center gap-2 bg-red-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
+                  >
+                    <Warning size={24} weight="fill" />
+                    {language === 'en' ? 'Submit First Report' : 'প্রথম রিপোর্ট জমা দিন'}
+                  </motion.button>
+                </>
+              )}
             </motion.div>
           ) : (
-            <div className="space-y-6">
-              {reports.map((report, index) => (
-                <PremiumReportCard
-                  key={report.id}
-                  report={report}
-                  index={index}
-                  language={language}
-                  onViewDetails={handleViewDetails}
-                  formatDate={formatDate}
-                />
-              ))}
-            </div>
+            <>
+              <div className="space-y-6">
+                {reports.map((report, index) => (
+                  <PremiumReportCard
+                    key={report.id}
+                    report={report}
+                    index={index}
+                    language={language}
+                    onViewDetails={handleViewDetails}
+                    formatDate={formatDate}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-12 flex flex-col items-center gap-4"
+                >
+                  {/* Page Info */}
+                  <p className="text-gray-600 dark:text-gray-400 font-medium">
+                    {language === 'en' 
+                      ? `Showing ${(currentPage - 1) * REPORTS_PER_PAGE + 1}-${Math.min(currentPage * REPORTS_PER_PAGE, totalReports)} of ${totalReports} reports`
+                      : `${totalReports}টি রিপোর্টের মধ্যে ${(currentPage - 1) * REPORTS_PER_PAGE + 1}-${Math.min(currentPage * REPORTS_PER_PAGE, totalReports)}টি দেখানো হচ্ছে`
+                    }
+                  </p>
+
+                  {/* Pagination Buttons */}
+                  <div className="flex items-center gap-2">
+                    {/* Previous Button */}
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      disabled={currentPage === 1}
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                        currentPage === 1
+                          ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                          : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-md'
+                      }`}
+                    >
+                      <CaretLeft size={18} weight="bold" />
+                      {language === 'en' ? 'Previous' : 'পূর্ববর্তী'}
+                    </motion.button>
+
+                    {/* Page Numbers */}
+                    <div className="flex items-center gap-2">
+                      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+
+                        return (
+                          <motion.button
+                            key={pageNum}
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => handlePageChange(pageNum)}
+                            className={`w-10 h-10 rounded-lg font-bold transition-all ${
+                              currentPage === pageNum
+                                ? 'bg-red-600 text-white shadow-lg'
+                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            {pageNum}
+                          </motion.button>
+                        );
+                      })}
+                      {totalPages > 5 && currentPage < totalPages - 2 && (
+                        <>
+                          <span className="text-gray-400 px-2">...</span>
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => handlePageChange(totalPages)}
+                            className="w-10 h-10 rounded-lg font-bold bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                          >
+                            {totalPages}
+                          </motion.button>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Next Button */}
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      disabled={currentPage === totalPages}
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                        currentPage === totalPages
+                          ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                          : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-md'
+                      }`}
+                    >
+                      {language === 'en' ? 'Next' : 'পরবর্তী'}
+                      <CaretRight size={18} weight="bold" />
+                    </motion.button>
+                  </div>
+                </motion.div>
+              )}
+            </>
           )}
         </div>
       </section>

@@ -248,12 +248,57 @@ const VehicleAdderDashboard = () => {
     }
   };
 
-  const handleLogout = async () => {
-    const { error } = await signOut();
-    if (!error) {
-      toast.success(language === 'en' ? 'Logged out successfully' : 'সফলভাবে লগআউট হয়েছে');
-      navigate('/vehicle-adder-login');
-    }
+  const handleLogout = () => {
+    toast.custom((t) => (
+      <div
+        className={`${
+          t.visible ? 'animate-enter' : 'animate-leave'
+        } max-w-md w-full bg-white dark:bg-gray-800 shadow-lg rounded-2xl pointer-events-auto flex flex-col border-2 border-red-500 dark:border-red-600`}
+      >
+        <div className="p-6">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="flex-shrink-0">
+              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <SignOut size={24} weight="bold" className="text-red-600 dark:text-red-400" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                {language === 'en' ? 'Confirm Logout' : 'লগআউট নিশ্চিত করুন'}
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                {language === 'en' 
+                  ? 'Are you sure you want to logout?' 
+                  : 'আপনি কি নিশ্চিত লগআউট করতে চান?'}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                toast.dismiss(t.id);
+              }}
+              className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold transition-all"
+            >
+              {language === 'en' ? 'Cancel' : 'বাতিল'}
+            </button>
+            <button
+              onClick={async () => {
+                toast.dismiss(t.id);
+                const { error } = await signOut();
+                if (!error) {
+                  toast.success(language === 'en' ? 'Logged out successfully' : 'সফলভাবে লগআউট হয়েছে');
+                  navigate('/vehicle-adder-login');
+                }
+              }}
+              className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-all"
+            >
+              {language === 'en' ? 'Logout' : 'লগআউট'}
+            </button>
+          </div>
+        </div>
+      </div>
+    ), { duration: Infinity });
   };
 
   const filteredHolders = licenseHolders.filter(holder => 

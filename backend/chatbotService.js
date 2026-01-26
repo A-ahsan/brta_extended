@@ -1,14 +1,14 @@
 // Backend Chatbot Service with Session Management
 import { createClient } from '@supabase/supabase-js';
-import axios from 'axios';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
+const genAI = new GoogleGenerativeAI(GOOGLE_AI_API_KEY);
 
 // In-memory session storage
 const chatSessions = new Map();
@@ -356,32 +356,38 @@ export async function sendMessage(sessionId, message, language = 'en') {
   });
 
   try {
-    // Call OpenRouter API with full conversation history
-    const response = await axios.post(
-      OPENROUTER_API_URL,
-      {
-        model: 'mistralai/mistral-7b-instruct:free',
-        messages: session.chatHistory,
+    // Use Google Gemini AI
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    
+    // Convert chat history to Gemini format (exclude system message for chat)
+    const systemPrompt = session.chatHistory.find(msg => msg.role === 'system')?.content || '';
+    const chatHistory = session.chatHistory
+      .filter(msg => msg.role !== 'system')
+      .map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }]
+      }));
+
+    // Start chat with history
+    const chat = model.startChat({
+      history: chatHistory.slice(0, -1), // Exclude the last message (current user message)
+      generationConfig: {
         temperature: 0.7,
-        max_tokens: 1000
+        maxOutputTokens: 1000,
       },
-      {
-        headers: {
-          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': process.env.FRONTEND_URL || 'http://localhost:5173',
-          'X-Title': 'BRTA Extended Portal'
-        }
-      }
-    );
+    });
 
-    let assistantMessage = response.data.choices[0].message.content;
+    // Send message with system prompt prepended to first message
+    const prompt = chatHistory.length === 1 
+      ? `${systemPrompt}\n\n${contextualMessage}`
+      : contextualMessage;
+    
+    const result = await chat.sendMessage(prompt);
+    const response = await result.response;
+    let assistantMessage = response.text();
 
-    // Clean up special tokens
-    let cleanMessage = assistantMessage
-      .replace(/<s>|<\/s>|\[\/s\]|\[s\]|<\|.*?\|>/g, '')
-      .replace(/^\s*\[.*?\]\s*/g, '')
-      .trim();
+    // Clean up any artifacts
+    let cleanMessage = assistantMessage.trim();
 
     if (!cleanMessage) {
       cleanMessage = language === 'en' 
@@ -399,7 +405,10 @@ export async function sendMessage(sessionId, message, language = 'en') {
 
     return cleanMessage;
   } catch (error) {
-    console.error('OpenRouter API error:', error.response?.data || error.message);
+    console.error('Google AI API error:', error.message);
+    if (error.message?.includes('API key')) {
+      throw new Error('Invalid or missing Google AI API key');
+    }
     throw new Error('Failed to get AI response');
   }
 }

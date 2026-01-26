@@ -14,6 +14,8 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
   const [selectedLanguage, setSelectedLanguage] = useState(null);
   const [showLanguageSelect, setShowLanguageSelect] = useState(true);
   const [quickActions, setQuickActions] = useState([]);
+  const [streamingMessage, setStreamingMessage] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -98,16 +100,34 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
 
     try {
       setIsLoading(true);
+      setIsStreaming(true);
+      setStreamingMessage('');
 
       // Get AI response
       const response = await chatbotService.sendMessage(userMessage, selectedLanguage);
 
-      // Add AI response to UI
+      // Animate the response character by character
+      let currentText = '';
+      const words = response.split(' ');
+      
+      for (let i = 0; i < words.length; i++) {
+        currentText += (i === 0 ? '' : ' ') + words[i];
+        setStreamingMessage(currentText);
+        
+        // Adjust speed: faster for shorter words, slower for longer
+        const delay = words[i].length > 8 ? 40 : 25;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+
+      // Add complete AI response to messages
       const newAssistantMessage = {
         role: 'assistant',
         content: response,
         timestamp: new Date().toISOString(),
       };
+      
+      setIsStreaming(false);
+      setStreamingMessage('');
       setMessages((prev) => [...prev, newAssistantMessage]);
 
       if (onNewMessage) onNewMessage();
@@ -123,6 +143,8 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
           : 'দুঃখিত, একটি ত্রুটি হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।',
         timestamp: new Date().toISOString(),
       };
+      setIsStreaming(false);
+      setStreamingMessage('');
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -137,6 +159,8 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
   const handleQuickAction = async (actionId) => {
     try {
       setIsLoading(true);
+      setIsStreaming(true);
+      setStreamingMessage('');
 
       const response = await chatbotService.handleQuickAction(actionId, user?.id, selectedLanguage);
       
@@ -148,6 +172,16 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
         ? response 
         : JSON.stringify(response, null, 2);
 
+      // Animate the quick action response
+      let currentText = '';
+      const lines = content.split('\n');
+      
+      for (let i = 0; i < lines.length; i++) {
+        currentText += (i === 0 ? '' : '\n') + lines[i];
+        setStreamingMessage(currentText);
+        await new Promise(resolve => setTimeout(resolve, 30));
+      }
+
       // Add to chat history so AI remembers this context
       chatbotService.addAssistantMessage(content);
 
@@ -156,10 +190,15 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
         content: content,
         timestamp: new Date().toISOString(),
       };
+      
+      setIsStreaming(false);
+      setStreamingMessage('');
       setMessages((prev) => [...prev, newMessage]);
     } catch (error) {
       console.error('Failed to handle quick action:', error);
       toast.error(selectedLanguage === 'en' ? 'Failed to process action' : 'অ্যাকশন প্রক্রিয়া করতে ব্যর্থ');
+      setIsStreaming(false);
+      setStreamingMessage('');
     } finally {
       setIsLoading(false);
     }
@@ -302,7 +341,28 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
                     </motion.div>
                   ))}
 
-                  {isLoading && (
+                  {/* Streaming message */}
+                  {isStreaming && streamingMessage && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex justify-start"
+                    >
+                      <div className="flex items-start gap-2 max-w-[80%]">
+                        {/* Avatar */}
+                        <div className="w-8 h-8 bg-gradient-to-br from-primary to-green-600 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          <img src="/bot.png" alt="Bot" className="w-6 h-6 object-cover rounded-full" />
+                        </div>
+
+                        {/* Message Bubble */}
+                        <div className="px-4 py-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-white rounded-2xl rounded-tl-none shadow-md">
+                          <p className="text-sm whitespace-pre-wrap">{streamingMessage}<span className="animate-pulse">▋</span></p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {isLoading && !streamingMessage && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}

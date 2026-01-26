@@ -511,6 +511,7 @@ const PoliceDashboard = () => {
                           </div>
                         </div>
                       </div>
+                      </div>
                     ), { duration: Infinity });
                   }}
                   className="w-full flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 bg-red-50 dark:bg-red-900/20 text-danger hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl font-semibold transition-all text-sm sm:text-base"

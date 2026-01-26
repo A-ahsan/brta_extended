@@ -302,6 +302,7 @@ const VehicleAdderDashboard = () => {
           </div>
         </div>
       </div>
+      </div>
     ), { duration: Infinity });
   };
 

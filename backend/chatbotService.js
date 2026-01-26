@@ -362,11 +362,11 @@ export async function sendMessage(sessionId, message, language = 'en') {
       content: contextualMessage  // Add instructions only for current API call
     }]);
 
-    // Use OpenRouter with Mistral 7B Instruct (free, no config needed)
+    // Use OpenRouter with Google Gemini Flash 1.5 (free, reliable)
     const response = await axios.post(
       OPENROUTER_API_URL,
       {
-        model: 'mistralai/mistral-7b-instruct:free',
+        model: 'google/gemini-flash-1.5:free',
         messages: messagesForAPI,  // Send modified messages to API
         temperature: 0.7,
         max_tokens: 1000

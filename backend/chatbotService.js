@@ -359,26 +359,42 @@ export async function sendMessage(sessionId, message, language = 'en') {
     // Use Google Gemini AI
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     
-    // Convert chat history to Gemini format (exclude system message for chat)
+    // Get system prompt
     const systemPrompt = session.chatHistory.find(msg => msg.role === 'system')?.content || '';
-    const chatHistory = session.chatHistory
+    
+    // Convert chat history to Gemini format (exclude system message)
+    let chatHistory = session.chatHistory
       .filter(msg => msg.role !== 'system')
       .map(msg => ({
         role: msg.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: msg.content }]
       }));
 
+    // Remove the last message (current user message) from history
+    chatHistory = chatHistory.slice(0, -1);
+
+    // IMPORTANT: Gemini requires history to start with 'user', not 'model'
+    // If history starts with 'model' (assistant greeting), remove it
+    if (chatHistory.length > 0 && chatHistory[0].role === 'model') {
+      chatHistory = chatHistory.slice(1);
+    }
+
+    // Ensure we have user-model pairs (if odd length, remove last item)
+    if (chatHistory.length % 2 !== 0) {
+      chatHistory = chatHistory.slice(0, -1);
+    }
+
     // Start chat with history
     const chat = model.startChat({
-      history: chatHistory.slice(0, -1), // Exclude the last message (current user message)
+      history: chatHistory,
       generationConfig: {
         temperature: 0.7,
         maxOutputTokens: 1000,
       },
     });
 
-    // Send message with system prompt prepended to first message
-    const prompt = chatHistory.length === 1 
+    // Prepend system prompt to first real user message
+    const prompt = session.chatHistory.filter(m => m.role !== 'system').length <= 2
       ? `${systemPrompt}\n\n${contextualMessage}`
       : contextualMessage;
     

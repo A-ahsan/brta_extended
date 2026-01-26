@@ -1,14 +1,14 @@
 // Backend Chatbot Service with Session Management
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import axios from 'axios';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
-const genAI = new GoogleGenerativeAI(GOOGLE_AI_API_KEY);
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 // In-memory session storage
 const chatSessions = new Map();
@@ -356,51 +356,26 @@ export async function sendMessage(sessionId, message, language = 'en') {
   });
 
   try {
-    // Use Google Gemini AI
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    
-    // Get system prompt
-    const systemPrompt = session.chatHistory.find(msg => msg.role === 'system')?.content || '';
-    
-    // Convert chat history to Gemini format (exclude system message)
-    let chatHistory = session.chatHistory
-      .filter(msg => msg.role !== 'system')
-      .map(msg => ({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }]
-      }));
-
-    // Remove the last message (current user message) from history
-    chatHistory = chatHistory.slice(0, -1);
-
-    // IMPORTANT: Gemini requires history to start with 'user', not 'model'
-    // If history starts with 'model' (assistant greeting), remove it
-    if (chatHistory.length > 0 && chatHistory[0].role === 'model') {
-      chatHistory = chatHistory.slice(1);
-    }
-
-    // Ensure we have user-model pairs (if odd length, remove last item)
-    if (chatHistory.length % 2 !== 0) {
-      chatHistory = chatHistory.slice(0, -1);
-    }
-
-    // Start chat with history
-    const chat = model.startChat({
-      history: chatHistory,
-      generationConfig: {
+    // Use OpenRouter with LiquidAI LFM2.5-1.2B-Thinking (free model)
+    const response = await axios.post(
+      OPENROUTER_API_URL,
+      {
+        model: 'liquid/lfm-2.5-1.2b-thinking:free',
+        messages: session.chatHistory,
         temperature: 0.7,
-        maxOutputTokens: 1000,
+        max_tokens: 1000
       },
-    });
+      {
+        headers: {
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': process.env.FRONTEND_URL || 'http://localhost:5173',
+          'X-Title': 'BRTA Extended Portal'
+        }
+      }
+    );
 
-    // Prepend system prompt to first real user message
-    const prompt = session.chatHistory.filter(m => m.role !== 'system').length <= 2
-      ? `${systemPrompt}\n\n${contextualMessage}`
-      : contextualMessage;
-    
-    const result = await chat.sendMessage(prompt);
-    const response = await result.response;
-    let assistantMessage = response.text();
+    let assistantMessage = response.data.choices[0].message.content;
 
     // Clean up any artifacts
     let cleanMessage = assistantMessage.trim();
@@ -421,10 +396,7 @@ export async function sendMessage(sessionId, message, language = 'en') {
 
     return cleanMessage;
   } catch (error) {
-    console.error('Google AI API error:', error.message);
-    if (error.message?.includes('API key')) {
-      throw new Error('Invalid or missing Google AI API key');
-    }
+    console.error('OpenRouter API error:', error.response?.data || error.message);
     throw new Error('Failed to get AI response');
   }
 }

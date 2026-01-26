@@ -7,7 +7,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
+// Use OpenRouter with paid model (cheap and reliable)
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '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';
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 // In-memory session storage
@@ -362,12 +363,12 @@ export async function sendMessage(sessionId, message, language = 'en') {
       content: contextualMessage  // Add instructions only for current API call
     }]);
 
-    // Use OpenRouter with Google Gemini Flash 1.5 (free, reliable)
+    // Use OpenRouter with DeepSeek R1 (FREE and powerful reasoning model)
     const response = await axios.post(
       OPENROUTER_API_URL,
       {
-        model: 'google/gemini-flash-1.5:free',
-        messages: messagesForAPI,  // Send modified messages to API
+        model: 'deepseek/deepseek-r1-0528:free',
+        messages: messagesForAPI,
         temperature: 0.7,
         max_tokens: 1000
       },

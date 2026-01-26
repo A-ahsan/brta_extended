@@ -263,14 +263,17 @@ const PoliceDashboard = () => {
             >
               <List size={20} className="sm:w-6 sm:h-6" weight="bold" />
             </motion.button>
-            <div className="flex items-center gap-2 sm:gap-3">
+            <button 
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity"
+            >
               <img src="/brta.png" alt="BRTA Logo" className="h-8 w-8 sm:h-10 sm:w-10" />
               <div>
                 <h1 className="text-sm sm:text-xl font-bold text-primary dark:text-green-400">
                   <span className="hidden sm:inline">BRTA 2.0 - </span>{t.policeDashboard}
                 </h1>
               </div>
-            </div>
+            </button>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">

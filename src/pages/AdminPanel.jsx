@@ -284,13 +284,16 @@ const AdminPanel = () => {
               >
                 <List size={24} weight="bold" />
               </motion.button>
-              <div className="flex items-center gap-3">
+              <button 
+                onClick={() => navigate('/')}
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              >
                 <img src="/brta.png" alt="BRTA Logo" className="h-10 w-10" />
                 <div>
                   <h1 className="text-xl font-bold text-primary dark:text-green-400">BRTA 2.0 - {t.adminPanel}</h1>
                   <p className="text-xs text-gray-600 dark:text-gray-400">Admin Dashboard</p>
                 </div>
-              </div>
+              </button>
             </div>
 
             <div className="flex items-center gap-3">

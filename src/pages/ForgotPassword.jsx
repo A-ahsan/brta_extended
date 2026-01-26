@@ -110,13 +110,18 @@ const ForgotPassword = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
-          <div className="flex justify-center mb-4">
-            <img src="/brta.png" alt="BRTA Logo" className="h-20 w-20 bg-white rounded-2xl p-3 shadow-xl" />
-          </div>
-          <h1 className="text-3xl font-extrabold text-primary dark:text-green-400 mb-2">BRTA 2.0</h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            {language === 'en' ? 'Smart Transport Portal' : 'স্মার্ট ট্রান্সপোর্ট পোর্টাল'}
-          </p>
+          <button 
+            onClick={() => navigate('/')}
+            className="flex flex-col items-center mb-4 hover:opacity-80 transition-opacity"
+          >
+            <div className="flex justify-center mb-4">
+              <img src="/brta.png" alt="BRTA Logo" className="h-20 w-20 bg-white rounded-2xl p-3 shadow-xl" />
+            </div>
+            <h1 className="text-3xl font-extrabold text-primary dark:text-green-400 mb-2">BRTA 2.0</h1>
+            <p className="text-gray-600 dark:text-gray-300">
+              {language === 'en' ? 'Smart Transport Portal' : 'স্মার্ট ট্রান্সপোর্ট পোর্টাল'}
+            </p>
+          </button>
         </motion.div>
 
         {/* Main Card */}

@@ -281,7 +281,10 @@ const VehicleAdderDashboard = () => {
         className="fixed left-0 top-0 h-full w-72 bg-white dark:bg-gray-800 shadow-2xl z-50 flex flex-col"
       >
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3 mb-4">
+          <button 
+            onClick={() => navigate('/')}
+            className="flex items-center gap-3 mb-4 hover:opacity-80 transition-opacity w-full"
+          >
             <img src="/brta.png" alt="BRTA Logo" className="h-12 w-12" />
             <div>
               <h1 className="text-lg font-bold text-primary dark:text-green-400">BRTA 2.0</h1>
@@ -289,7 +292,7 @@ const VehicleAdderDashboard = () => {
                 {language === 'en' ? 'Vehicle Adder' : 'যানবাহন সংযোজক'}
               </p>
             </div>
-          </div>
+          </button>
         </div>
 
         <nav className="flex-1 p-4 space-y-2">

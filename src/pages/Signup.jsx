@@ -265,13 +265,16 @@ const Signup = () => {
           transition={{ duration: 0.6 }}
           className="hidden lg:block"
         >
-          <div className="flex items-center gap-3 mb-4">
+          <button 
+            onClick={() => navigate('/')}
+            className="flex items-center gap-3 mb-4 hover:opacity-80 transition-opacity"
+          >
             <img src="/brta.png" alt="BRTA Logo" className="h-16 w-16 bg-white rounded-2xl p-2 shadow-lg" />
             <div>
               <h1 className="text-3xl font-extrabold text-primary dark:text-green-400">BRTA 2.0</h1>
               <p className="text-sm text-gray-600 dark:text-gray-300">{language === 'en' ? 'Smart Transport Portal' : 'স্মার্ট ট্রান্সপোর্ট পোর্টাল'}</p>
             </div>
-          </div>
+          </button>
           
           <motion.h2
             initial={{ opacity: 0 }}

@@ -7,9 +7,13 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Use OpenRouter with paid model (cheap and reliable)
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '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';
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+// Use API.AI.CC with Gemini 2.5 Flash Lite (FASTEST and CHEAPEST)
+const AICC_API_KEY = process.env.AICC_API_KEY;
+const AICC_API_URL = 'https://api.ai.cc/v1/chat/completions';
+
+if (!AICC_API_KEY) {
+  console.error('⚠️ WARNING: AICC_API_KEY environment variable is not set!');
+}
 
 // In-memory session storage
 const chatSessions = new Map();
@@ -363,21 +367,19 @@ export async function sendMessage(sessionId, message, language = 'en') {
       content: contextualMessage  // Add instructions only for current API call
     }]);
 
-    // Use OpenRouter with DeepSeek R1 (FREE and powerful reasoning model)
+    // Use API.AI.CC with Gemini 2.5 Flash Lite (1-3 second responses!)
     const response = await axios.post(
-      OPENROUTER_API_URL,
+      AICC_API_URL,
       {
-        model: 'deepseek/deepseek-r1-0528:free',
+        model: 'gemini-2.5-flash-lite',
         messages: messagesForAPI,
         temperature: 0.7,
         max_tokens: 1000
       },
       {
         headers: {
-          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': process.env.FRONTEND_URL || 'http://localhost:5173',
-          'X-Title': 'BRTA Extended Portal'
+          'Authorization': `Bearer ${AICC_API_KEY}`,
+          'Content-Type': 'application/json'
         }
       }
     );

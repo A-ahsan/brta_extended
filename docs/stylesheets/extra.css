@@ -1,0 +1,40 @@
+/* Custom styles for BRTA 2.0 Documentation */
+
+/* Force green navbar color to match website */
+[data-md-color-scheme="default"] .md-header {
+  background-color: #0d7e3c !important;
+}
+
+[data-md-color-scheme="slate"] .md-header {
+  background-color: #0d7e3c !important;
+}
+
+/* Make logo bigger with white background */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  width: 48px !important;
+  height: 48px !important;
+  background-color: white !important;
+  border-radius: 50% !important;
+  padding: 4px !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+/* Ensure header title is white for visibility */
+.md-header__title {
+  color: white !important;
+}
+
+/* Navigation tabs color */
+.md-tabs {
+  background-color: #0d7e3c !important;
+}
+
+/* Search bar styling */
+.md-search__input {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.md-search__input::placeholder {
+  color: rgba(255, 255, 255, 0.7) !important;
+}

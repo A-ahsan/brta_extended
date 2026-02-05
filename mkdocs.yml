@@ -1,0 +1,45 @@
+site_name: BRTA 2.0 Project Documentation
+site_description: Comprehensive documentation for the BRTA 2.0 system
+site_author: BRTA 2.0 Team
+repo_url: https://github.com/your-org/your-repo
+nav:
+  - Introduction: Chapter1_Introduction.md
+  - Project Description: Chapter2_Project_Description.md
+  - Tech Stack: Chapter3_Tech_Stack.md
+  - Authentication and Security: Chapter4_Authentication_and_Security.md
+  - Version Control: Chapter5_Version_Control.md
+  - Testing: Chapter6_Testing.md
+  - Future Work: Chapter7_Future_Work.md
+  - Conclusion: Chapter8_Conclusion.md
+  - References: References.md
+theme:
+  name: material
+  logo: assets/brta.png
+  favicon: assets/brta.png
+  palette:
+    - scheme: default
+      primary: "#43a047"
+      accent: "#ffffff"
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: "#43a047"
+      accent: "#ffffff"
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.expand
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/your-org/your-repo
+extra_css:
+  - stylesheets/extra.css

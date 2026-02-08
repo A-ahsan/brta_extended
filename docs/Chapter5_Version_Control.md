@@ -4,6 +4,9 @@
 This chapter describes the version control system and collaboration practices used by the BRTA 2.0 development team to ensure code quality, traceability, and efficient teamwork.
 
 ### 5.1 Version Control System
+
+![Version Control System](assets/ver1.png)
+
 - **System Used:** Git is used for distributed version control, with all code hosted on GitHub.
 - **Repositories:** The project consists of a main code repository and a separate design repository, both linked for seamless development and UI/UX integration.
 - **Branching Strategy:**
@@ -18,6 +21,9 @@ This chapter describes the version control system and collaboration practices us
   - Major releases are tagged for easy rollback and deployment tracking.
 
 ### 5.2 Collaboration Insights
+
+![Collaboration Insights](assets/ver2.png)
+
 - **Team Structure:** Five developers contributed to the project, dividing tasks based on expertise (frontend, backend, design, integration).
 - **Design Repository:** The design repository contains UI/UX assets and prototypes, kept in sync with the main codebase for consistent user experience.
 - **Task Assignment:** Tasks are assigned and tracked using GitHub Issues and Discussions, with regular standups for progress updates.

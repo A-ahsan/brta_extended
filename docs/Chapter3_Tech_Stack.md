@@ -1,7 +1,12 @@
 # Chapter 3
+
+
+
 ## Tech Stack
 
 This chapter outlines the technologies, frameworks, and tools used to build the BRTA 2.0 system. The chosen tech stack ensures scalability, security, and a seamless user experience for all stakeholders.
+
+![Tech Stack Logos](assets/logos.jpg)
 
 ### 3.1 Frontend
 - **Framework:** React.js for building dynamic, responsive user interfaces.

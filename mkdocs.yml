@@ -1,7 +1,7 @@
 site_name: BRTA 2.0 Project Documentation
 site_description: Comprehensive documentation for the BRTA 2.0 system
 site_author: BRTA 2.0 Team
-repo_url: https://github.com/your-org/your-repo
+repo_url: https://github.com/A-ahsan/brta_extended
 nav:
   - Introduction: Chapter1_Introduction.md
   - Project Description: Chapter2_Project_Description.md
@@ -40,6 +40,6 @@ markdown_extensions:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/your-org/your-repo
+      link: https://github.com/A-ahsan/brta_extended
 extra_css:
   - stylesheets/extra.css

@@ -287,28 +287,39 @@ export async function sendMessage(sessionId, message, language = 'en') {
   });
 
   try {
-    // Build messages for API call with instructions in the current message only
-    const messagesForAPI = session.chatHistory.slice(0, -1).concat([{
+    // Build messages for API call - OPTIMIZE: Only send last 6 messages to reduce tokens
+    const recentHistory = session.chatHistory.length > 8 
+      ? [session.chatHistory[0], ...session.chatHistory.slice(-6)] // Keep system prompt + last 6 messages
+      : session.chatHistory;
+    
+    const messagesForAPI = recentHistory.slice(0, -1).concat([{
       role: 'user',
       content: contextualMessage  // Add instructions only for current API call
     }]);
 
+    console.log(`🔄 Sending ${messagesForAPI.length} messages to AI (${session.chatHistory.length} total in history)`);
+
     // Use API.AI.CC with Gemini 2.5 Flash Lite (1-3 second responses!)
+    const startTime = Date.now();
     const response = await axios.post(
       AICC_API_URL,
       {
         model: 'gemini-2.5-flash-lite',
         messages: messagesForAPI,
         temperature: 0.7,
-        max_tokens: 1000
+        max_tokens: 800  // Reduced from 1000 for faster responses
       },
       {
         headers: {
           'Authorization': `Bearer ${AICC_API_KEY}`,
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 15000  // 15 second timeout
       }
     );
+    
+    const responseTime = Date.now() - startTime;
+    console.log(`⚡ AI responded in ${responseTime}ms`);
 
     let assistantMessage = response.data.choices[0].message.content;
 
@@ -331,8 +342,30 @@ export async function sendMessage(sessionId, message, language = 'en') {
 
     return cleanMessage;
   } catch (error) {
-    console.error('OpenRouter API error:', error.response?.data || error.message);
-    throw new Error('Failed to get AI response');
+    console.error('❌ AI API error:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message,
+      code: error.code
+    });
+    
+    // Check if it's a timeout or network error
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      throw new Error('AI response timeout - API is slow. Try switching to gemini-2.0-flash-lite model.');
+    }
+    
+    // Check for API key issues
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      throw new Error('API authentication failed. Check your AICC_API_KEY.');
+    }
+    
+    // Check for rate limiting
+    if (error.response?.status === 429) {
+      throw new Error('Rate limit exceeded. Your API quota might be exhausted.');
+    }
+    
+    throw new Error(error.response?.data?.error?.message || 'Failed to get AI response');
   }
 }
 

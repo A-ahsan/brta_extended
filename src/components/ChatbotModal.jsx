@@ -223,8 +223,8 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
       
       if (!SpeechRecognition) {
         toast.error(selectedLanguage === 'en' 
-          ? 'Voice input not supported in this browser' 
-          : 'এই ব্রাউজারে ভয়েস ইনপুট সমর্থিত নয়');
+          ? 'Voice input not supported. Try Chrome browser.' 
+          : 'ভয়েস ইনপুট সমর্থিত নয়। Chrome ব্রাউজার ব্যবহার করুন।');
         return;
       }
 
@@ -232,26 +232,57 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
       recognition.lang = selectedLanguage === 'en' ? 'en-US' : 'bn-BD';
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
+      recognition.continuous = false;
 
       recognition.onstart = () => {
         setIsListening(true);
-        toast.success(selectedLanguage ===  'en' ? '🎙️ Listening...' : '🎙️ শুনছি...');
+        toast.success(selectedLanguage === 'en' ? '🎙️ Listening...' : '🎙️ শুনছি...', {
+          duration: 3000
+        });
       };
 
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         setInputMessage(transcript);
         setIsListening(false);
+        toast.success(selectedLanguage === 'en' ? '✓ Got it!' : '✓ পেয়েছি!');
       };
 
       recognition.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
+        console.error('Speech recognition error:', event.error, event);
         setIsListening(false);
-        if (event.error !== 'aborted') {
-          toast.error(selectedLanguage === 'en' 
-            ? 'Voice input failed. Please try again.' 
-            : 'ভয়েস ইনপুট ব্যর্থ। আবার চেষ্টা করুন।');
+        
+        // Don't show error for user-initiated abort or no-speech
+        if (event.error === 'aborted' || event.error === 'no-speech') {
+          return;
         }
+        
+        // Specific error messages
+        let errorMsg = '';
+        switch (event.error) {
+          case 'not-allowed':
+          case 'permission-denied':
+            errorMsg = selectedLanguage === 'en' 
+              ? 'Microphone permission denied. Please allow microphone access.' 
+              : 'মাইক্রোফোন অনুমতি অস্বীকৃত। মাইক্রোফোন অ্যাক্সেসের অনুমতি দিন।';
+            break;
+          case 'network':
+            errorMsg = selectedLanguage === 'en' 
+              ? 'Network error. Check your internet connection.' 
+              : 'নেটওয়ার্ক ত্রুটি। আপনার ইন্টারনেট সংযোগ পরীক্ষা করুন।';
+            break;
+          case 'audio-capture':
+            errorMsg = selectedLanguage === 'en' 
+              ? 'No microphone found. Please connect a microphone.' 
+              : 'মাইক্রোফোন পাওয়া যায়নি। একটি মাইক্রোফোন সংযুক্ত করুন।';
+            break;
+          default:
+            errorMsg = selectedLanguage === 'en' 
+              ? 'Voice input failed. Please try again.' 
+              : 'ভয়েস ইনপুট ব্যর্থ। আবার চেষ্টা করুন।';
+        }
+        
+        toast.error(errorMsg, { duration: 4000 });
       };
 
       recognition.onend = () => {
@@ -262,7 +293,10 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
       recognitionRef.current = recognition;
     } catch (error) {
       console.error('Failed to start voice input:', error);
-      toast.error(selectedLanguage === 'en' ? 'Voice input failed' : 'ভয়েস ইনপুট ব্যর্থ');
+      setIsListening(false);
+      toast.error(selectedLanguage === 'en' 
+        ? 'Voice input not available. Use Chrome browser.' 
+        : 'ভয়েস ইনপুট উপলব্ধ নয়। Chrome ব্রাউজার ব্যবহার করুন।');
     }
   };
 
@@ -276,15 +310,14 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
   // Voice Output - Text to Speech
   const speakMessage = (text, messageIndex) => {
     try {
-      // Stop any ongoing speech
-      window.speechSynthesis.cancel();
-
       // If already speaking this message, stop it
       if (isSpeaking && speakingMessageIndex === messageIndex) {
-        setIsSpeaking(false);
-        setSpeakingMessageIndex(null);
+        stopSpeaking();
         return;
       }
+
+      // Stop any ongoing speech first
+      window.speechSynthesis.cancel();
 
       // Check browser support
       if (!window.speechSynthesis) {
@@ -296,7 +329,7 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = selectedLanguage === 'en' ? 'en-US' : 'bn-BD';
-      utterance.rate = 1.0;
+      utterance.rate = 0.95;
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
 
@@ -309,8 +342,8 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
       if (langVoice) {
         utterance.voice = langVoice;
       } else if (selectedLanguage === 'bn') {
-        // Fallback warning for Bangla
-        console.warn('Bangla voice not available, using default');
+        // Fallback warning for Bangla - only in console, no toast
+        console.warn('⚠️ Bangla voice not available on this device, using default voice');
       }
 
       utterance.onstart = () => {
@@ -327,14 +360,23 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
         console.error('Speech synthesis error:', event);
         setIsSpeaking(false);
         setSpeakingMessageIndex(null);
+        
+        // Don't show error for interrupted/cancelled speech (user clicked stop)
+        if (event.error === 'interrupted' || event.error === 'canceled' || event.error === 'cancelled') {
+          return;
+        }
+        
+        // Only show error for real failures
         toast.error(selectedLanguage === 'en' 
           ? 'Failed to play audio' 
-          : 'অডিও চালাতে ব্যর্থ');
+          : 'অডিও চালাতে ব্যর্থ', { duration: 2000 });
       };
 
       window.speechSynthesis.speak(utterance);
     } catch (error) {
       console.error('Failed to speak message:', error);
+      setIsSpeaking(false);
+      setSpeakingMessageIndex(null);
       toast.error(selectedLanguage === 'en' ? 'Failed to play audio' : 'অডিও চালাতে ব্যর্থ');
     }
   };

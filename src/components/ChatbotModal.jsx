@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, PaperPlaneRight, Robot, Sparkle, User as UserIcon } from 'phosphor-react';
+import { X, PaperPlaneRight, Robot, Sparkle, User as UserIcon, Microphone, SpeakerHigh, Stop } from 'phosphor-react';
 import { useLanguage } from '../contexts/AppContext';
 import { chatbotService } from '../services/chatbotService';
 import toast from 'react-hot-toast';
@@ -16,8 +16,12 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
   const [quickActions, setQuickActions] = useState([]);
   const [streamingMessage, setStreamingMessage] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speakingMessageIndex, setSpeakingMessageIndex] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   const isEnglish = language === 'en';
 
@@ -212,6 +216,144 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
     }
   };
 
+  // Voice Input - Speech to Text
+  const startListening = () => {
+    try {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
+      if (!SpeechRecognition) {
+        toast.error(selectedLanguage === 'en' 
+          ? 'Voice input not supported in this browser' 
+          : 'এই ব্রাউজারে ভয়েস ইনপুট সমর্থিত নয়');
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = selectedLanguage === 'en' ? 'en-US' : 'bn-BD';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        toast.success(selectedLanguage ===  'en' ? '🎙️ Listening...' : '🎙️ শুনছি...');
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setInputMessage(transcript);
+        setIsListening(false);
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+        if (event.error !== 'aborted') {
+          toast.error(selectedLanguage === 'en' 
+            ? 'Voice input failed. Please try again.' 
+            : 'ভয়েস ইনপুট ব্যর্থ। আবার চেষ্টা করুন।');
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.start();
+      recognitionRef.current = recognition;
+    } catch (error) {
+      console.error('Failed to start voice input:', error);
+      toast.error(selectedLanguage === 'en' ? 'Voice input failed' : 'ভয়েস ইনপুট ব্যর্থ');
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+  };
+
+  // Voice Output - Text to Speech
+  const speakMessage = (text, messageIndex) => {
+    try {
+      // Stop any ongoing speech
+      window.speechSynthesis.cancel();
+
+      // If already speaking this message, stop it
+      if (isSpeaking && speakingMessageIndex === messageIndex) {
+        setIsSpeaking(false);
+        setSpeakingMessageIndex(null);
+        return;
+      }
+
+      // Check browser support
+      if (!window.speechSynthesis) {
+        toast.error(selectedLanguage === 'en' 
+          ? 'Text-to-speech not supported in this browser' 
+          : 'টেক্সট-টু-স্পিচ এই ব্রাউজারে সমর্থিত নয়');
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = selectedLanguage === 'en' ? 'en-US' : 'bn-BD';
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+
+      // Get available voices
+      const voices = window.speechSynthesis.getVoices();
+      const langVoice = voices.find(voice => 
+        voice.lang.startsWith(selectedLanguage === 'en' ? 'en' : 'bn')
+      );
+      
+      if (langVoice) {
+        utterance.voice = langVoice;
+      } else if (selectedLanguage === 'bn') {
+        // Fallback warning for Bangla
+        console.warn('Bangla voice not available, using default');
+      }
+
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        setSpeakingMessageIndex(messageIndex);
+      };
+
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        setSpeakingMessageIndex(null);
+      };
+
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
+        setIsSpeaking(false);
+        setSpeakingMessageIndex(null);
+        toast.error(selectedLanguage === 'en' 
+          ? 'Failed to play audio' 
+          : 'অডিও চালাতে ব্যর্থ');
+      };
+
+      window.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.error('Failed to speak message:', error);
+      toast.error(selectedLanguage === 'en' ? 'Failed to play audio' : 'অডিও চালাতে ব্যর্থ');
+    }
+  };
+
+  // Stop speaking
+  const stopSpeaking = () => {
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+    setSpeakingMessageIndex(null);
+  };
+
+  // Cleanup speech on unmount
+  useEffect(() => {
+    return () => {
+      window.speechSynthesis?.cancel();
+      recognitionRef.current?.stop();
+    };
+  }, []);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -335,7 +477,34 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
                               : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white rounded-tl-none shadow-md'
                           }`}
                         >
-                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm whitespace-pre-wrap flex-1">{message.content}</p>
+                            
+                            {/* Voice playback button for assistant messages */}
+                            {message.role === 'assistant' && (
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => isSpeaking && speakingMessageIndex === index 
+                                  ? stopSpeaking() 
+                                  : speakMessage(message.content, index)}
+                                className={`flex-shrink-0 p-1.5 rounded-lg transition-colors ${
+                                  isSpeaking && speakingMessageIndex === index
+                                    ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                }`}
+                                title={selectedLanguage === 'en' 
+                                  ? (isSpeaking && speakingMessageIndex === index ? 'Stop' : 'Play audio') 
+                                  : (isSpeaking && speakingMessageIndex === index ? 'বন্ধ করুন' : 'অডিও চালান')}
+                              >
+                                {isSpeaking && speakingMessageIndex === index ? (
+                                  <Stop size={14} weight="fill" />
+                                ) : (
+                                  <SpeakerHigh size={14} weight="fill" />
+                                )}
+                              </motion.button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </motion.div>
@@ -435,14 +604,34 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
                           ? 'Type your message...'
                           : 'আপনার বার্তা টাইপ করুন...'
                       }
-                      disabled={isLoading}
+                      disabled={isLoading || isListening}
                       className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all disabled:opacity-50"
                     />
+                    
+                    {/* Voice Input Button */}
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={isListening ? stopListening : startListening}
+                      disabled={isLoading}
+                      className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                        isListening
+                          ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                      }`}
+                      title={selectedLanguage === 'en' 
+                        ? (isListening ? 'Stop listening' : 'Voice input') 
+                        : (isListening ? 'শোনা বন্ধ করুন' : 'ভয়েস ইনপুট')}
+                    >
+                      <Microphone size={20} weight={isListening ? 'fill' : 'bold'} />
+                    </motion.button>
+                    
+                    {/* Send Button */}
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={handleSendMessage}
-                      disabled={isLoading || !inputMessage.trim()}
+                      disabled={isLoading || !inputMessage.trim() || isListening}
                       className="w-12 h-12 bg-gradient-to-r from-primary to-green-600 text-white rounded-xl flex items-center justify-center hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <PaperPlaneRight size={20} weight="bold" />

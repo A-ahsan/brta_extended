@@ -87,12 +87,11 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
     }
   };
 
-  // Handle sending message
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return;
+  // Handle sending message (extracted for reuse)
+  const handleMessageSend = async (messageText) => {
+    if (!messageText.trim()) return;
 
-    const userMessage = inputMessage.trim();
-    setInputMessage('');
+    const userMessage = messageText.trim();
 
     // Add user message to UI
     const newUserMessage = {
@@ -157,6 +156,16 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
         inputRef.current?.focus();
       }, 100);
     }
+  };
+
+  // Handle sending message from input
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || isLoading) return;
+
+    const messageText = inputMessage.trim();
+    setInputMessage('');
+    
+    await handleMessageSend(messageText);
   };
 
   // Handle quick action click
@@ -243,9 +252,10 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
 
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
-        setInputMessage(transcript);
         setIsListening(false);
-        toast.success(selectedLanguage === 'en' ? '✓ Got it!' : '✓ পেয়েছি!');
+        
+        // Auto-send the message immediately
+        handleMessageSend(transcript);
       };
 
       recognition.onerror = (event) => {
@@ -317,7 +327,9 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
       }
 
       // Stop any ongoing speech first
-      window.speechSynthesis.cancel();
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+      }
 
       // Check browser support
       if (!window.speechSynthesis) {
@@ -327,74 +339,123 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
         return;
       }
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = selectedLanguage === 'en' ? 'en-US' : 'bn-BD';
-      utterance.rate = 0.95;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-
-      // Get available voices
-      const voices = window.speechSynthesis.getVoices();
-      const langVoice = voices.find(voice => 
-        voice.lang.startsWith(selectedLanguage === 'en' ? 'en' : 'bn')
-      );
+      // Wait for voices to be loaded
+      let voices = window.speechSynthesis.getVoices();
       
-      if (langVoice) {
-        utterance.voice = langVoice;
-      } else if (selectedLanguage === 'bn') {
-        // Fallback warning for Bangla - only in console, no toast
-        console.warn('⚠️ Bangla voice not available on this device, using default voice');
-      }
-
-      utterance.onstart = () => {
-        setIsSpeaking(true);
-        setSpeakingMessageIndex(messageIndex);
-      };
-
-      utterance.onend = () => {
-        setIsSpeaking(false);
-        setSpeakingMessageIndex(null);
-      };
-
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        setIsSpeaking(false);
-        setSpeakingMessageIndex(null);
+      const speak = () => {
+        const utterance = new SpeechSynthesisUtterance(text);
         
-        // Don't show error for interrupted/cancelled speech (user clicked stop)
-        if (event.error === 'interrupted' || event.error === 'canceled' || event.error === 'cancelled') {
-          return;
+        // Set language
+        if (selectedLanguage === 'en') {
+          utterance.lang = 'en-US';
+        } else {
+          // Try Bangla, fallback to Hindi (similar phonetics), then default
+          utterance.lang = 'bn-BD';
         }
         
-        // Only show error for real failures
-        toast.error(selectedLanguage === 'en' 
-          ? 'Failed to play audio' 
-          : 'অডিও চালাতে ব্যর্থ', { duration: 2000 });
+        utterance.rate = 0.9;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+
+        // Find best voice for the language
+        voices = window.speechSynthesis.getVoices();
+        
+        if (selectedLanguage === 'en') {
+          // For English - prefer female voice
+          const enVoice = voices.find(v => v.lang.startsWith('en') && v.name.includes('Female')) 
+                       || voices.find(v => v.lang.startsWith('en'));
+          if (enVoice) utterance.voice = enVoice;
+        } else {
+          // For Bangla - try multiple fallbacks
+          const bnVoice = voices.find(v => v.lang.startsWith('bn'))
+                       || voices.find(v => v.lang.startsWith('hi')) // Hindi as fallback
+                       || voices.find(v => v.lang.includes('Bengali'))
+                       || voices.find(v => v.name.includes('Bengali'));
+          
+          if (bnVoice) {
+            utterance.voice = bnVoice;
+            console.log('🔊 Using voice:', bnVoice.name, bnVoice.lang);
+          } else {
+            console.warn('⚠️ No Bangla/Hindi voice found. Available voices:', voices.map(v => `${v.name} (${v.lang})`));
+            // Will use system default
+          }
+        }
+
+        utterance.onstart = () => {
+          setIsSpeaking(true);
+          setSpeakingMessageIndex(messageIndex);
+        };
+
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          setSpeakingMessageIndex(null);
+        };
+
+        utterance.onerror = (event) => {
+          console.error('Speech synthesis error:', event);
+          setIsSpeaking(false);
+          setSpeakingMessageIndex(null);
+          
+          // Silently handle interruption/cancellation (user clicked stop)
+          if (event.error === 'interrupted' || event.error === 'canceled' || event.error === 'cancelled') {
+            // Don't show any error - this is expected when user stops audio
+            return;
+          }
+          
+          // Only show error for unexpected failures
+          if (event.error !== 'synthesis-unavailable') {
+            toast.error(selectedLanguage === 'en' 
+              ? 'Audio playback failed' 
+              : 'অডিও বাজাতে ব্যর্থ', { duration: 2000 });
+          }
+        };
+
+        window.speechSynthesis.speak(utterance);
       };
 
-      window.speechSynthesis.speak(utterance);
+      // If voices not loaded yet, wait for them
+      if (voices.length === 0) {
+        window.speechSynthesis.onvoiceschanged = () => {
+          speak();
+        };
+      } else {
+        speak();
+      }
     } catch (error) {
       console.error('Failed to speak message:', error);
       setIsSpeaking(false);
       setSpeakingMessageIndex(null);
-      toast.error(selectedLanguage === 'en' ? 'Failed to play audio' : 'অডিও চালাতে ব্যর্থ');
     }
   };
 
   // Stop speaking
   const stopSpeaking = () => {
-    window.speechSynthesis.cancel();
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
     setIsSpeaking(false);
     setSpeakingMessageIndex(null);
   };
 
-  // Cleanup speech on unmount
+  // Cleanup speech on unmount or close
   useEffect(() => {
     return () => {
-      window.speechSynthesis?.cancel();
-      recognitionRef.current?.stop();
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
     };
   }, []);
+  
+  // Stop speech when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      stopSpeaking();
+      stopListening();
+    }
+  }, [isOpen]);
 
   return (
     <AnimatePresence>

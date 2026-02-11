@@ -186,13 +186,13 @@ export default function PoliceNotifications() {
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
           <button
             onClick={() => navigate('/police-dashboard')}
-            className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-green-400 transition-colors mb-4"
+            className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary transition-colors mb-4"
           >
             <CaretLeft size={20} weight="bold" />
             <span>{isEnglish ? 'Back to Police Dashboard' : 'পুলিশ ড্যাশবোর্ডে ফিরুন'}</span>
@@ -201,7 +201,7 @@ export default function PoliceNotifications() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                <Bell size={32} weight="duotone" className="text-cyan-600" />
+                <Bell size={32} weight="duotone" className="text-primary" />
                 {isEnglish ? 'Police Notifications' : 'পুলিশ বিজ্ঞপ্তি'}
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
@@ -217,7 +217,7 @@ export default function PoliceNotifications() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={markAllAsRead}
-                className="flex items-center gap-2 px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold rounded-lg shadow-md transition-colors"
+                className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg shadow-md transition-colors"
               >
                 <Checks size={20} weight="bold" />
                 {isEnglish ? 'Mark All as Read' : 'সব পঠিত চিহ্নিত করুন'}
@@ -261,7 +261,7 @@ export default function PoliceNotifications() {
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-600"
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary"
               >
                 <option value="all">{isEnglish ? 'All Types' : 'সব ধরন'}</option>
                 <option value="application">{isEnglish ? 'Application' : 'আবেদন'}</option>
@@ -276,7 +276,7 @@ export default function PoliceNotifications() {
         {/* Notifications List */}
         {loading ? (
           <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
         ) : filteredNotifications.length === 0 ? (
           <motion.div

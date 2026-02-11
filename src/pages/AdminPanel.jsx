@@ -333,7 +333,7 @@ const AdminPanel = () => {
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Bell size={20} className="text-primary dark:text-blue-400" />
+                    <Bell size={20} className="text-primary dark:text-green-400" />
                     <span className="font-bold text-lg text-gray-800 dark:text-white">
                       {language === 'en' ? 'Admin Notifications' : 'অ্যাডমিন বিজ্ঞপ্তি'}
                     </span>
@@ -354,7 +354,7 @@ const AdminPanel = () => {
                       navigate('/admin/notifications');
                       setShowNotifications(false);
                     }}
-                    className="flex-1 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary dark:text-blue-400 font-semibold rounded-lg transition-colors text-sm"
+                    className="flex-1 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary dark:text-green-400 font-semibold rounded-lg transition-colors text-sm"
                   >
                     {language === 'en' ? 'See All' : 'সব দেখুন'}
                   </button>
@@ -386,7 +386,7 @@ const AdminPanel = () => {
                       className={`relative rounded-lg px-3 py-3 shadow-sm text-gray-800 dark:text-gray-200 text-sm transition-all group ${
                         note.is_read 
                           ? 'bg-gray-100 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 opacity-75'
-                          : 'bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/20'
+                          : 'bg-primary/5 dark:bg-primary/10 border border-primary/10 dark:border-primary/20 hover:bg-primary/10 dark:hover:bg-primary/20'
                       }`}
                     >
                       <div className="flex items-start gap-2">
@@ -395,7 +395,7 @@ const AdminPanel = () => {
                           navigate('/admin/applications');
                           setShowNotifications(false);
                         }}>
-                          <div className="font-semibold text-primary dark:text-blue-400 mb-1 flex items-center gap-2">
+                          <div className="font-semibold text-primary dark:text-green-400 mb-1 flex items-center gap-2">
                             {language === 'en' ? note.title_en : note.title_bn}
                             {!note.is_read && (
                               <span className="w-2 h-2 bg-primary rounded-full animate-pulse"></span>

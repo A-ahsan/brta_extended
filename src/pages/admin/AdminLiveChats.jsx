@@ -102,7 +102,7 @@ export default function AdminLiveChats({ user }) {
           .upsert({
             admin_id: user.id,
             is_available: true,
-            last_seen_at: new Date().toISOString(),
+            last_seen: new Date().toISOString(),
             current_active_chats: 0,
             max_concurrent_chats: 5
           });
@@ -122,7 +122,7 @@ export default function AdminLiveChats({ user }) {
       supabase
         .from('admin_presence')
         .update({ 
-          last_seen_at: new Date().toISOString() 
+          last_seen: new Date().toISOString() 
         })
         .eq('admin_id', user.id)
         .then();
@@ -135,7 +135,7 @@ export default function AdminLiveChats({ user }) {
         .from('admin_presence')
         .update({ 
           is_available: false,
-          last_seen_at: new Date().toISOString()
+          last_seen: new Date().toISOString()
         })
         .eq('admin_id', user.id)
         .then();
@@ -239,10 +239,10 @@ export default function AdminLiveChats({ user }) {
       // Mark messages as read
       await supabase
         .from('chat_messages')
-        .update({ read_at: new Date().toISOString() })
+        .update({ is_read: true })
         .eq('session_id', selectedChat.id)
         .eq('sender_type', 'user')
-        .is('read_at', null);
+        .eq('is_read', false);
     }
   };
 
@@ -293,24 +293,21 @@ export default function AdminLiveChats({ user }) {
   // Accept chat
   const handleAcceptChat = async (chat) => {
     try {
-      // Get admin profile
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, email')
-        .eq('id', user.id)
-        .single();
-
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('chat_sessions')
         .update({
           admin_id: user.id,
-          admin_name: profile?.full_name || profile?.email || 'Admin',
           status: 'active',
-          accepted_at: new Date().toISOString()
+          assigned_at: new Date().toISOString()
         })
-        .eq('id', chat.id);
+        .eq('id', chat.id)
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Accept error:', error);
+        throw error;
+      }
 
       // Send system message
       await supabase
@@ -319,12 +316,14 @@ export default function AdminLiveChats({ user }) {
           session_id: chat.id,
           sender_type: 'system',
           sender_id: user.id,
-          message: chat.preferred_language === 'bn' 
+          sender_name: 'System',
+          message_text: chat.language === 'bn' 
             ? '✅ প্রশাসক চ্যাটে যোগদান করেছেন'
             : '✅ Admin joined the chat'
         });
 
       setSelectedChat({ ...chat, admin_id: user.id, status: 'active' });
+      await loadChats();
       setActiveTab('active');
       toast.success(isEnglish ? 'Chat accepted' : 'চ্যাট গৃহীত হয়েছে');
       
@@ -332,7 +331,7 @@ export default function AdminLiveChats({ user }) {
       playNotificationSound();
     } catch (error) {
       console.error('Error accepting chat:', error);
-      toast.error(isEnglish ? 'Failed to accept chat' : 'চ্যাট গ্রহণ করতে ব্যর্থ');
+      toast.error(isEnglish ? 'Failed to accept chat. Please run RLS policies in Supabase.' : 'চ্যাট গ্রহণ করতে ব্যর্থ');
     }
   };
 
@@ -352,7 +351,8 @@ export default function AdminLiveChats({ user }) {
           session_id: selectedChat.id,
           sender_type: 'admin',
           sender_id: user.id,
-          message: messageText
+          sender_name: user.email || 'Admin',
+          message_text: messageText
         });
 
       if (error) throw error;
@@ -594,19 +594,16 @@ export default function AdminLiveChats({ user }) {
                               : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-bl-none'
                           }`}
                         >
-                          {message.attachments && message.attachments.length > 0 && (
-                            <div className="mb-2 space-y-2">
-                              {message.attachments.map((url, idx) => (
-                                <img
-                                  key={idx}
-                                  src={url}
-                                  alt="Attachment"
-                                  className="rounded-lg max-w-full h-auto"
-                                />
-                              ))}
+                          {message.attachment_url && (
+                            <div className="mb-2">
+                              <img
+                                src={message.attachment_url}
+                                alt="Attachment"
+                                className="rounded-lg max-w-full h-auto"
+                              />
                             </div>
                           )}
-                          <p className="whitespace-pre-wrap break-words">{message.message}</p>
+                          <p className="whitespace-pre-wrap break-words">{message.message_text}</p>
                           <p
                             className={`text-xs mt-1 ${
                               isAdmin ? 'text-white/70' : 'text-gray-500'

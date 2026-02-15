@@ -84,8 +84,8 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
       setSessionId(session.id);
       setChatStatus(session.status);
 
-      // Load existing messages first
-      await loadMessages(session.id);
+      // Setup real-time subscriptions FIRST
+      setupRealtimeSubscriptions(session.id);
 
       // Send initial system message (only visible to user, not admin)
       const systemMessage = isEnglish
@@ -94,8 +94,8 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
       
       await sendSystemMessage(session.id, systemMessage);
 
-      // Setup real-time subscriptions
-      setupRealtimeSubscriptions(session.id);
+      // Load existing messages after sending system message
+      await loadMessages(session.id);
 
       // Check if admin assigned immediately (set flag to prevent false toast)
       if (session.admin_id) {

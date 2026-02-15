@@ -138,12 +138,17 @@ CREATE TRIGGER update_quick_replies_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Function: Auto-assign chat to available admin
+-- Function: Auto-assign chat to available admin (DISABLED - Manual assignment preferred)
+-- Uncomment below code if you want auto-assignment
 CREATE OR REPLACE FUNCTION auto_assign_chat()
 RETURNS TRIGGER AS $$
 DECLARE
     available_admin UUID;
 BEGIN
+    -- Disabled: Keep chats in pending for manual admin acceptance
+    -- This ensures admins get notifications and can choose to accept
+    
+    /*
     -- Only for live_chat sessions that are pending
     IF NEW.session_type = 'live_chat' AND NEW.status = 'pending' THEN
         -- Find first available admin with least active chats
@@ -167,6 +172,7 @@ BEGIN
             WHERE admin_id = available_admin;
         END IF;
     END IF;
+    */
     
     RETURN NEW;
 END;

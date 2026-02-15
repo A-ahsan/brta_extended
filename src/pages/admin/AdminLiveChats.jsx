@@ -77,7 +77,23 @@ export default function AdminLiveChats({ user }) {
     const subscription = supabase
       .channel('admin-chats')
       .on('postgres_changes', { 
-        event: '*', 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'chat_sessions',
+        filter: 'session_type=eq.live_chat'
+      }, (payload) => {
+        loadChats();
+        // Play notification sound and show toast for new pending chat
+        if (payload.new.status === 'pending') {
+          playNotificationSound();
+          toast.success(
+            isEnglish ? '🔔 New chat request!' : '🔔 নতুন চ্যাট অনুরোধ!',
+            { duration: 4000 }
+          );
+        }
+      })
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
         schema: 'public', 
         table: 'chat_sessions' 
       }, loadChats)
@@ -86,7 +102,7 @@ export default function AdminLiveChats({ user }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [activeTab]);
+  }, [activeTab, isEnglish]);
 
   // Load quick replies
   useEffect(() => {
@@ -177,7 +193,8 @@ export default function AdminLiveChats({ user }) {
       .order('created_at', { ascending: false });
 
     if (activeTab === 'pending') {
-      query = query.eq('status', 'pending').is('admin_id', null);
+      query = query.eq('status', 'pending');
+      // Pending chats don't have admin_id assigned yet
     } else if (activeTab === 'active') {
       query = query.eq('status', 'active').eq('admin_id', user.id);
     } else if (activeTab === 'closed') {

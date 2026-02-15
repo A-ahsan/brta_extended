@@ -80,17 +80,24 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
       setSessionId(session.id);
       setChatStatus(session.status);
 
-      // Send initial system message only if pending
-      if (session.status === 'pending') {
-        const systemMessage = isEnglish
-          ? 'Your chat request has been received. An admin will join shortly...'
-          : 'আপনার চ্যাট অনুরোধ গৃহীত হয়েছে। একজন প্রশাসক শীঘ্রই যোগ দিবেন...';
-        
-        await sendSystemMessage(session.id, systemMessage);
-      }
-
-      // Load existing messages
+      // Load existing messages first
       await loadMessages(session.id);
+
+      // Send initial system message only if pending and no messages yet
+      if (session.status === 'pending') {
+        const { count } = await supabase
+          .from('chat_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('session_id', session.id);
+
+        if (count === 0) {
+          const systemMessage = isEnglish
+            ? 'Your chat request has been received. An admin will join shortly...'
+            : 'আপনার চ্যাট অনুরোধ গৃহীত হয়েছে। একজন প্রশাসক শীঘ্রই যোগ দিবেন...';
+          
+          await sendSystemMessage(session.id, systemMessage);
+        }
+      }
 
       // Setup real-time subscriptions
       setupRealtimeSubscriptions(session.id);

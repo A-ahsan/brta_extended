@@ -463,7 +463,7 @@ export default function AdminLiveChats({ user }) {
       .from('chat_sessions')
       .update({
         status: 'closed',
-        closed_at: new Date().toISOString()
+        ended_at: new Date().toISOString()
       })
       .eq('id', selectedChat.id);
 
@@ -472,6 +472,9 @@ export default function AdminLiveChats({ user }) {
       setMessages([]);
       toast.success(isEnglish ? 'Chat closed' : 'চ্যাট বন্ধ হয়েছে');
       loadChats();
+    } else {
+      console.error('Close chat error:', error);
+      toast.error(isEnglish ? 'Failed to close chat' : 'চ্যাট বন্ধ করতে ব্যর্থ');
     }
   };
 

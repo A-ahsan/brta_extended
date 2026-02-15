@@ -37,7 +37,9 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
     scrollToBottom();
   }, [messages]);
 
-  // Focus input after initialization && !showChatTypeSelect) {
+  // Focus input after initialization
+  useEffect(() => {
+    if (isInitialized && !showLanguageSelect && !showChatTypeSelect) {
       setTimeout(() => {
         inputRef.current?.focus();
       }, 300);
@@ -67,9 +69,8 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
   // Initialize chatbot when AI chat selected
   const initializeChatbot = async (lang) => {
     try {
-      setIsLoading(tru
-      setSelectedLanguage(lang);
-      setShowLanguageSelect(false);
+      setIsLoading(true);
+
 
       // Prepare user context
       const userContext = {
@@ -526,7 +527,27 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
                 <X size={24} weight="bold" />
               </button>
             </div>
-handleLanguageSelect('en')}
+
+            {/* Language Selection */}
+            {showLanguageSelect && (
+              <div className="flex-1 flex items-center justify-center p-6">
+                <div className="text-center">
+                  <div className="w-20 h-20 bg-gradient-to-br from-primary to-green-600 rounded-full flex items-center justify-center mx-auto mb-6 overflow-hidden">
+                    <img src="/bot.png" alt="Bot" className="w-16 h-16 object-cover rounded-full" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+                    {isEnglish ? 'Welcome!' : 'স্বাগতম!'}
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-8">
+                    {isEnglish
+                      ? 'Choose your preferred language to get started'
+                      : 'শুরু করতে আপনার পছন্দের ভাষা নির্বাচন করুন'}
+                  </p>
+                  <div className="flex gap-4 justify-center">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleLanguageSelect('en')}
                       className="px-8 py-4 bg-gradient-to-r from-primary to-green-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
                     >
                       English
@@ -553,31 +574,11 @@ handleLanguageSelect('en')}
                   setShowChatTypeSelect(false);
                   setShowLanguageSelect(true);
                 }}
-              //p>
-                  <div className="flex gap-4 justify-center">
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => initializeChatbot('en')}
-                      className="px-8 py-4 bg-gradient-to-r from-primary to-green-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
-                    >
-                      English
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => initializeChatbot('bn')}
-                      className="px-8 py-4 bg-gradient-to-r from-primary to-green-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
-                    >
-                      বাংলা
-                    </motion.button>
-                  </div>
-                </div>
-              </div>
+              />
             )}
 
             {/* Messages Area */}
-            {!showLanguageSelect && (
+            {!showLanguageSelect && !showChatTypeSelect && (
               <>
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900">
                   {messages.map((message, index) => (

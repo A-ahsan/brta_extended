@@ -63,15 +63,18 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
         .insert({
           user_id: user.id,
           session_type: 'live_chat',
-          language: language,
+          language: language || 'en',
           status: 'pending',
-          user_name: userProfile?.full_name || userProfile?.full_name_en || 'User',
-          user_email: user?.email,
+          user_name: userProfile?.full_name || userProfile?.full_name_en || user?.email?.split('@')[0] || 'User',
+          user_email: user?.email || '',
         })
         .select()
         .single();
 
-      if (sessionError) throw sessionError;
+      if (sessionError) {
+        console.error('Session creation error:', sessionError);
+        throw sessionError;
+      }
 
       setSessionId(session.id);
       setChatStatus(session.status);
@@ -431,7 +434,7 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
             className="fixed bottom-8 right-8 w-[450px] h-[650px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl z-[70] flex flex-col overflow-hidden"
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-4 flex items-center justify-between">
+            <div className="bg-gradient-to-r from-primary to-green-600 p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center overflow-hidden">
@@ -479,7 +482,7 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
                 >
                   {message.sender_type === 'system' ? (
                     // System message
-                    <div className="px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-xl text-xs text-center max-w-[80%]">
+                    <div className="px-4 py-2 bg-primary/10 dark:bg-primary/20 text-primary dark:text-green-300 rounded-xl text-xs text-center max-w-[80%]">
                       {message.message_text}
                     </div>
                   ) : (
@@ -494,7 +497,7 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
                         className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                           message.sender_type === 'user'
                             ? 'bg-primary text-white'
-                            : 'bg-purple-600 text-white'
+                            : 'bg-green-600 text-white'
                         }`}
                       >
                         {message.sender_name?.charAt(0).toUpperCase() || 'U'}
@@ -606,7 +609,7 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
                     whileTap={{ scale: 0.95 }}
                     onClick={sendMessage}
                     disabled={isLoading || !inputMessage.trim() || chatStatus === 'pending'}
-                    className="px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl flex items-center justify-center hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-3 bg-gradient-to-r from-primary to-green-600 text-white rounded-xl flex items-center justify-center hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <PaperPlaneRight size={20} weight="bold" />
                   </motion.button>

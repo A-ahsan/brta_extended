@@ -80,16 +80,14 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
       setSessionId(session.id);
       setChatStatus(session.status);
 
-      // Send system message
-      const systemMessage = isEnglish
-        ? session.status === 'pending'
+      // Send initial system message only if pending
+      if (session.status === 'pending') {
+        const systemMessage = isEnglish
           ? 'Your chat request has been received. An admin will join shortly...'
-          : 'Admin has joined the chat!'
-        : session.status === 'pending'
-        ? 'আপনার চ্যাট অনুরোধ গৃহীত হয়েছে। একজন প্রশাসক শীঘ্রই যোগ দিবেন...'
-        : 'প্রশাসক চ্যাটে যোগ দিয়েছেন!';
-
-      await sendSystemMessage(session.id, systemMessage);
+          : 'আপনার চ্যাট অনুরোধ গৃহীত হয়েছে। একজন প্রশাসক শীঘ্রই যোগ দিবেন...';
+        
+        await sendSystemMessage(session.id, systemMessage);
+      }
 
       // Load existing messages
       await loadMessages(session.id);
@@ -173,8 +171,9 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
         (payload) => {
           const updatedSession = payload.new;
           
-          // Admin joined
-          if (updatedSession.admin_id && !adminInfo) {
+          // Admin joined (only notify once)
+          if (updatedSession.admin_id && !adminJoinNotified) {
+            setAdminJoinNotified(true);
             fetchAdminInfo(updatedSession.admin_id);
             toast.success(
               isEnglish ? 'Admin joined the chat!' : 'প্রশাসক চ্যাটে যোগ দিয়েছেন!'

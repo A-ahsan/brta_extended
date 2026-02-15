@@ -25,6 +25,9 @@ export default function AdminLiveChats({ user }) {
   
   const [activeTab, setActiveTab] = useState('pending');
   const [chats, setChats] = useState([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [activeCount, setActiveCount] = useState(0);
+  const [closedCount, setClosedCount] = useState(0);
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -143,13 +146,23 @@ export default function AdminLiveChats({ user }) {
   }, [user?.id]);
 
   const loadQuickReplies = async () => {
-    const { data, error } = await supabase
-      .from('quick_replies')
-      .select('*')
-      .order('created_at', { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from('quick_replies')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: true });
 
-    if (!error && data) {
-      setQuickReplies(data);
+      if (error) {
+        console.error('Quick replies error:', error);
+        // Set empty array if table doesn't exist or has errors
+        setQuickReplies([]);
+      } else {
+        setQuickReplies(data || []);
+      }
+    } catch (error) {
+      console.error('Failed to load quick replies:', error);
+      setQuickReplies([]);
     }
   };
 
@@ -177,6 +190,39 @@ export default function AdminLiveChats({ user }) {
     } else if (error) {
       console.error('Error loading chats:', error);
     }
+
+    // Load counts for all tabs
+    loadChatCounts();
+  };
+
+  const loadChatCounts = async () => {
+    // Count pending chats
+    const { count: pCount } = await supabase
+      .from('chat_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('session_type', 'live_chat')
+      .eq('status', 'pending')
+      .is('admin_id', null);
+
+    // Count active chats for this admin
+    const { count: aCount } = await supabase
+      .from('chat_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('session_type', 'live_chat')
+      .eq('status', 'active')
+      .eq('admin_id', user.id);
+
+    // Count closed chats for this admin
+    const { count: cCount } = await supabase
+      .from('chat_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('session_type', 'live_chat')
+      .eq('status', 'closed')
+      .eq('admin_id', user.id);
+
+    setPendingCount(pCount || 0);
+    setActiveCount(aCount || 0);
+    setClosedCount(cCount || 0);
   };
 
   // Load messages for selected chat
@@ -247,16 +293,20 @@ export default function AdminLiveChats({ user }) {
   };
 
   const loadUserContext = async () => {
+    if (!selectedChat?.user_id) return;
+    
     try {
       // Fetch user profile
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', selectedChat.user_id)
         .single();
 
+      if (profileError) console.error('Profile error:', profileError);
+
       // Fetch user's applications
-      const { data: applications } = await supabase
+      const { data: applications} = await supabase
         .from('license_applications')
         .select('*')
         .eq('user_id', selectedChat.user_id)
@@ -271,22 +321,32 @@ export default function AdminLiveChats({ user }) {
         .order('created_at', { ascending: false })
         .limit(5);
 
-      // Fetch user's violations
-      const { data: violations } = await supabase
-        .from('violations')
-        .select('*')
-        .eq('vehicle_id', vehicles?.[0]?.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
+      // Fetch user's violations (only if has vehicles)
+      let violations = [];
+      if (vehicles && vehicles.length > 0) {
+        const { data: viols } = await supabase
+          .from('violations')
+          .select('*')
+          .eq('vehicle_id', vehicles[0].id)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        violations = viols || [];
+      }
 
       setUserContext({
-        profile,
+        profile: profile || null,
         applications: applications || [],
         vehicles: vehicles || [],
-        violations: violations || []
+        violations: violations
       });
     } catch (error) {
       console.error('Error loading user context:', error);
+      setUserContext({
+        profile: null,
+        applications: [],
+        vehicles: [],
+        violations: []
+      });
     }
   };
 
@@ -475,11 +535,9 @@ export default function AdminLiveChats({ user }) {
                   {tab === 'pending' && (isEnglish ? 'Pending' : 'অপেক্ষমাণ')}
                   {tab === 'active' && (isEnglish ? 'Active' : 'সক্রিয়')}
                   {tab === 'closed' && (isEnglish ? 'Closed' : 'বন্ধ')}
-                  {chats.length > 0 && (
-                    <span className="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-xs">
-                      {chats.length}
-                    </span>
-                  )}
+                  <span className="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-xs">
+                    {tab === 'pending' ? pendingCount : tab === 'active' ? activeCount : closedCount}
+                  </span>
                 </button>
               ))}
             </div>

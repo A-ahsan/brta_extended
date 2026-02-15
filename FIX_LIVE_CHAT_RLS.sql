@@ -3,21 +3,36 @@
 -- Run this in Supabase SQL Editor to fix admin accept chat issue
 -- ============================================
 
--- Drop existing policies if any
+-- Drop existing policies if any (all possible variations)
 DROP POLICY IF EXISTS "Users can create their own chat sessions" ON chat_sessions;
 DROP POLICY IF EXISTS "Users can view their own chat sessions" ON chat_sessions;
+DROP POLICY IF EXISTS "Users can view own chat sessions" ON chat_sessions;
 DROP POLICY IF EXISTS "Admins can view all chat sessions" ON chat_sessions;
 DROP POLICY IF EXISTS "Admins can update chat sessions" ON chat_sessions;
+DROP POLICY IF EXISTS "Users can update their own sessions" ON chat_sessions;
+DROP POLICY IF EXISTS "Users and admins can update chat sessions" ON chat_sessions;
+DROP POLICY IF EXISTS "Users can create chat sessions" ON chat_sessions;
+
 DROP POLICY IF EXISTS "Users can view their own messages" ON chat_messages;
+DROP POLICY IF EXISTS "Users can view messages" ON chat_messages;
 DROP POLICY IF EXISTS "Admins can view all messages" ON chat_messages;
 DROP POLICY IF EXISTS "Users can insert their own messages" ON chat_messages;
+DROP POLICY IF EXISTS "Users can send messages" ON chat_messages;
 DROP POLICY IF EXISTS "Admins can insert messages" ON chat_messages;
 DROP POLICY IF EXISTS "Users can update their own messages" ON chat_messages;
+DROP POLICY IF EXISTS "Users can update messages" ON chat_messages;
+
 DROP POLICY IF EXISTS "Admins can manage admin presence" ON admin_presence;
+DROP POLICY IF EXISTS "Admins can manage presence" ON admin_presence;
+DROP POLICY IF EXISTS "Everyone can view admin presence" ON admin_presence;
+
 DROP POLICY IF EXISTS "Everyone can view quick replies" ON quick_replies;
 DROP POLICY IF EXISTS "Admins can manage quick replies" ON quick_replies;
+
 DROP POLICY IF EXISTS "Users can manage their typing status" ON typing_indicators;
+DROP POLICY IF EXISTS "Users can manage typing indicators" ON typing_indicators;
 DROP POLICY IF EXISTS "Admins can manage typing status" ON typing_indicators;
+DROP POLICY IF EXISTS "Users can view typing indicators" ON typing_indicators;
 
 -- Enable RLS on all tables
 ALTER TABLE chat_sessions ENABLE ROW LEVEL SECURITY;

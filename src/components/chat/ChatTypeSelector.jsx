@@ -66,8 +66,8 @@ export default function ChatTypeSelector({ language, onSelectType, onClose }) {
   const isEnglish = language === 'en';
 
   return (
-    <div className="flex-1 flex items-center justify-center p-6 bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
-      <div className="text-center max-w-xl w-full">
+    <div className="flex-1 flex items-center justify-center p-4 md:p-6 bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 overflow-y-auto max-h-full">
+      <div className="text-center max-w-xl w-full my-auto">
         {/* Logo */}
         <div className="w-20 h-20 bg-gradient-to-br from-primary to-green-600 rounded-full flex items-center justify-center mx-auto mb-6 overflow-hidden">
           <img src="/bot.png" alt="BRTA" className="w-16 h-16 object-cover rounded-full" />

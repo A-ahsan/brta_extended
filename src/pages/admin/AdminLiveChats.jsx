@@ -37,6 +37,28 @@ export default function AdminLiveChats({ user }) {
   const inputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
+  // Notification sound
+  const playNotificationSound = () => {
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+    } catch (error) {
+      console.log('Cannot play sound:', error);
+    }
+  };
+
   // Auto-scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -177,8 +199,7 @@ export default function AdminLiveChats({ user }) {
         
         // Play sound for user messages
         if (payload.new.sender_type === 'user') {
-          const audio = new Audio('/notification.mp3');
-          audio.play().catch(() => {});
+          playNotificationSound();
         }
       })
       .subscribe();
@@ -271,21 +292,46 @@ export default function AdminLiveChats({ user }) {
 
   // Accept chat
   const handleAcceptChat = async (chat) => {
-    const { error } = await supabase
-      .from('chat_sessions')
-      .update({
-        admin_id: user.id,
-        admin_name: user.full_name || user.email,
-        status: 'active',
-        accepted_at: new Date().toISOString()
-      })
-      .eq('id', chat.id);
+    try {
+      // Get admin profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, email')
+        .eq('id', user.id)
+        .single();
 
-    if (!error) {
+      const { error } = await supabase
+        .from('chat_sessions')
+        .update({
+          admin_id: user.id,
+          admin_name: profile?.full_name || profile?.email || 'Admin',
+          status: 'active',
+          accepted_at: new Date().toISOString()
+        })
+        .eq('id', chat.id);
+
+      if (error) throw error;
+
+      // Send system message
+      await supabase
+        .from('chat_messages')
+        .insert({
+          session_id: chat.id,
+          sender_type: 'system',
+          sender_id: user.id,
+          message: chat.preferred_language === 'bn' 
+            ? '✅ প্রশাসক চ্যাটে যোগদান করেছেন'
+            : '✅ Admin joined the chat'
+        });
+
       setSelectedChat({ ...chat, admin_id: user.id, status: 'active' });
       setActiveTab('active');
       toast.success(isEnglish ? 'Chat accepted' : 'চ্যাট গৃহীত হয়েছে');
-    } else {
+      
+      // Play notification sound
+      playNotificationSound();
+    } catch (error) {
+      console.error('Error accepting chat:', error);
       toast.error(isEnglish ? 'Failed to accept chat' : 'চ্যাট গ্রহণ করতে ব্যর্থ');
     }
   };

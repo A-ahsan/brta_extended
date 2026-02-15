@@ -4,6 +4,8 @@ import { X, PaperPlaneRight, Robot, Sparkle, User as UserIcon, Microphone, Speak
 import { useLanguage } from '../contexts/AppContext';
 import { chatbotService } from '../services/chatbotService';
 import toast from 'react-hot-toast';
+import ChatTypeSelector from './chat/ChatTypeSelector';
+import LiveChatModal from './chat/LiveChatModal';
 
 export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNewMessage }) {
   const { language } = useLanguage();
@@ -13,6 +15,8 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
   const [isInitialized, setIsInitialized] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState(null);
   const [showLanguageSelect, setShowLanguageSelect] = useState(true);
+  const [showChatTypeSelect, setShowChatTypeSelect] = useState(false);
+  const [showLiveChat, setShowLiveChat] = useState(false);
   const [quickActions, setQuickActions] = useState([]);
   const [streamingMessage, setStreamingMessage] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -33,19 +37,37 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
     scrollToBottom();
   }, [messages]);
 
-  // Focus input after initialization
-  useEffect(() => {
-    if (isInitialized && !showLanguageSelect) {
+  // Focus input after initialization && !showChatTypeSelect) {
       setTimeout(() => {
         inputRef.current?.focus();
       }, 300);
     }
-  }, [isInitialized, showLanguageSelect]);
+  }, [isInitialized, showLanguageSelect, showChatTypeSelect]);
 
-  // Initialize chatbot when language is selected
+  // Handle language selection - show chat type selector next
+  const handleLanguageSelect = (lang) => {
+    setSelectedLanguage(lang);
+    setShowLanguageSelect(false);
+    setShowChatTypeSelect(true);
+  };
+
+  // Handle chat type selection
+  const handleChatTypeSelect = (type) => {
+    if (type === 'live_chat') {
+      // Open live chat modal
+      setShowLiveChat(true);
+      onClose(); // Close the chatbot modal
+    } else {
+      // Initialize AI chatbot
+      setShowChatTypeSelect(false);
+      initializeChatbot(selectedLanguage);
+    }
+  };
+
+  // Initialize chatbot when AI chat selected
   const initializeChatbot = async (lang) => {
     try {
-      setIsLoading(true);
+      setIsLoading(tru
       setSelectedLanguage(lang);
       setShowLanguageSelect(false);
 
@@ -458,6 +480,7 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
   }, [isOpen]);
 
   return (
+    <>
     <AnimatePresence>
       {isOpen && (
         <>
@@ -503,22 +526,34 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
                 <X size={24} weight="bold" />
               </button>
             </div>
-
-            {/* Language Selection */}
-            {showLanguageSelect && (
-              <div className="flex-1 flex items-center justify-center p-6">
-                <div className="text-center">
-                  <div className="w-20 h-20 bg-gradient-to-br from-primary to-green-600 rounded-full flex items-center justify-center mx-auto mb-6 overflow-hidden">
-                    <img src="/bot.png" alt="Bot" className="w-16 h-16 object-cover rounded-full" />
+handleLanguageSelect('en')}
+                      className="px-8 py-4 bg-gradient-to-r from-primary to-green-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
+                    >
+                      English
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleLanguageSelect('bn')}
+                      className="px-8 py-4 bg-gradient-to-r from-primary to-green-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
+                    >
+                      বাংলা
+                    </motion.button>
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
-                    {isEnglish ? 'Welcome!' : 'স্বাগতম!'}
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-8">
-                    {isEnglish
-                      ? 'Choose your preferred language to get started'
-                      : 'শুরু করতে আপনার পছন্দের ভাষা নির্বাচন করুন'}
-                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Chat Type Selection */}
+            {showChatTypeSelect && (
+              <ChatTypeSelector
+                language={selectedLanguage}
+                onSelectType={handleChatTypeSelect}
+                onClose={() => {
+                  setShowChatTypeSelect(false);
+                  setShowLanguageSelect(true);
+                }}
+              //p>
                   <div className="flex gap-4 justify-center">
                     <motion.button
                       whileHover={{ scale: 1.05 }}
@@ -747,5 +782,17 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
         </>
       )}
     </AnimatePresence>
+
+    {/* Live Chat Modal */}
+    {showLiveChat && (
+      <LiveChatModal
+        isOpen={showLiveChat}
+        onClose={() => setShowLiveChat(false)}
+        user={user}
+        userProfile={userProfile}
+        selectedLanguage={selectedLanguage}
+      />
+    )}
+    </>
   );
 }

@@ -13,6 +13,7 @@ import {
   Eye,
   MegaphoneSimple,
   ArrowsDownUp,
+  ChatCircleDots,
 } from 'phosphor-react';
 import { useLanguage, useTheme } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -29,6 +30,7 @@ import AdminNoticesManagement from './admin/AdminNoticesManagement';
 import AdminRoutePermits from './admin/AdminRoutePermits';
 import AdminOwnershipTransfers from './admin/AdminOwnershipTransfers';
 import AdminCommunityModeration from './admin/AdminCommunityModeration';
+import AdminLiveChats from './admin/AdminLiveChats';
 
 const AdminPanel = () => {
   const navigate = useNavigate();
@@ -217,6 +219,11 @@ const AdminPanel = () => {
       path: '/admin/community', 
       label: language === 'en' ? 'Community Reports' : 'জনগণের রিপোর্ট',
       icon: Eye 
+    },
+    { 
+      path: '/admin/live-chats', 
+      label: language === 'en' ? 'Live Chats' : 'লাইভ চ্যাট',
+      icon: ChatCircleDots 
     },
   ];
 
@@ -504,6 +511,7 @@ const AdminPanel = () => {
               <Route path="/route-permits" element={<AdminRoutePermits />} />
               <Route path="/ownership-transfers" element={<AdminOwnershipTransfers />} />
               <Route path="/community" element={<AdminCommunityModeration />} />
+              <Route path="/live-chats" element={<AdminLiveChats user={user} />} />
               <Route path="/" element={<AdminOverview />} />
             </Routes>
           </div>

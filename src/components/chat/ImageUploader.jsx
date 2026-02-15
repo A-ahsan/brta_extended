@@ -110,16 +110,22 @@ export default function ImageUploader({ sessionId, onImageUploaded, language, di
       console.log('Original size:', (file.size / 1024).toFixed(2), 'KB');
       console.log('Compressed size:', (compressedFile.size / 1024).toFixed(2), 'KB');
 
-      // Upload to Supabase Storage
-      const fileName = `${sessionId}/${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
+      // Upload to Supabase Storage with simpler path
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
       const { data, error } = await supabase.storage
         .from('chat-attachments')
         .upload(fileName, compressedFile, {
           cacheControl: '3600',
           upsert: false,
+          contentType: 'image/jpeg'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase storage error:', error);
+        throw new Error(error.message || 'Upload failed');
+      }
+
+      console.log('Upload success:', data);
 
       // Get public URL
       const { data: urlData } = supabase.storage

@@ -321,23 +321,19 @@ export default function AdminLiveChats({ user }) {
         .order('created_at', { ascending: false })
         .limit(5);
 
-      // Fetch user's violations (only if has vehicles)
-      let violations = [];
-      if (vehicles && vehicles.length > 0) {
-        const { data: viols } = await supabase
-          .from('violations')
-          .select('*')
-          .eq('vehicle_id', vehicles[0].id)
-          .order('created_at', { ascending: false })
-          .limit(5);
-        violations = viols || [];
-      }
+      // Fetch user's violations
+      const { data: violations } = await supabase
+        .from('traffic_violations')
+        .select('*')
+        .eq('user_id', selectedChat.user_id)
+        .order('violation_date', { ascending: false })
+        .limit(5);
 
       setUserContext({
         profile: profile || null,
         applications: applications || [],
         vehicles: vehicles || [],
-        violations: violations
+        violations: violations || []
       });
     } catch (error) {
       console.error('Error loading user context:', error);

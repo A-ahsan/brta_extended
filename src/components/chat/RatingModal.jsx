@@ -74,7 +74,7 @@ export default function RatingModal({ isOpen, onClose, sessionId, language }) {
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] sm:w-[400px] max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-800 rounded-2xl shadow-2xl z-[90]"
+            className="fixed left-1/2 top-[35%] -translate-x-1/2 -translate-y-1/2 w-[90vw] sm:w-[400px] max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-800 rounded-2xl shadow-2xl z-[90]"
           >
             {/* Header */}
             <div className="bg-gradient-to-r from-primary to-green-600 p-4 text-center relative">

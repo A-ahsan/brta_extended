@@ -21,6 +21,7 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const adminJoinNotifiedRef = useRef(false);
 
   const isEnglish = language === 'en';
   const MAX_IMAGES = 3;
@@ -42,6 +43,7 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
     setAdminInfo(null);
     setAdminTyping(false);
     setAdminJoinNotified(false);
+    adminJoinNotifiedRef.current = false;
     setChatStatus('pending');
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
@@ -98,6 +100,7 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
       // Check if admin assigned immediately (set flag to prevent false toast)
       if (session.admin_id) {
         setAdminJoinNotified(true); // Mark as notified since admin already assigned
+        adminJoinNotifiedRef.current = true;
         fetchAdminInfo(session.admin_id);
         setChatStatus('active');
       }
@@ -171,21 +174,24 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
         },
         (payload) => {
           const updatedSession = payload.new;
-          const oldSession = payload.old;
           
-          // Admin joined (only notify once when admin_id changes from null to a value)
-          if (updatedSession.admin_id && !oldSession?.admin_id && !adminJoinNotified) {
-            setAdminJoinNotified(true);
-            fetchAdminInfo(updatedSession.admin_id);
-            toast.success(
-              isEnglish ? 'Admin joined the chat!' : 'প্রশাসক চ্যাটে যোগ দিয়েছেন!',
-              { duration: 3000 }
-            );
-          }
-
           // Status changed
           if (updatedSession.status !== chatStatus) {
+            const previousStatus = chatStatus;
             setChatStatus(updatedSession.status);
+            
+            // Admin joined (only when status changes from pending to active)
+            if (previousStatus === 'pending' && updatedSession.status === 'active' && !adminJoinNotifiedRef.current) {
+              adminJoinNotifiedRef.current = true;
+              setAdminJoinNotified(true);
+              if (updatedSession.admin_id) {
+                fetchAdminInfo(updatedSession.admin_id);
+              }
+              toast.success(
+                isEnglish ? 'Admin joined the chat!' : 'প্রশাসক চ্যাটে যোগ দিয়েছেন!',
+                { duration: 3000 }
+              );
+            }
             
             if (updatedSession.status === 'closed') {
               // Show rating modal

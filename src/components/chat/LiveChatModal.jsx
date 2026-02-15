@@ -13,6 +13,7 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
   const [isLoading, setIsLoading] = useState(false);
   const [adminInfo, setAdminInfo] = useState(null);
   const [adminTyping, setAdminTyping] = useState(false);
+  const [adminJoinNotified, setAdminJoinNotified] = useState(false);
   const [chatStatus, setChatStatus] = useState('pending'); // pending, active, closed
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
@@ -40,6 +41,7 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
     setInputMessage('');
     setAdminInfo(null);
     setAdminTyping(false);
+    setAdminJoinNotified(false);
     setChatStatus('pending');
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
@@ -83,21 +85,12 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
       // Load existing messages first
       await loadMessages(session.id);
 
-      // Send initial system message only if pending and no messages yet
-      if (session.status === 'pending') {
-        const { count } = await supabase
-          .from('chat_messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('session_id', session.id);
-
-        if (count === 0) {
-          const systemMessage = isEnglish
-            ? 'Your chat request has been received. An admin will join shortly...'
-            : 'আপনার চ্যাট অনুরোধ গৃহীত হয়েছে। একজন প্রশাসক শীঘ্রই যোগ দিবেন...';
-          
-          await sendSystemMessage(session.id, systemMessage);
-        }
-      }
+      // Send initial system message
+      const systemMessage = isEnglish
+        ? '⏳ Your chat request has been received. An admin will join shortly...'
+        : '⏳ আপনার চ্যাট অনুরোধ গৃহীত হয়েছে। একজন প্রশাসক শীঘ্রই যোগ দিবেন...';
+      
+      await sendSystemMessage(session.id, systemMessage);
 
       // Setup real-time subscriptions
       setupRealtimeSubscriptions(session.id);
@@ -306,7 +299,7 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
       toast.error(
         isEnglish
           ? 'Failed to send message. Please try again.'
-          : 'বার্তা পাঠাতে ব্যর্থ। অনুগ্রহ করে আবার চেষ্টা করুন।'
+          : 'বার্তা পাঠাতে ব্যর্থ। অনুয্রহ করে আবার চেষ্টা করুন।'
       );
       setInputMessage(messageText);
     }

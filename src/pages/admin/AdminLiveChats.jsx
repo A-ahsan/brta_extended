@@ -476,7 +476,7 @@ export default function AdminLiveChats({ user }) {
 
   // Use quick reply
   const handleQuickReply = (reply) => {
-    const text = selectedChat?.language === 'bn' ? reply.text_bn : reply.text_en;
+    const text = selectedChat?.language === 'bn' ? reply.content_bn : reply.content_en;
     setInputMessage(text);
     setShowQuickReplies(false);
     inputRef.current?.focus();
@@ -723,11 +723,14 @@ export default function AdminLiveChats({ user }) {
                               onClick={() => handleQuickReply(reply)}
                               className="w-full text-left px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-sm transition-all"
                             >
-                              <div className="flex items-center gap-2">
-                                <Lightning size={16} className="text-primary" weight="fill" />
-                                <span className="text-gray-900 dark:text-white">
-                                  {selectedChat.language === 'bn' ? reply.text_bn : reply.text_en}
-                                </span>
+                              <div className="flex items-start gap-2">
+                                <Lightning size={16} className="text-primary flex-shrink-0 mt-0.5" weight="fill" />
+                                <div>
+                                  <p className="text-gray-900 dark:text-white font-medium text-xs mb-0.5">{reply.title}</p>
+                                  <p className="text-gray-600 dark:text-gray-300 text-xs">
+                                    {selectedChat.language === 'bn' ? reply.content_bn : reply.content_en}
+                                  </p>
+                                </div>
                               </div>
                             </button>
                           ))}
@@ -800,41 +803,73 @@ export default function AdminLiveChats({ user }) {
                   {/* Profile */}
                   {userContext.profile && (
                     <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3">
-                      <h4 className="font-bold text-gray-900 dark:text-white mb-2">
+                      <h4 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                        <UserIcon size={18} weight="fill" className="text-primary" />
                         {isEnglish ? 'Profile' : 'প্রোফাইল'}
                       </h4>
-                      <div className="space-y-1 text-sm">
-                        <p className="text-gray-600 dark:text-gray-400">
-                          <span className="font-medium">Name:</span> {userContext.profile.full_name}
-                        </p>
-                        <p className="text-gray-600 dark:text-gray-400">
-                          <span className="font-medium">Email:</span> {userContext.profile.email}
-                        </p>
-                        <p className="text-gray-600 dark:text-gray-400">
-                          <span className="font-medium">Phone:</span> {userContext.profile.phone || 'N/A'}
-                        </p>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-500 dark:text-gray-400 text-xs">Name:</span>
+                          <p className="text-gray-900 dark:text-white">
+                            {userContext.profile.full_name_en || userContext.profile.full_name || 'N/A'}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-500 dark:text-gray-400 text-xs">Email:</span>
+                          <p className="text-gray-900 dark:text-white">{userContext.profile.email || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-500 dark:text-gray-400 text-xs">Phone:</span>
+                          <p className="text-gray-900 dark:text-white">{userContext.profile.phone || 'N/A'}</p>
+                        </div>
+                        {userContext.profile.nid && (
+                          <div>
+                            <span className="font-medium text-gray-500 dark:text-gray-400 text-xs">NID:</span>
+                            <p className="text-gray-900 dark:text-white">{userContext.profile.nid}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
 
                   {/* Applications */}
-                  {userContext.applications.length > 0 && (
+                  {userContext.applications && userContext.applications.length > 0 && (
                     <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3">
-                      <h4 className="font-bold text-gray-900 dark:text-white mb-2">
-                        {isEnglish ? 'Applications' : 'আবেদন'}
+                      <h4 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center justify-between">
+                        <span>{isEnglish ? 'Applications' : 'আবেদন'}</span>
+                        <span className="text-xs font-normal bg-primary/10 text-primary px-2 py-1 rounded-full">
+                          {userContext.applications.length}
+                        </span>
                       </h4>
                       <div className="space-y-2">
                         {userContext.applications.map((app) => (
                           <div
                             key={app.id}
-                            className="text-sm bg-white dark:bg-gray-800 rounded p-2"
+                            className="text-sm bg-white dark:bg-gray-800 rounded-lg p-2.5 border border-gray-200 dark:border-gray-700"
                           >
-                            <p className="font-medium text-gray-900 dark:text-white">
-                              {app.license_type}
-                            </p>
-                            <p className="text-gray-600 dark:text-gray-400 text-xs">
-                              Status: <span className="capitalize">{app.status}</span>
-                            </p>
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <p className="font-semibold text-gray-900 dark:text-white">
+                                {app.license_type || 'License Application'}
+                              </p>
+                              <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${
+                                app.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                app.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                app.status === 'rejected' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                              }`}>
+                                {app.status}
+                              </span>
+                            </div>
+                            {app.application_number && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                App #: {app.application_number}
+                              </p>
+                            )}
+                            {app.created_at && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {new Date(app.created_at).toLocaleDateString()}
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -842,23 +877,31 @@ export default function AdminLiveChats({ user }) {
                   )}
 
                   {/* Vehicles */}
-                  {userContext.vehicles.length > 0 && (
+                  {userContext.vehicles && userContext.vehicles.length > 0 && (
                     <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3">
-                      <h4 className="font-bold text-gray-900 dark:text-white mb-2">
-                        {isEnglish ? 'Vehicles' : 'যানবাহন'}
+                      <h4 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center justify-between">
+                        <span>{isEnglish ? 'Vehicles' : 'যানবাহন'}</span>
+                        <span className="text-xs font-normal bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded-full">
+                          {userContext.vehicles.length}
+                        </span>
                       </h4>
                       <div className="space-y-2">
                         {userContext.vehicles.map((vehicle) => (
                           <div
                             key={vehicle.id}
-                            className="text-sm bg-white dark:bg-gray-800 rounded p-2"
+                            className="text-sm bg-white dark:bg-gray-800 rounded-lg p-2.5 border border-gray-200 dark:border-gray-700"
                           >
-                            <p className="font-medium text-gray-900 dark:text-white">
-                              {vehicle.registration_number}
+                            <p className="font-semibold text-gray-900 dark:text-white mb-1">
+                              {vehicle.registration_number || 'N/A'}
                             </p>
                             <p className="text-gray-600 dark:text-gray-400 text-xs">
-                              {vehicle.make} {vehicle.model}
+                              {vehicle.vehicle_type || vehicle.make} {vehicle.model || ''}
                             </p>
+                            {vehicle.vehicle_class && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Class: {vehicle.vehicle_class}
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -866,23 +909,44 @@ export default function AdminLiveChats({ user }) {
                   )}
 
                   {/* Violations */}
-                  {userContext.violations.length > 0 && (
+                  {userContext.violations && userContext.violations.length > 0 && (
                     <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3">
-                      <h4 className="font-bold text-gray-900 dark:text-white mb-2">
-                        {isEnglish ? 'Violations' : 'লঙ্ঘন'}
+                      <h4 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center justify-between">
+                        <span>{isEnglish ? 'Violations' : 'লঙ্ঘন'}</span>
+                        <span className="text-xs font-normal bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-2 py-1 rounded-full">
+                          {userContext.violations.length}
+                        </span>
                       </h4>
                       <div className="space-y-2">
                         {userContext.violations.map((violation) => (
                           <div
                             key={violation.id}
-                            className="text-sm bg-white dark:bg-gray-800 rounded p-2"
+                            className="text-sm bg-white dark:bg-gray-800 rounded-lg p-2.5 border border-gray-200 dark:border-gray-700"
                           >
-                            <p className="font-medium text-gray-900 dark:text-white">
-                              {violation.violation_type}
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <p className="font-semibold text-gray-900 dark:text-white">
+                                {violation.violation_type || 'Traffic Violation'}
+                              </p>
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                violation.payment_status === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                              }`}>
+                                {violation.payment_status === 'paid' ? 'Paid' : 'Unpaid'}
+                              </span>
+                            </div>
+                            <p className="text-red-600 dark:text-red-400 font-bold text-xs mb-1">
+                              Fine: ৳{violation.fine_amount || 0}
                             </p>
-                            <p className="text-gray-600 dark:text-gray-400 text-xs">
-                              Fine: ৳{violation.fine_amount}
-                            </p>
+                            {violation.violation_date && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {new Date(violation.violation_date).toLocaleDateString()}
+                              </p>
+                            )}
+                            {violation.location && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                📍 {violation.location}
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>

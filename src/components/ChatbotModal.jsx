@@ -791,7 +791,7 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
         onClose={() => setShowLiveChat(false)}
         user={user}
         userProfile={userProfile}
-        selectedLanguage={selectedLanguage}
+        language={selectedLanguage}
       />
     )}
     </>

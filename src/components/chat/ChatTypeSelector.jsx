@@ -154,11 +154,11 @@ export default function ChatTypeSelector({ language, onSelectType, onClose }) {
             className="group relative p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition-all border-2 border-transparent hover:border-primary/30 overflow-hidden"
           >
             {/* Background gradient */}
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-green-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
             
             {/* Content */}
             <div className="relative">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+              <div className="w-16 h-16 bg-gradient-to-br from-primary to-green-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                 <UserCircle size={32} weight="duotone" className="text-white" />
               </div>
               <h4 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
@@ -181,11 +181,11 @@ export default function ChatTypeSelector({ language, onSelectType, onClose }) {
                     : 'বার্তা রাখুন'}
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
                   {isEnglish ? 'Human support' : 'মানব সহায়তা'}
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
                   {isEnglish ? 'Personalized help' : 'ব্যক্তিগত সহায়তা'}
                 </li>
               </ul>

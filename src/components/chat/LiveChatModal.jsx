@@ -15,6 +15,7 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
   const [adminTyping, setAdminTyping] = useState(false);
   const [chatStatus, setChatStatus] = useState('pending'); // pending, active, closed
   const [showRatingModal, setShowRatingModal] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [imageCount, setImageCount] = useState(0);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -90,6 +91,9 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
 
       await sendSystemMessage(session.id, systemMessage);
 
+      // Load existing messages
+      await loadMessages(session.id);
+
       // Setup real-time subscriptions
       setupRealtimeSubscriptions(session.id);
 
@@ -107,6 +111,22 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
       );
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadMessages = async (sessionId) => {
+    try {
+      const { data: existingMessages, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true });
+
+      if (!error && existingMessages) {
+        setMessages(existingMessages);
+      }
+    } catch (error) {
+      console.error('Failed to load messages:', error);
     }
   };
 
@@ -373,20 +393,18 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
     }
   };
 
-  const handleCloseChat = async () => {
+  const handleCloseChat = () => {
     if (chatStatus === 'closed' || !sessionId) {
       onClose();
       return;
     }
 
-    // Ask for confirmation
-    const confirm = window.confirm(
-      isEnglish
-        ? 'Are you sure you want to end this chat?'
-        : 'আপনি কি এই চ্যাট শেষ করতে চান?'
-    );
+    // Show custom confirmation dialog
+    setShowCloseConfirm(true);
+  };
 
-    if (!confirm) return;
+  const confirmCloseChat = async () => {
+    setShowCloseConfirm(false);
 
     try {
       // Update session status to closed
@@ -641,6 +659,62 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
               </div>
             )}
           </motion.div>
+
+          {/* Close Confirmation Modal */}
+          <AnimatePresence>
+            {showCloseConfirm && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[80]"
+                  onClick={() => setShowCloseConfirm(false)}
+                />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl z-[90] overflow-hidden"
+                >
+                  {/* Header */}
+                  <div className="bg-gradient-to-r from-primary to-green-600 p-6 text-center">
+                    <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <X size={32} weight="bold" className="text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold text-white">
+                      {isEnglish ? 'End Chat?' : 'চ্যাট শেষ করবেন?'}
+                    </h3>
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-6">
+                    <p className="text-gray-700 dark:text-gray-300 text-center mb-6">
+                      {isEnglish
+                        ? 'Are you sure you want to end this chat session?'
+                        : 'আপনি কি নিশ্চিত যে আপনি এই চ্যাট সেশনটি শেষ করতে চান?'}
+                    </p>
+
+                    {/* Buttons */}
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setShowCloseConfirm(false)}
+                        className="flex-1 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"
+                      >
+                        {isEnglish ? 'Cancel' : 'বাতিল'}
+                      </button>
+                      <button
+                        onClick={confirmCloseChat}
+                        className="flex-1 px-4 py-3 bg-gradient-to-r from-primary to-green-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
+                      >
+                        {isEnglish ? 'End Chat' : 'চ্যাট শেষ করুন'}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
 
           {/* Rating Modal */}
           <RatingModal

@@ -11,6 +11,23 @@ ALTER TABLE quick_replies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE typing_indicators ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
+-- DROP existing policies if they exist
+-- ============================================
+DROP POLICY IF EXISTS "Users can create chat sessions" ON chat_sessions;
+DROP POLICY IF EXISTS "Users can view own chat sessions" ON chat_sessions;
+DROP POLICY IF EXISTS "Users and admins can update chat sessions" ON chat_sessions;
+DROP POLICY IF EXISTS "Admins can view all chat sessions" ON chat_sessions;
+DROP POLICY IF EXISTS "Users can send messages" ON chat_messages;
+DROP POLICY IF EXISTS "Users can view messages" ON chat_messages;
+DROP POLICY IF EXISTS "Users can update messages" ON chat_messages;
+DROP POLICY IF EXISTS "Admins can manage presence" ON admin_presence;
+DROP POLICY IF EXISTS "Everyone can view admin presence" ON admin_presence;
+DROP POLICY IF EXISTS "Admins can manage quick replies" ON quick_replies;
+DROP POLICY IF EXISTS "Everyone can view quick replies" ON quick_replies;
+DROP POLICY IF EXISTS "Users can manage typing indicators" ON typing_indicators;
+DROP POLICY IF EXISTS "Users can view typing indicators" ON typing_indicators;
+
+-- ============================================
 -- chat_sessions policies
 -- ============================================
 

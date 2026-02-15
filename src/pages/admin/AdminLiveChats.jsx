@@ -68,6 +68,58 @@ export default function AdminLiveChats({ user }) {
     loadQuickReplies();
   }, []);
 
+  // Set admin presence
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const setupPresence = async () => {
+      try {
+        // Set admin as online
+        const { error } = await supabase
+          .from('admin_presence')
+          .upsert({
+            admin_id: user.id,
+            is_available: true,
+            last_seen_at: new Date().toISOString(),
+            current_active_chats: 0,
+            max_concurrent_chats: 5
+          });
+
+        if (error) {
+          console.error('Error setting admin presence:', error);
+        }
+      } catch (error) {
+        console.error('Failed to setup presence:', error);
+      }
+    };
+
+    setupPresence();
+
+    // Update presence every 30 seconds
+    const interval = setInterval(() => {
+      supabase
+        .from('admin_presence')
+        .update({ 
+          last_seen_at: new Date().toISOString() 
+        })
+        .eq('admin_id', user.id)
+        .then();
+    }, 30000);
+
+    // Cleanup: Set offline when component unmounts
+    return () => {
+      clearInterval(interval);
+      supabase
+        .from('admin_presence')
+        .update({ 
+          is_available: false,
+          last_seen_at: new Date().toISOString()
+        })
+        .eq('admin_id', user.id)
+        .then();
+    };
+  }, [user?.id]);
+
   const loadQuickReplies = async () => {
     const { data, error } = await supabase
       .from('quick_replies')
@@ -86,10 +138,11 @@ export default function AdminLiveChats({ user }) {
         *,
         chat_messages(count)
       `)
+      .eq('session_type', 'live_chat')
       .order('created_at', { ascending: false });
 
     if (activeTab === 'pending') {
-      query = query.eq('status', 'waiting').is('admin_id', null);
+      query = query.eq('status', 'pending').is('admin_id', null);
     } else if (activeTab === 'active') {
       query = query.eq('status', 'active').eq('admin_id', user.id);
     } else if (activeTab === 'closed') {
@@ -99,6 +152,8 @@ export default function AdminLiveChats({ user }) {
     const { data, error } = await query;
     if (!error && data) {
       setChats(data);
+    } else if (error) {
+      console.error('Error loading chats:', error);
     }
   };
 

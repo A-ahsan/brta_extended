@@ -85,18 +85,19 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
       // Load existing messages first
       await loadMessages(session.id);
 
-      // Send initial system message
+      // Send initial system message (only visible to user, not admin)
       const systemMessage = isEnglish
-        ? '⏳ Your chat request has been received. An admin will join shortly...'
-        : '⏳ আপনার চ্যাট অনুরোধ গৃহীত হয়েছে। একজন প্রশাসক শীঘ্রই যোগ দিবেন...';
+        ? 'Your chat request has been received. An admin will join shortly...'
+        : 'আপনার চ্যাট অনুরোধ গৃহীত হয়েছে। একজন প্রশাসক শীঘ্রই যোগ দিবেন...';
       
       await sendSystemMessage(session.id, systemMessage);
 
       // Setup real-time subscriptions
       setupRealtimeSubscriptions(session.id);
 
-      // Check if admin assigned immediately
+      // Check if admin assigned immediately (set flag to prevent false toast)
       if (session.admin_id) {
+        setAdminJoinNotified(true); // Mark as notified since admin already assigned
         fetchAdminInfo(session.admin_id);
         setChatStatus('active');
       }
@@ -170,13 +171,15 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
         },
         (payload) => {
           const updatedSession = payload.new;
+          const oldSession = payload.old;
           
-          // Admin joined (only notify once)
-          if (updatedSession.admin_id && !adminJoinNotified) {
+          // Admin joined (only notify once when admin_id changes from null to a value)
+          if (updatedSession.admin_id && !oldSession?.admin_id && !adminJoinNotified) {
             setAdminJoinNotified(true);
             fetchAdminInfo(updatedSession.admin_id);
             toast.success(
-              isEnglish ? 'Admin joined the chat!' : 'প্রশাসক চ্যাটে যোগ দিয়েছেন!'
+              isEnglish ? 'Admin joined the chat!' : 'প্রশাসক চ্যাটে যোগ দিয়েছেন!',
+              { duration: 3000 }
             );
           }
 

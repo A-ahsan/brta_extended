@@ -57,6 +57,8 @@ export default function AdminLiveChats({ user }) {
       
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.5);
+      
+      console.log('\ud83d\udd14 Notification sound played');
     } catch (error) {
       console.log('Cannot play sound:', error);
     }
@@ -82,9 +84,12 @@ export default function AdminLiveChats({ user }) {
         table: 'chat_sessions',
         filter: 'session_type=eq.live_chat'
       }, (payload) => {
+        console.log('📩 New chat INSERT:', payload.new);
         loadChats();
+        loadChatCounts();
         // Play notification sound and show toast for new pending chat
         if (payload.new.status === 'pending') {
+          console.log('🔔 NEW PENDING CHAT - Playing sound');
           playNotificationSound();
           toast.success(
             isEnglish ? '🔔 New chat request!' : '🔔 নতুন চ্যাট অনুরোধ!',
@@ -96,8 +101,14 @@ export default function AdminLiveChats({ user }) {
         event: 'UPDATE', 
         schema: 'public', 
         table: 'chat_sessions' 
-      }, loadChats)
-      .subscribe();
+      }, () => {
+        console.log('📝 Chat session updated');
+        loadChats();
+        loadChatCounts();
+      })
+      .subscribe((status) => {
+        console.log('🔌 Admin chat subscription:', status);
+      });
 
     return () => {
       subscription.unsubscribe();
@@ -267,6 +278,25 @@ export default function AdminLiveChats({ user }) {
       })
       .subscribe();
 
+    // Subscribe to session status changes (to detect when user closes chat)
+    const sessionSubscription = supabase
+      .channel(`chat-session-${selectedChat.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'chat_sessions',
+        filter: `id=eq.${selectedChat.id}`
+      }, (payload) => {
+        if (payload.new.status === 'closed') {
+          setSelectedChat(prev => prev ? { ...prev, status: 'closed' } : null);
+          toast.info(
+            isEnglish ? 'User has ended the chat' : 'ব্যবহারকারী চ্যাট শেষ করেছেন',
+            { duration: 3000 }
+          );
+        }
+      })
+      .subscribe();
+
     // Subscribe to typing indicators
     const typingSubscription = supabase
       .channel(`typing-${selectedChat.id}`)
@@ -284,10 +314,11 @@ export default function AdminLiveChats({ user }) {
       .subscribe();
 
     return () => {
-      messagesSubscription.unsubscribe();
-      typingSubscription.unsubscribe();
+      supabase.removeChannel(messagesSubscription);
+      supabase.removeChannel(sessionSubscription);
+      supabase.removeChannel(typingSubscription);
     };
-  }, [selectedChat]);
+  }, [selectedChat, isEnglish]);
 
   const loadMessages = async () => {
     const { data, error } = await supabase
@@ -790,6 +821,16 @@ export default function AdminLiveChats({ user }) {
                         <PaperPlaneRight size={20} weight="fill" />
                       </motion.button>
                     </form>
+                  </div>
+                )}
+
+                {/* Chat closed message for admin */}
+                {selectedChat.status === 'closed' && (
+                  <div className="p-4 bg-gray-100 dark:bg-gray-700 text-center border-t border-gray-200 dark:border-gray-600">
+                    <CheckCircle size={32} weight="duotone" className="text-green-500 mx-auto mb-2" />
+                    <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                      {isEnglish ? 'Chat has ended' : 'চ্যাট শেষ হয়েছে'}
+                    </p>
                   </div>
                 )}
               </>

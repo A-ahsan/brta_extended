@@ -15,7 +15,7 @@ import {
   Lightning,
   Paperclip,
 } from 'phosphor-react';
-import { supabase } from '../../config/supabaseClient';
+import { supabase } from '../../lib/supabaseClient';
 import toast from 'react-hot-toast';
 import { useLanguage } from '../../contexts/AppContext';
 

@@ -723,7 +723,7 @@ export default function AdminLiveChats({ user }) {
                         {selectedChat.user_name || (isEnglish ? 'User' : 'ব্যবহারকারী')}
                       </h3>
                       <p className="text-white/80 text-sm flex items-center gap-1">
-                        {selectedChat.language === 'bn' ? '🇧🇩 বাংলা' : '🇬🇧 English'}
+                        {selectedChat.language === 'bn' ? 'বাংলা' : 'English'}
                       </p>
                     </div>
                   </div>
@@ -1086,9 +1086,9 @@ export default function AdminLiveChats({ user }) {
                           />
                         ))}
                       </div>
-                      {selectedChat.feedback && (
+                      {selectedChat.feedback_text && (
                         <p className="text-sm text-gray-600 dark:text-gray-400 italic">
-                          "{selectedChat.feedback}"
+                          "{selectedChat.feedback_text}"
                         </p>
                       )}
                     </div>

@@ -60,6 +60,12 @@ export default function LiveChatModal({ isOpen, onClose, user, userProfile, lang
 
   const initializeChat = async () => {
     try {
+      // Don't initialize if already have a session
+      if (sessionId) {
+        console.log('Session already exists, skipping initialization');
+        return;
+      }
+      
       setIsLoading(true);
 
       // Create new chat session

@@ -39,11 +39,41 @@ export default function AdminLiveChats({ user }) {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const audioContextRef = useRef(null);
+
+  // Initialize audio context once
+  useEffect(() => {
+    const initAudio = () => {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume();
+      }
+    };
+    
+    // Resume audio context on first user interaction
+    document.addEventListener('click', initAudio, { once: true });
+    
+    return () => {
+      document.removeEventListener('click', initAudio);
+    };
+  }, []);
 
   // Notification sound
-  const playNotificationSound = () => {
+  const playNotificationSound = async () => {
     try {
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      
+      const audioContext = audioContextRef.current;
+      
+      // Resume if suspended
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+      
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       
@@ -58,9 +88,9 @@ export default function AdminLiveChats({ user }) {
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.5);
       
-      console.log('\ud83d\udd14 Notification sound played');
+      console.log('🔔 Notification sound played successfully');
     } catch (error) {
-      console.log('Cannot play sound:', error);
+      console.log('❌ Cannot play sound:', error);
     }
   };
 
@@ -290,7 +320,7 @@ export default function AdminLiveChats({ user }) {
         if (payload.new.status === 'closed') {
           setSelectedChat(prev => prev ? { ...prev, status: 'closed' } : null);
           toast.info(
-            isEnglish ? 'User has ended the chat' : 'ব্যবহারকারী চ্যাট শেষ করেছেন',
+            isEnglish ? 'User has ended the chat' : 'ইউজার চ্যাট শেষ করেছেন',
             { duration: 3000 }
           );
         }
@@ -361,11 +391,11 @@ export default function AdminLiveChats({ user }) {
         .order('created_at', { ascending: false })
         .limit(5);
 
-      // Fetch user's vehicles
+      // Fetch user's registered vehicles
       const { data: vehicles } = await supabase
-        .from('vehicles')
+        .from('registered_vehicles')
         .select('*')
-        .eq('owner_id', selectedChat.user_id)
+        .eq('user_id', selectedChat.user_id)
         .order('created_at', { ascending: false })
         .limit(5);
 
@@ -422,8 +452,8 @@ export default function AdminLiveChats({ user }) {
           sender_id: user.id,
           sender_name: 'System',
           message_text: chat.language === 'bn' 
-            ? '✅ প্রশাসক চ্যাটে যোগদান করেছেন'
-            : '✅ Admin joined the chat'
+            ? 'প্রতিনিধি চ্যাটে যোগদান করেছেন'
+            : 'Admin joined the chat'
         });
 
       setSelectedChat({ ...chat, admin_id: user.id, status: 'active' });
@@ -523,11 +553,37 @@ export default function AdminLiveChats({ user }) {
   };
 
   // Use quick reply
-  const handleQuickReply = (reply) => {
+  const handleQuickReply = async (reply) => {
+    if (!selectedChat || isLoading) return;
+    
     const text = selectedChat?.language === 'bn' ? reply.content_bn : reply.content_en;
-    setInputMessage(text);
     setShowQuickReplies(false);
-    inputRef.current?.focus();
+    setIsLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('chat_messages')
+        .insert({
+          session_id: selectedChat.id,
+          sender_type: 'admin',
+          sender_id: user.id,
+          sender_name: user.email || 'Admin',
+          message_text: text
+        });
+
+      if (error) throw error;
+
+      // Update session updated_at
+      await supabase
+        .from('chat_sessions')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', selectedChat.id);
+
+    } catch (error) {
+      toast.error(isEnglish ? 'Failed to send message' : 'বার্তা পাঠাতে ব্যর্থ');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const formatTime = (timestamp) => {
@@ -704,7 +760,8 @@ export default function AdminLiveChats({ user }) {
                               <img
                                 src={message.attachment_url}
                                 alt="Attachment"
-                                className="rounded-lg max-w-full h-auto"
+                                className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => window.open(message.attachment_url, '_blank')}
                               />
                             </div>
                           )}
@@ -950,16 +1007,14 @@ export default function AdminLiveChats({ user }) {
                             className="text-sm bg-white dark:bg-gray-800 rounded-lg p-2.5 border border-gray-200 dark:border-gray-700"
                           >
                             <p className="font-semibold text-gray-900 dark:text-white mb-1">
-                              {vehicle.registration_number || 'N/A'}
+                              {vehicle.registration_number}
                             </p>
                             <p className="text-gray-600 dark:text-gray-400 text-xs">
-                              {vehicle.vehicle_type || vehicle.make} {vehicle.model || ''}
+                              {vehicle.vehicle_name} - {vehicle.model}
                             </p>
-                            {vehicle.vehicle_class && (
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                Class: {vehicle.vehicle_class}
-                              </p>
-                            )}
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              Type: {vehicle.vehicle_type}
+                            </p>
                           </div>
                         ))}
                       </div>

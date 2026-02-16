@@ -119,10 +119,10 @@ export default function AdminLiveChats({ user }) {
         loadChatCounts();
         // Play notification sound and show toast for new pending chat
         if (payload.new.status === 'pending') {
-          console.log('🔔 NEW PENDING CHAT - Playing sound');
+          console.log(' NEW PENDING CHAT');
           playNotificationSound();
           toast.success(
-            isEnglish ? '🔔 New chat request!' : '🔔 নতুন চ্যাট অনুরোধ!',
+            isEnglish ? 'New chat request!' : 'নতুন চ্যাট অনুরোধ!',
             { duration: 4000 }
           );
         }

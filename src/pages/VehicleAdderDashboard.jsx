@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  Bicycle,
+  Motorcycle,
   Car,
   Plus,
   User,
@@ -483,7 +483,7 @@ const VehicleAdderDashboard = () => {
                             : 'border-gray-200 dark:border-gray-600'
                         } ${!canAddVehicleType('Bike') ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary/50'}`}
                       >
-                        <Bicycle size={48} weight="duotone" className={vehicleForm.vehicle_type === 'Bike' ? 'text-primary' : 'text-gray-400'} />
+                        <Motorcycle size={48} weight="duotone" className={vehicleForm.vehicle_type === 'Bike' ? 'text-primary' : 'text-gray-400'} />
                         <span className="font-semibold text-gray-800 dark:text-white">
                           {language === 'en' ? 'Bike' : 'বাইক'}
                         </span>
@@ -685,7 +685,7 @@ const VehicleAdderDashboard = () => {
                                     : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                                 }`}>
                                   {vehicle.vehicle_type === 'Bike' ? (
-                                    <Bicycle size={16} weight="duotone" />
+                                    <Motorcycle size={16} weight="duotone" />
                                   ) : (
                                     <Car size={16} weight="duotone" />
                                   )}

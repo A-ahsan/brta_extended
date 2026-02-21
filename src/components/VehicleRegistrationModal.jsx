@@ -550,7 +550,7 @@ const VehicleRegistrationModal = ({ isOpen, onClose, user, onSuccess }) => {
             {step === 3 && (
               <div className="space-y-6">
                 <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">
-                  {language === 'en' ? 'Vehicle Photo (Optional)' : 'যানবাহনের ছবি (ঐচ্ছিক)'}
+                  {language === 'en' ? 'Smart Card Photo ' : 'স্মার্ট কার্ডের ছবি'}
                 </h3>
 
                 <div className="grid md:grid-cols-2 gap-4">
@@ -558,7 +558,7 @@ const VehicleRegistrationModal = ({ isOpen, onClose, user, onSuccess }) => {
                   <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 text-center">
                     <Upload size={48} weight="duotone" className="mx-auto text-gray-400 mb-4" />
                     <h4 className="font-semibold text-gray-800 dark:text-white mb-2">
-                      {language === 'en' ? 'Upload Vehicle Photo' : 'যানবাহনের ছবি আপলোড করুন'}
+                      {language === 'en' ? 'Upload Smart Card Photo' : 'স্মার্ট কার্ডের ছবি আপলোড করুন'}
                     </h4>
                     <input
                       type="file"

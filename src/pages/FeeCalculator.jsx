@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Calculator,
   IdentificationCard,
-  Bicycle,
+  Motorcycle,
   Car,
   Receipt,
   ArrowLeft,
@@ -56,7 +56,7 @@ const FeeCalculator = () => {
 
   const categories = [
     { id: 'driving_license', icon: IdentificationCard, name: t.feeCalc?.drivingLicense || 'Driving License' },
-    { id: 'bike_registration', icon: Bicycle, name: t.feeCalc?.bikeRegistration || 'Bike Registration' },
+    { id: 'bike_registration', icon: Motorcycle, name: t.feeCalc?.bikeRegistration || 'Bike Registration' },
     { id: 'car_registration', icon: Car, name: t.feeCalc?.carRegistration || 'Car Registration & Tax' },
     { id: 'bike_tax', icon: Receipt, name: t.feeCalc?.bikeTax || 'Bike Tax Token' },
   ];

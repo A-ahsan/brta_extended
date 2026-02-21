@@ -351,7 +351,7 @@ const FeeCalculator = () => {
                   {selectedCategory === 'bike_registration' && (
                     <div className="space-y-6">
                       <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Bicycle size={28} weight="duotone" className="text-primary dark:text-green-400" />
+                        <MotorcycleIcon size={28} weight="duotone" className="text-primary dark:text-green-400" />
                         {t.feeCalc?.bikeRegistration || 'Bike Registration'}
                       </h3>
                       

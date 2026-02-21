@@ -90,8 +90,8 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
 
       // Send greeting message
       const greeting = lang === 'en'
-        ? `Hello ${userContext.name}! 👋\n\nI'm your BRTA AI Assistant. I can help you with:\n• License applications & tracking\n• Vehicle registration & services\n• Traffic violations & fines\n• Route permits\n• Ownership transfer\n• Renewals (License & Tax Token)\n• Online exam & physical test booking\n• QR code verification\n\nHow can I assist you today?`
-        : `নমস্কার ${userContext.name_bn}! 👋\n\nআমি আপনার BRTA AI সহায়ক। আমি আপনাকে সাহায্য করতে পারি:\n• লাইসেন্স আবেদন এবং ট্র্যাকিং\n• যানবাহন নিবন্ধন এবং সেবা\n• ট্রাফিক লঙ্ঘন এবং জরিমানা\n• রুট পারমিট\n• মালিকানা স্থানান্তর\n• নবায়ন (লাইসেন্স এবং ট্যাক্স টোকেন)\n• অনলাইন পরীক্ষা এবং শারীরিক পরীক্ষা বুকিং\n• QR কোড যাচাইকরণ\n\nআজ আমি কীভাবে আপনাকে সাহায্য করতে পারি?`;
+        ? `Hello ${userContext.name}! \n\nI'm your BRTA AI Assistant. I can help you with:\n• License applications & tracking\n• Vehicle registration & services\n• Traffic violations & fines\n• Route permits\n• Ownership transfer\n• Renewals (License & Tax Token)\n• Online exam & physical test booking\n• QR code verification\n\nHow can I assist you today?`
+        : `হেলো ${userContext.name_bn}! \n\nআমি আপনার BRTA AI সহায়ক। আমি আপনাকে সাহায্য করতে পারি:\n• লাইসেন্স আবেদন এবং ট্র্যাকিং\n• যানবাহন নিবন্ধন এবং সেবা\n• ট্রাফিক লঙ্ঘন এবং জরিমানা\n• রুট পারমিট\n• মালিকানা স্থানান্তর\n• নবায়ন (লাইসেন্স এবং ট্যাক্স টোকেন)\n• অনলাইন পরীক্ষা এবং শারীরিক পরীক্ষা বুকিং\n• QR কোড যাচাইকরণ\n\nআজ আমি কীভাবে আপনাকে সাহায্য করতে পারি?`;
 
       setMessages([
         {
@@ -268,7 +268,7 @@ export default function ChatbotModal({ isOpen, onClose, user, userProfile, onNew
 
       recognition.onstart = () => {
         setIsListening(true);
-        toast.success(selectedLanguage === 'en' ? '🎙️ Listening...' : '🎙️ শুনছি...', {
+        toast.success(selectedLanguage === 'en' ? 'Listening...' : 'শুনছি...', {
           duration: 3000
         });
       };

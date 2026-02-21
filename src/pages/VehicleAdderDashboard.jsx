@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  Motorcycle,
   Car,
   Plus,
   User,
@@ -18,6 +17,7 @@ import {
 import { useLanguage } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { translations } from '../utils/translations';
+import MotorcycleIcon from '../components/icons/MotorcycleIcon';
 import { supabase } from '../lib/supabaseClient';
 import ThemeLanguageToggler from '../components/ThemeLanguageToggler';
 import toast from 'react-hot-toast';
@@ -483,7 +483,7 @@ const VehicleAdderDashboard = () => {
                             : 'border-gray-200 dark:border-gray-600'
                         } ${!canAddVehicleType('Bike') ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary/50'}`}
                       >
-                        <Motorcycle size={48} weight="duotone" className={vehicleForm.vehicle_type === 'Bike' ? 'text-primary' : 'text-gray-400'} />
+                        <MotorcycleIcon size={48} weight="duotone" className={vehicleForm.vehicle_type === 'Bike' ? 'text-primary' : 'text-gray-400'} />
                         <span className="font-semibold text-gray-800 dark:text-white">
                           {language === 'en' ? 'Bike' : 'বাইক'}
                         </span>
@@ -685,7 +685,7 @@ const VehicleAdderDashboard = () => {
                                     : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                                 }`}>
                                   {vehicle.vehicle_type === 'Bike' ? (
-                                    <Motorcycle size={16} weight="duotone" />
+                                    <MotorcycleIcon size={16} weight="duotone" />
                                   ) : (
                                     <Car size={16} weight="duotone" />
                                   )}

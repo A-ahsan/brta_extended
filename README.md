@@ -1,271 +1,166 @@
-# BRTA 2.0 - Smart Transport Portal of Bangladesh
+<div align="center">
 
-🚗 **Smart Roads. Smart Drivers. Smart Bangladesh.**  
-🎯 **NO DALAL, NO DELAY**
+<img src="docs/assets/brta.png" alt="BRTA Logo" width="100" />
 
-A modern, professional mockup UI for Bangladesh Road Transport Authority (BRTA) featuring a comprehensive vehicle and license management system.
+# BRTA 2.0 — Smart Transport Portal of Bangladesh
 
-## ✨ Features
+**A full-stack digital platform for the Bangladesh Road Transport Authority, replacing manual processes with a secure, real-time, AI-assisted citizen service portal.**
 
-### 🏠 Homepage
-- **Animated Hero Section** with gradient text animations
-- **Feature Cards** showcasing 6 core services:
-  - Driving License Management
-  - Face Verification System
-  - Slot Booking
-  - Online Payment Integration
-  - QR-based Police Verification
-  - AI Chatbot Assistant
-- **Responsive Design** with smooth Framer Motion animations
-- **Bilingual Support** (English/Bangla)
-- **Dark/Light Mode** toggle
+![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-Database%20%26%20Auth-3ECF8E?style=flat-square&logo=supabase&logoColor=white)
+![TensorFlow](https://img.shields.io/badge/TensorFlow.js-Face%20AI-FF6F00?style=flat-square&logo=tensorflow&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
 
-### 👤 User Dashboard
-- **License Application** tracking
-- **Vehicle Registration** management
-- **Payment History** with status indicators
-- **Test Slot Booking** calendar
-- **User Profile** management
-- **Settings** with theme and language toggles
-- **Interactive Sidebar** with smooth animations
-
-### 👨‍💼 Admin Panel
-- **Analytics Dashboard** with key metrics:
-  - Total Users
-  - DL Requests
-  - Vehicles Registered
-  - Monthly Revenue
-- **Charts & Visualizations**:
-  - Monthly applications bar chart
-  - Test center distribution pie chart
-- **Application Management**:
-  - Approve/Reject pending applications
-  - Real-time status updates
-- **Test Slot Management**:
-  - View available slots
-  - Monitor booking rates
-  - Add new test slots
-
-### 👮 Police Dashboard
-- **QR Code Scanner** area for vehicle verification
-- **Manual Search** by plate number
-- **Vehicle Records Database** with:
-  - Registration details
-  - Owner information
-  - Fine history
-  - Insurance status
-  - License expiry
-- **Recent Checks** history
-- **Real-time Statistics**:
-  - Vehicles checked today
-  - Violations found
-  - Expired documents
-  - Active patrols
-
-### 🔐 Authentication
-- **Login Page** with secure authentication
-- **Signup Page** with form validation
-- **Animated Transitions** between pages
-- **Quick Access** to Admin and Police dashboards
-
-## 🎨 Design System
-
-### Color Palette
-```css
-Primary (BRTA Green): #006A4E
-Primary Dark: #004D3A
-Success: #28A745
-Danger/Error: #DC3545
-Background: #F8F9FA
-Muted/Borders: #E9ECEF
-Text Dark: #333333
-White: #FFFFFF
-```
-
-### Technologies Used
-- **React 18** - UI framework
-- **Vite** - Build tool
-- **Tailwind CSS** - Styling
-- **Framer Motion** - Animations
-- **React Router** - Navigation
-- **Phosphor Icons** - Icon library
-- **Recharts** - Data visualization
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js (v16 or higher)
-- npm or yarn
-
-### Installation
-
-1. **Install Dependencies**
-```bash
-npm install
-```
-
-2. **Run Development Server**
-```bash
-npm run dev
-```
-
-3. **Open in Browser**
-The app will open automatically at `http://localhost:3000`
-
-### Build for Production
-```bash
-npm run build
-```
-
-### Preview Production Build
-```bash
-npm run preview
-```
-
-## 📁 Project Structure
-
-```
-brta_extended/
-├── public/
-│   ├── brta.png           # BRTA logo
-│   └── prompt.txt         # Project requirements
-├── src/
-│   ├── components/        # Reusable components
-│   │   ├── Navbar.jsx
-│   │   ├── FeatureCard.jsx
-│   │   └── StatCard.jsx
-│   ├── contexts/          # React contexts
-│   │   └── AppContext.jsx
-│   ├── pages/             # Page components
-│   │   ├── Homepage.jsx
-│   │   ├── UserDashboard.jsx
-│   │   ├── AdminPanel.jsx
-│   │   ├── PoliceDashboard.jsx
-│   │   ├── Login.jsx
-│   │   └── Signup.jsx
-│   ├── utils/             # Utilities
-│   │   └── translations.js
-│   ├── App.jsx            # Main app component
-│   ├── main.jsx           # Entry point
-│   └── index.css          # Global styles
-├── index.html
-├── package.json
-├── vite.config.js
-├── tailwind.config.js
-└── postcss.config.js
-```
-
-## 🌐 Pages & Routes
-
-- `/` - Homepage
-- `/login` - Login Page
-- `/signup` - Signup Page
-- `/dashboard` - User Dashboard
-- `/admin` - Admin Panel
-- `/police` - Police Dashboard
-
-## 🎯 Key Features Implemented
-
-### ✅ Animations
-- Framer Motion animations throughout
-- Smooth page transitions
-- Hover effects on cards and buttons
-- Animated gradient text on hero section
-- Floating elements
-- Slide-in sidebars
-
-### ✅ Interactivity
-- Theme toggle (Dark/Light mode)
-- Language toggle (English/Bangla)
-- Interactive charts and graphs
-- Collapsible sidebar
-- Tab navigation
-- Form validation
-- Search functionality
-
-### ✅ Responsiveness
-- Mobile-first design
-- Responsive grid layouts
-- Adaptive navigation
-- Optimized for all screen sizes
-
-### ✅ Professional Design
-- Government-grade appearance
-- Clean, modern interface
-- Consistent color scheme
-- Professional typography
-- High-quality visual hierarchy
-
-## 📱 Mobile Support
-
-The application is fully responsive and works seamlessly on:
-- 📱 Mobile devices (320px+)
-- 📱 Tablets (768px+)
-- 💻 Desktops (1024px+)
-- 🖥️ Large screens (1920px+)
-
-## 🌍 Bilingual Support
-
-Full support for:
-- 🇬🇧 English
-- 🇧🇩 বাংলা (Bangla)
-
-Toggle between languages using the language switcher in the navbar.
-
-## 🎨 Customization
-
-### Changing Colors
-Edit `tailwind.config.js`:
-```javascript
-colors: {
-  primary: {
-    DEFAULT: '#006A4E',
-    dark: '#004D3A',
-  },
-  // ... add more colors
-}
-```
-
-### Adding New Pages
-1. Create a new file in `src/pages/`
-2. Add route in `src/App.jsx`
-3. Add navigation link in `Navbar.jsx`
-
-## 📝 Notes
-
-- This is a **UI mockup only** - no backend integration
-- All data is mock/static data
-- Forms don't submit to a real server
-- Charts display static data
-- QR scanner is a visual mockup
-
-## 🎓 Perfect for
-
-- Client demonstrations
-- Project presentations
-- UI/UX showcases
-- Portfolio projects
-- Government portal mockups
-
-## 🏆 Project Highlights
-
-- ✨ Modern, professional design
-- 🎭 Smooth animations
-- 🌐 Bilingual interface
-- 🌓 Dark/light themes
-- 📊 Data visualizations
-- 📱 Fully responsive
-- ♿ Accessible components
-- 🚀 Fast performance
-
-## 📄 License
-
-This is a mockup project created for demonstration purposes.
-
-## 👨‍💻 Developer
-
-Created with ❤️ for the BRTA 2.0 Smart Transport Portal project.
+</div>
 
 ---
 
-**Ready to impress clients and judges!** 🏆
+## Overview
+
+BRTA 2.0 is a citizen-facing web application that digitises core BRTA services — driving licence applications, vehicle registration, tax token renewal, route permits, online written and physical exams, police verification, and more. It connects to a live Supabase backend, uses TensorFlow.js for face-liveness verification, and integrates an AI-powered chatbot for service guidance.
+
+The project targets eliminating intermediary agents by giving citizens direct, secure, self-service access to all BRTA workflows.
+
+---
+
+## Feature Areas
+
+| Area | Description |
+|---|---|
+| Driving Licence | Full application lifecycle — slots, tests, approvals, card generation |
+| Vehicle Registration | New registration, renewal, ownership transfer, impoundment |
+| Tax Token | Token renewal with payment and PDF generation |
+| Route Permit | Commercial vehicle permit applications and tracking |
+| Online Exam | MCQ-based driving theory exam with question bank |
+| Physical Exam | Slot booking and result management for practical tests |
+| Police Dashboard | QR-code scan and live plate lookup with violation history |
+| Admin Panel | Applications, analytics, slot management, notices, user roles |
+| Face Verification | TensorFlow.js + MediaPipe liveness detection at exam entry |
+| AI Chatbot | Google AI-powered assistant with location-aware BRTA guidance |
+| Community | Road-safety forum with reports, ranking, and moderation |
+| Live Chat | Real-time citizen-to-agent support via Supabase Realtime |
+| Notifications | OTP via email (Resend), SMS (configurable), Telegram integration |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend framework | React 18 + Vite |
+| Styling | Tailwind CSS |
+| Animations | Framer Motion |
+| Routing | React Router v6 |
+| Backend / Database | Supabase (PostgreSQL + Row Level Security) |
+| Authentication | Supabase Auth (email/OTP/password) |
+| Face AI | TensorFlow.js, MediaPipe Face Mesh, face-api.js |
+| Charts | Recharts |
+| Maps | React-Leaflet |
+| PDF / Cards | jsPDF, html2canvas |
+| QR | html5-qrcode, qrcode |
+| Email | Resend API |
+| Icons | Lucide React, Phosphor React |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js v18 or later
+- A [Supabase](https://supabase.com) project
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/<your-username>/brta_extended.git
+cd brta_extended
+
+# Install dependencies
+npm install
+```
+
+### Environment variables
+
+Create a `.env` file in the project root:
+
+```env
+VITE_SUPABASE_URL=https://<your-project>.supabase.co
+VITE_SUPABASE_ANON_KEY=<your-anon-key>
+VITE_GOOGLE_AI_API_KEY=<optional-chatbot-key>
+VITE_RESEND_API_KEY=<optional-email-key>
+```
+
+### Run locally
+
+```bash
+npm run dev        # development server at http://localhost:5173
+npm run build      # production build
+npm run preview    # preview production build
+```
+
+---
+
+## Project Structure
+
+```
+brta_extended/
+├── src/
+│   ├── components/        # Shared UI components
+│   ├── contexts/          # React context providers
+│   ├── pages/             # Route-level page components
+│   ├── utils/             # Helpers, translations, constants
+│   ├── App.jsx
+│   └── main.jsx
+├── docs/                  # MkDocs project documentation
+│   └── assets/            # Screenshots and diagrams
+├── wiki/                  # Developer reference notes
+│   ├── setup/             # Database, Supabase, auth setup guides
+│   ├── features/          # Per-feature implementation notes
+│   ├── deployment/        # Hosting, HTTPS, performance guides
+│   ├── fixes/             # Bug-fix records
+│   ├── testing/           # Testing and QA guides
+│   └── integrations/      # Third-party service setup (email, SMS, Telegram)
+├── public/
+├── package.json
+├── vite.config.js
+└── tailwind.config.js
+```
+
+---
+
+## Application Routes
+
+| Path | Description |
+|---|---|
+| `/` | Public homepage |
+| `/login` `/signup` | Authentication |
+| `/dashboard` | Citizen dashboard |
+| `/admin` | Admin panel |
+| `/police` | Police verification dashboard |
+| `/exam` | Online theory exam |
+| `/physical-exam` | Physical exam management |
+| `/community` | Community forum |
+| `/fee-calculator` | Service fee calculator |
+
+---
+
+## Documentation
+
+Extended documentation is hosted via MkDocs in the `docs/` directory.  
+Developer notes and setup guides are organised in `wiki/` with the following sections:
+
+- [Setup guides](wiki/setup/) — database schema, Supabase config, admin accounts
+- [Feature notes](wiki/features/) — per-feature implementation details
+- [Deployment](wiki/deployment/) — Render, Vercel, HTTPS, security checklist
+- [Fixes](wiki/fixes/) — recorded bug fixes and patches
+- [Testing](wiki/testing/) — testing procedures and checklists
+- [Integrations](wiki/integrations/) — Resend, SMS, Telegram configuration
+
+---
+
+## License
+
+This project is released under the [MIT License](LICENSE).
